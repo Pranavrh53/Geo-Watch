@@ -1,0 +1,110 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env
+
+# Data directories (too large for git)
+data/raw/*
+data/processed/*
+data/results/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/results/.gitkeep
+
+# Model weights (too large for git)
+models/weights/*
+models/segformer/*
+models/deeplabv3/*
+!models/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Compiled files
+*.pyc
+
+# Test files
+test_*.py
+*_test.py
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Virtual environment
+venv*/
+ENV*/
+
+# Distribution / packaging
+.eggs/
+*.egg
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytest
+.pytest_cache/
+
+# Large satellite image files
+*.jp2
+*.tif
+*.tiff
+*.SAFE/
+
+# Notebook outputs
+*.ipynb
+
+# Mac
+*.DS_Store
+
+# Windows
+*.exe
+*.msi
+*.msm
+*.msp
+
+# Backup files
+*.bak
+*.backup
+*~.nib
+
+# Compressed files (only if not needed)
+*.zip
+*.tar.gz
+*.rar

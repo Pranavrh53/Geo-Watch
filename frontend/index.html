@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛰️ Satellite Change Detection System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Main Container */
+        .container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 350px;
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        .section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-top: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        /* Results Panel */
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .results h4 {
+            font-size: 15px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .change-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+        
+        .change-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 10px;
+        }
+        
+        .change-info {
+            flex: 1;
+        }
+        
+        .change-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .change-area {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .status-message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        
+        .status-info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 3px solid #1976d2;
+        }
+        
+        .status-success {
+            background: #e8f5e9;
+            color: #388e3c;
+            border-left: 3px solid #388e3c;
+        }
+        
+        .status-error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 3px solid #c62828;
+        }
+        
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        
+        .spinner.show {
+            display: block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .legend h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>🛰️ Satellite Change Detection System</h1>
+        <p>AI-powered detection of deforestation, construction, roads, and urban expansion</p>
+    </div>
+    
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- City Selection -->
+            <div class="section">
+                <h3>📍 Select Location</h3>
+                <div class="form-group">
+                    <label for="citySelect">City</label>
+                    <select id="citySelect">
+                        <option value="">Loading cities...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Date Selection -->
+            <div class="section">
+                <h3>📅 Select Time Period</h3>
+                <div class="form-group">
+                    <label for="beforeDate">Before Date</label>
+                    <input type="date" id="beforeDate" value="2020-02-01">
+                </div>
+                <div class="form-group">
+                    <label for="afterDate">After Date</label>
+                    <input type="date" id="afterDate" value="2024-02-01">
+                </div>
+            </div>
+            
+            <!-- Analysis Controls -->
+            <div class="section">
+                <h3>🔍 Analysis</h3>
+                <div id="statusMessage"></div>
+                <button class="btn btn-primary" id="analyzeBtn">
+                    Analyze Changes
+                </button>
+                <button class="btn btn-secondary" id="loadResultsBtn">
+                    Load Existing Results
+                </button>
+                <div class="spinner" id="spinner"></div>
+            </div>
+            
+            <!-- Results -->
+            <div class="results" id="resultsPanel">
+                <h4>📊 Change Detection Results</h4>
+                <div id="resultsContent"></div>
+            </div>
+        </div>
+        
+        <!-- Map -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Legend -->
+            <div class="legend">
+                <h4>Change Types</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgb(255, 0, 0);"></div>
+                    <span>Deforestation</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgb(0, 0, 255);"></div>
+                    <span>New Construction</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgb(255, 255, 0);"></div>
+                    <span>New Roads</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgb(128, 0, 128);"></div>
+                    <span>Water Loss</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgb(0, 255, 0);"></div>
+                    <span>Vegetation Gain</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Draw JS -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    
+    <!-- Main Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>

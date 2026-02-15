@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo-Watch - Dashboard</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #1a252f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5em;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-name {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .logout-btn {
+            padding: 6px 12px;
+            background: #e74c3c;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #34495e;
+            color: white;
+            font-size: 0.95em;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .instructions {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .instructions strong {
+            color: #3498db;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .coordinates-display {
+            background: #34495e;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            font-family: monospace;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .coordinates-display.show {
+            display: block;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #27ae60;
+        }
+
+        .alert.error {
+            background: #e74c3c;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .history-item {
+            background: #34495e;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .history-item:hover {
+            background: #3d566e;
+        }
+
+        .history-item-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .history-item-date {
+            font-size: 0.85em;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>🛰️ Geo-Watch</h1>
+                <div class="user-menu">
+                    <span class="user-name" id="username">User</span>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <div class="sidebar-content">
+                <div id="alert" class="alert"></div>
+
+                <div class="section">
+                    <h3 class="section-title">Instructions</h3>
+                    <div class="instructions">
+                        <strong>1.</strong> Use the draw tools on the map to select an area<br>
+                        <strong>2.</strong> Click the rectangle tool (□) and draw on the map<br>
+                        <strong>3.</strong> Select before/after dates<br>
+                        <strong>4.</strong> Click "Show Before/After Images"
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">City Quick Select</h3>
+                    <div class="form-group">
+                        <label>Jump to City</label>
+                        <select id="city-select" onchange="jumpToCity()">
+                            <option value="">Select a city...</option>
+                            <option value="bangalore">Bangalore</option>
+                            <option value="mumbai">Mumbai</option>
+                            <option value="delhi">Delhi</option>
+                            <option value="hyderabad">Hyderabad</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Selected Region</h3>
+                    <div id="coordinates-display" class="coordinates-display">
+                        No region selected
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Timeline</h3>
+                    <div class="form-group">
+                        <label>Before Date</label>
+                        <input type="date" id="before-date" value="2020-02-01">
+                    </div>
+                    <div class="form-group">
+                        <label>After Date</label>
+                        <input type="date" id="after-date" value="2024-02-01">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <button class="btn btn-primary" id="fetch-btn" onclick="fetchImages()" disabled>
+                        Show Before/After Images
+                    </button>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Recent Analysis</h3>
+                    <div id="history-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="loading" class="loading-overlay">
+                <div class="spinner"></div>
+                <span id="loading-text">Loading...</span>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    
+    <script src="dashboard.js"></script>
+</body>
+</html>
