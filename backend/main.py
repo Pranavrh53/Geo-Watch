@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -29,6 +30,7 @@ from backend.auth import (
     create_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from backend.tile_fetcher import get_tile_fetcher
+from backend.image_processor import ImageProcessor
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +51,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for frontend
+frontend_dir = Path(__file__).parent.parent / "frontend"
+app.mount("/frontend", StaticFiles(directory=str(frontend_dir)), name="frontend")
 
 # Request/Response Models
 class AnalysisRequest(BaseModel):
@@ -180,10 +186,11 @@ async def fetch_tile(
 ):
     """
     Fetch satellite tile for custom region
-    Returns URL to cached image
+    Returns URL to cached image with quality metrics
     """
     try:
         fetcher = get_tile_fetcher()
+        processor = ImageProcessor()
         
         # Validate bbox
         bbox = request.bbox
@@ -192,17 +199,23 @@ async def fetch_tile(
         
         # Get tile (from cache or fetch new)
         size = (request.size, request.size)
+        
         tile_path = fetcher.get_tile(db, bbox, request.date, size)
         
-        # Return file path as URL
-        relative_path = tile_path.relative_to(Path(__file__).parent.parent)
+        # Check image quality
+        from PIL import Image
+        img = Image.open(tile_path)
+        quality_check = processor.check_image_quality(img)
         
+        # Return file path as URL with quality info
         return {
             "status": "success",
             "image_url": f"/api/tile/image/{tile_path.name}",
             "cached": True,
             "date": request.date,
-            "bbox": bbox
+            "bbox": bbox,
+            "source": "sentinel",
+            "quality": quality_check
         }
     
     except Exception as e:
@@ -225,6 +238,146 @@ async def get_tile_image(image_name: str):
         headers={
             "Access-Control-Allow-Origin": "*",
             "Cache-Control": "public, max-age=86400"
+        }
+    )
+
+
+# ========== Change Detection Endpoints ==========
+
+class ChangeDetectionRequest(BaseModel):
+    bbox: Dict[str, float]
+    before_date: str
+    after_date: str
+    sensitivity: float = 30.0
+    enhance_images: bool = True
+
+
+@app.post("/api/analyze/detect-changes")
+async def detect_changes(
+    request: ChangeDetectionRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    AI-powered change detection between two satellite images
+    Returns detailed analysis with change metrics and overlay
+    """
+    try:
+        fetcher = get_tile_fetcher()
+        processor = ImageProcessor()
+        
+        logger.info(f"Starting change detection: {request.before_date} → {request.after_date}")
+        
+        # Step 1: Fetch both images
+        before_path = fetcher.get_tile(db, request.bbox, request.before_date, (1024, 1024))
+        after_path = fetcher.get_tile(db, request.bbox, request.after_date, (1024, 1024))
+        
+        # Step 2: Load and check quality
+        from PIL import Image
+        before_img = Image.open(before_path)
+        after_img = Image.open(after_path)
+        
+        before_quality = processor.check_image_quality(before_img)
+        after_quality = processor.check_image_quality(after_img)
+        
+        logger.info(f"Before image quality: {before_quality['quality']}, Blur score: {before_quality.get('blur_score', 0):.2f}")
+        logger.info(f"After image quality: {after_quality['quality']}, Blur score: {after_quality.get('blur_score', 0):.2f}")
+        
+        if not before_quality['is_valid'] or not after_quality['is_valid']:
+            return {
+                "status": "error",
+                "message": "One or both images are blank/invalid",
+                "before_quality": before_quality,
+                "after_quality": after_quality,
+                "suggestion": "Try different dates or a different region"
+            }
+        
+        # Step 3: Enhance images if requested
+        if request.enhance_images:
+            logger.info("Enhancing images for better analysis...")
+            before_img = processor.enhance_image(before_img, sharpen=True, denoise=True)
+            after_img = processor.enhance_image(after_img, sharpen=True, denoise=True)
+        
+        # Step 4: Detect changes
+        logger.info("Running change detection algorithm...")
+        changes = processor.detect_changes(before_img, after_img, request.sensitivity)
+        
+        # Step 5: Save overlay image
+        overlay_dir = Path(__file__).parent.parent / "data" / "overlays"
+        overlay_dir.mkdir(exist_ok=True)
+        
+        overlay_filename = f"overlay_{request.before_date}_{request.after_date}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        overlay_path = overlay_dir / overlay_filename
+        changes['overlay_image'].save(overlay_path)
+        
+        mask_filename = f"mask_{request.before_date}_{request.after_date}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        mask_path = overlay_dir / mask_filename
+        changes['change_mask'].save(mask_path)
+        
+        # Step 6: Calculate real-world area (rough estimate based on bbox size)
+        bbox = request.bbox
+        lat_diff = abs(bbox['north'] - bbox['south'])
+        lon_diff = abs(bbox['east'] - bbox['west'])
+        
+        # Approximate area in km² (1 degree ≈ 111 km at equator)
+        area_km2 = lat_diff * lon_diff * 111 * 111
+        area_hectares = area_km2 * 100
+        actual_change_hectares = (changes['change_percentage'] / 100) * area_hectares
+        
+        # Return results
+        return {
+            "status": "success",
+            "before_date": request.before_date,
+            "after_date": request.after_date,
+            "change_detected": changes['change_percentage'] > 1.0,
+            "change_percentage": changes['change_percentage'],
+            "change_area_hectares": round(actual_change_hectares, 4),
+            "change_area_km2": round(actual_change_hectares / 100, 4),
+            "severity": changes['severity'],
+            "change_type": changes.get('change_type', 'Unknown'),
+            "confidence": changes.get('confidence', 'Low'),
+            "overlay_url": f"/api/overlay/image/{overlay_filename}",
+            "mask_url": f"/api/overlay/image/{mask_filename}",
+            "image_quality": {
+                "before": {
+                    "quality": before_quality['quality'],
+                    "blur_score": round(before_quality.get('blur_score', 0), 2),
+                    "is_blurry": before_quality.get('is_blurry', True)
+                },
+                "after": {
+                    "quality": after_quality['quality'],
+                    "blur_score": round(after_quality.get('blur_score', 0), 2),
+                    "is_blurry": after_quality.get('is_blurry', True)
+                }
+            },
+            "analysis_details": {
+                "total_pixels": changes['total_pixels'],
+                "changed_pixels": changes['changed_pixels'],
+                "sensitivity_threshold": request.sensitivity,
+                "images_enhanced": request.enhance_images
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"Change detection error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/overlay/image/{image_name}")
+async def get_overlay_image(image_name: str):
+    """Get change detection overlay image"""
+    overlay_dir = Path(__file__).parent.parent / "data" / "overlays"
+    image_path = overlay_dir / image_name
+    
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail="Overlay not found")
+    
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=3600"
         }
     )
 

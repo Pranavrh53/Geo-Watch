@@ -17,6 +17,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 from config import COPERNICUS_USERNAME, COPERNICUS_PASSWORD, SENTINEL_HUB_INSTANCE_ID
 from backend.database import CachedTile
+from backend.image_processor import ImageProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -134,7 +135,6 @@ class TileFetcher:
         if cached:
             cache_path = Path(cached.image_path)
             if cache_path.exists():
-                logger.info(f"✓ Cache hit for {date} at {bbox}")
                 return cache_path
         
         return None
@@ -221,7 +221,7 @@ class TileFetcher:
         self,
         bbox: Dict[str, float],
         date: str,
-        size: Tuple[int, int] = (512, 512)
+        size: Tuple[int, int] = (1024, 1024)
     ) -> Image.Image:
         """
         Fetch tile from Copernicus Data Space using Sentinel Hub
@@ -245,8 +245,8 @@ class TileFetcher:
         # Use date range to find closest available image (Sentinel-2 revisits every 5-10 days)
         from datetime import datetime, timedelta
         req_date = datetime.strptime(date, "%Y-%m-%d")
-        # Look for images 30 days before to 1 day after requested date
-        start_date = (req_date - timedelta(days=30)).strftime("%Y-%m-%d")
+        # Look for images 60 days before to 1 day after requested date (wider range for better quality)
+        start_date = (req_date - timedelta(days=60)).strftime("%Y-%m-%d")
         end_date = (req_date + timedelta(days=1)).strftime("%Y-%m-%d")
         
         params = {
@@ -261,8 +261,9 @@ class TileFetcher:
             'height': size[1],
             'crs': 'EPSG:4326',
             'bbox': f"{bbox['south']},{bbox['west']},{bbox['north']},{bbox['east']}",
-            'time': f"{start_date}/{end_date}",  # 30-day range increases chance of finding data
-            'maxcc': 50,  # Increased from 20 to allow more cloud coverage
+            'time': f"{start_date}/{end_date}",  # 60-day range increases chance of finding clear data
+            'maxcc': 50,  # Allow up to 50% cloud coverage for better availability globally
+            'priority': 'leastCC',  # Request least cloudy image in range
         }
         
         headers = {
@@ -304,7 +305,19 @@ class TileFetcher:
             
             # Convert to PIL Image
             img = Image.open(io.BytesIO(response.content))
-            logger.info(f"✓ Successfully fetched tile from Copernicus API")
+            
+            # Check if image is completely blank/white (failed to get data from Sentinel Hub)
+            img_array = np.array(img)
+            img_std = float(np.std(img_array))
+            img_mean = float(np.mean(img_array))
+            
+            if img_std < 1.0:
+                logger.warning(f"⚠️ Sentinel Hub returned blank image (std={img_std:.2f}, mean={img_mean:.2f})")
+                logger.warning("This usually means no satellite data available for this location/date")
+                logger.info("Falling back to demo mode with synthetic data")
+                return self.fetch_tile_demo(bbox, date, size)
+            
+            logger.info(f"✓ Successfully fetched tile from Copernicus API (std={img_std:.1f})")
             return img
         
         except Exception as e:
@@ -321,7 +334,7 @@ class TileFetcher:
         force_refresh: bool = False
     ) -> Path:
         """
-        Get satellite tile (from cache or fetch new)
+        Get satellite tile from Sentinel Hub (from cache or fetch new)
         
         Args:
             db: Database session
@@ -337,6 +350,7 @@ class TileFetcher:
         if not force_refresh:
             cached_path = self.check_cache(db, bbox, date)
             if cached_path:
+                logger.info(f"✓ Cache hit for {date}")
                 return cached_path
         
         # Fetch new tile
@@ -345,6 +359,7 @@ class TileFetcher:
         if self.demo_mode:
             image = self.fetch_tile_demo(bbox, date, size)
         else:
+            # Fetch from Sentinel Hub
             image = self.fetch_tile_api(bbox, date, size)
         
         # Save to cache

@@ -36,15 +36,38 @@ function initMap() {
     // Create map centered on Bangalore by default
     map = L.map('map').setView([12.9716, 77.5946], 11);
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
-    }).addTo(map);
+    // Define base layers
+    const baseLayers = {
+        "Streets": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }),
+        "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri, Maxar, Earthstar Geographics',
+            maxZoom: 19
+        }),
+        "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenTopoMap contributors',
+            maxZoom: 17
+        }),
+        "Dark Mode": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© CARTO',
+            maxZoom: 19
+        })
+    };
+
+    // Add default layer (Satellite)
+    baseLayers["Satellite"].addTo(map);
+
+    // Add layer control
+    L.control.layers(baseLayers).addTo(map);
 
     // Initialize drawn items layer
     drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
+
+    // Add geolocation control
+    addGeolocationControl();
 
     // Add drawing control
     const drawControl = new L.Control.Draw({
@@ -102,6 +125,86 @@ function initMap() {
     });
 }
 
+function addGeolocationControl() {
+    // Create custom geolocation control
+    const GeolocationControl = L.Control.extend({
+        options: {
+            position: 'topleft'
+        },
+
+        onAdd: function(map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate');
+            container.innerHTML = '📍';
+            container.title = 'Find My Location';
+
+            container.onclick = function() {
+                container.classList.add('active');
+                
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by your browser');
+                    container.classList.remove('active');
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // Center map on user location
+                        map.setView([lat, lon], 13);
+                        
+                        // Add a temporary marker
+                        const marker = L.marker([lat, lon], {
+                            icon: L.divIcon({
+                                className: 'user-location-marker',
+                                html: '🔵',
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(map);
+                        
+                        // Remove marker after 3 seconds
+                        setTimeout(() => {
+                            map.removeLayer(marker);
+                        }, 3000);
+                        
+                        container.classList.remove('active');
+                        
+                        showAlert(`Location found: ${lat.toFixed(4)}, ${lon.toFixed(4)}`, 'success');
+                    },
+                    function(error) {
+                        container.classList.remove('active');
+                        let message = 'Unable to retrieve your location';
+                        
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                message = 'Location permission denied. Please enable location access.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                message = 'Location information unavailable.';
+                                break;
+                            case error.TIMEOUT:
+                                message = 'Location request timed out.';
+                                break;
+                        }
+                        
+                        showAlert(message, 'error');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            };
+
+            return container;
+        }
+    });
+
+    map.addControl(new GeolocationControl());
+}
+
 function displayCoordinates(bbox) {
     const display = document.getElementById('coordinates-display');
     display.innerHTML = `
@@ -156,12 +259,40 @@ async function fetchImages() {
 
     try {
         // Fetch before image
-        document.getElementById('loading-text').textContent = 'Fetching before image...';
+        document.getElementById('loading-text').textContent = 'Fetching before image (Sentinel-2)...';
         const beforeImage = await fetchTile(selectedBbox, beforeDate);
 
         // Fetch after image
-        document.getElementById('loading-text').textContent = 'Fetching after image...';
+        document.getElementById('loading-text').textContent = 'Fetching after image (Sentinel-2)...';
         const afterImage = await fetchTile(selectedBbox, afterDate);
+
+        // Check if images are empty/invalid
+        const beforeEmpty = beforeImage.quality && !beforeImage.quality.is_valid;
+        const afterEmpty = afterImage.quality && !afterImage.quality.is_valid;
+
+        if (beforeEmpty || afterEmpty) {
+            hideLoading();
+            
+            // Log quality details for debugging
+            console.log('Before image quality:', beforeImage.quality);
+            console.log('After image quality:', afterImage.quality);
+            
+            const message = beforeEmpty && afterEmpty 
+                ? `Both images appear to have no satellite data for these dates.\n\nBefore: ${beforeImage.quality?.reason || 'No data'}\nAfter: ${afterImage.quality?.reason || 'No data'}\n\nTry selecting different dates or a different region.`
+                : beforeEmpty 
+                ? `Before image (${beforeDate}) has no satellite data.\n\nReason: ${beforeImage.quality?.reason || 'No data'}\n\nTry selecting a different date.`
+                : `After image (${afterDate}) has no satellite data.\n\nReason: ${afterImage.quality?.reason || 'No data'}\n\nTry selecting a different date.`;
+            
+            alert(message);
+            document.getElementById('fetch-btn').disabled = false;
+            return;
+        }
+
+        // Log successful quality checks
+        console.log('Images fetched successfully:', {
+            before: beforeImage.quality,
+            after: afterImage.quality
+        });
 
         // Save to history
         await saveToHistory(selectedBbox, beforeDate, afterDate);
@@ -175,7 +306,8 @@ async function fetchImages() {
             after: afterImage.image_url,
             beforeDate: beforeDate,
             afterDate: afterDate,
-            bbox: JSON.stringify(selectedBbox)
+            bbox: JSON.stringify(selectedBbox),
+            source: beforeImage.source || 'sentinel'
         });
         window.location.href = `compare.html?${params.toString()}`;
 
