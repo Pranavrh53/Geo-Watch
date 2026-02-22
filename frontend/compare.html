@@ -16,8 +16,12 @@
 
         body {
             font-family: 'Space Mono', monospace;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
-            color: white;
+            background: #f5f5f5;
+            background-image: 
+                repeating-linear-gradient(0deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px),
+                repeating-linear-gradient(90deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px);
+            background-size: 50px 50px;
+            color: #1a1a1a;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -25,45 +29,30 @@
         }
 
         .header {
-            background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+            background: white;
             padding: 20px 30px;
             display:flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 4px solid #333333;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+            border-bottom: 6px solid #00B8A9;
+            box-shadow: 0 10px 0 rgba(0, 184, 169, 0.2);
             position: relative;
         }
 
         .header::before {
             content: '';
             position: absolute;
-            bottom: -4px;
+            top: 0;
             left: 0;
             right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #00d9ff, #ffffff, #00d9ff);
-            animation: borderGlow 3s linear infinite;
-        }
-
-        @keyframes borderGlow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+            height: 8px;
+            background: linear-gradient(90deg, #B2E600 0%, #FF7070 25%, #00B8A9 50%, #5555FF 75%);
         }
 
         .header h1 {
             font-family: 'Press Start 2P', cursive;
             font-size: 0.9em;
-            background: linear-gradient(135deg, #00d9ff 0%, #ffffff 50%, #00d9ff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: titleGlow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes titleGlow {
-            from { filter: drop-shadow(0 0 5px #00d9ff); }
-            to { filter: drop-shadow(0 0 15px #ffffff); }
+            color: #00B8A9;
         }
 
         .header-buttons {
@@ -85,22 +74,22 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
-            color: #00d9ff;
-            border-color: #444444;
-            box-shadow: 0 5px 0 #0a0a0a, 0 8px 20px rgba(0, 0, 0, 0.6);
-            text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+            background: linear-gradient(135deg, #FF7070 0%, #FF5555 100%);
+            color: white;
+            border-color: #FF5555;
+            border-width: 4px;
+            box-shadow: 6px 6px 0 rgba(255, 112, 112, 0.3);
         }
 
         .btn-primary:hover:not(:disabled) {
-            transform: translateY(3px);
-            box-shadow: 0 2px 0 #0a0a0a, 0 5px 15px rgba(0, 217, 255, 0.3);
-            color: #ffffff;
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 rgba(255, 112, 112, 0.3);
+            background: linear-gradient(135deg, #FF8080 0%, #FF7070 100%);
         }
 
         .btn-primary:active:not(:disabled) {
-            transform: translateY(5px);
-            box-shadow: 0 0 0 #0a0a0a, 0 2px 10px rgba(0, 217, 255, 0.4);
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(255, 112, 112, 0.3);
         }
 
         .btn-primary:disabled {
@@ -110,23 +99,23 @@
         }
 
         .btn-secondary {
-            background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
-            color: #ffffff;
-            border-color: #555555;
-            box-shadow: 0 5px 0 #1a1a1a, 0 8px 20px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(135deg, #00B8A9, #00A99D);
+            color: white;
+            border-color: #00A99D;
+            border-width: 4px;
+            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.3);
             font-weight: bold;
-            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
         }
 
         .btn-secondary:hover {
-            background: linear-gradient(135deg, #4a4a4a, #3a3a3a);
-            transform: translateY(3px);
-            box-shadow: 0 2px 0 #1a1a1a, 0 5px 15px rgba(0, 217, 255, 0.2);
+            background: linear-gradient(135deg, #00C9BA, #00B8A9);
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 rgba(0, 184, 169, 0.3);
         }
 
         .btn-secondary:active {
-            transform: translateY(5px);
-            box-shadow: 0 0 0 #1a1a1a, 0 2px 10px rgba(0, 217, 255, 0.3);
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0, 184, 169, 0.3);
         }
 
         .comparison-container {
@@ -137,41 +126,39 @@
 
         .view-mode-tabs {
             display: flex;
-            background: rgba(0, 0, 0, 0.5);
+            background: #ffffff;
             padding: 15px 30px;
             gap: 15px;
-            border-bottom: 3px solid #333333;
-            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.5);
+            border-bottom: 6px solid #00B8A9;
+            box-shadow: 0 6px 0 rgba(0, 184, 169, 0.2);
         }
 
         .tab-btn {
             padding: 12px 25px;
-            background: rgba(42, 42, 42, 0.6);
-            border: 3px solid #444444;
-        }
-            color: #00d9ff;
+            background: #f5f5f5;
+            border: 4px solid #00B8A9;
+            color: #00B8A9;
             cursor: pointer;
             border-radius: 0;
             transition: all 0.2s;
             font-family: 'Press Start 2P', cursive;
             font-size: 0.65em;
             text-transform: uppercase;
-            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
+            box-shadow: 4px 4px 0 rgba(0, 184, 169, 0.2);
         }
 
         .tab-btn.active {
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            color: #00d9ff;
-            border-color: #00d9ff;
-            box-shadow: 0 3px 0 #0a0a0a, 0 5px 20px rgba(0, 217, 255, 0.4);
-            text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+            background: #FF7070;
+            color: white;
+            border-color: #FF7070;
+            box-shadow: 6px 6px 0 rgba(255, 112, 112, 0.3);
         }
 
         .tab-btn:hover:not(.active) {
-            background: rgba(68, 68, 68, 0.6);
-            border-color: #00d9ff;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 0 rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 217, 255, 0.2);
+            background: #00B8A9;
+            color: white;
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.3);
         }
 
         /* Side by side view */
@@ -189,34 +176,47 @@
         }
 
         .image-panel {
-            background: rgba(0, 0, 0, 0.7);
-            border: 4px solid #333333;
+            background: white;
+            border: 6px solid #B2E600;
             border-radius: 0;
             overflow: hidden;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 8px 8px 0 rgba(178, 230, 0, 0.2);
             display: flex;
             flex-direction: column;
         }
 
+        .image-panel:nth-child(2) {
+            border-color: #FF7070;
+            box-shadow: 8px 8px 0 rgba(255, 112, 112, 0.2);
+        }
+
+        .image-panel:nth-child(2) .image-header {
+            background: linear-gradient(135deg, #FF7070 0%, #FF5555 100%);
+            border-bottom-color: #FF5555;
+            color: white;
+        }
+
+        .image-panel:nth-child(2) .image-date {
+            color: white;
+        }
+
         .image-header {
             padding: 15px 20px;
-            background: linear-gradient(180deg, rgba(26, 26, 26, 0.8), rgba(0, 0, 0, 0.5));
+            background: linear-gradient(135deg, #B2E600 0%, #A0D000 100%);
             font-weight: 700;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 3px solid #444444;
+            border-bottom: 4px solid #A0D000;
             font-family: 'Press Start 2P', cursive;
             font-size: 0.65em;
-            color: #ffffff;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            color: #1a1a1a;
         }
 
         .image-date {
             font-size: 0.9em;
-            color: #00d9ff;
+            color: #1a1a1a;
             font-family: 'Space Mono', monospace;
-            text-shadow: 0 0 5px rgba(0, 217, 255, 0.4);
         }
 
         .image-content {
@@ -230,9 +230,9 @@
         .image-content img {
             max-width: 100%;
             max-height: 100%;
-            border: 3px solid #444444;
+            border: 5px solid #00B8A9;
             border-radius: 0;
-            box-shadow: 0 0 30px rgba(0, 217, 255, 0.2), 0 10px 40px rgba(0, 0, 0, 0.8);
+            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.2);
             image-rendering: crisp-edges;
         }
 
@@ -255,11 +255,11 @@
             width: 90%;
             max-width: 800px;
             aspect-ratio: 1;
-            background: rgba(0, 0, 0, 0.8);
-            border: 5px solid #333333;
+            background: white;
+            border: 8px solid #5555FF;
             border-radius: 0;
             overflow: hidden;
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 10px 10px 0 rgba(85, 85, 255, 0.2);
         }
 
         .image-layer {
@@ -280,12 +280,12 @@
             position: absolute;
             top: 0;
             left: 50%;
-            width: 6px;
+            width: 8px;
             height: 100%;
-            background: linear-gradient(0deg, #00d9ff 0%, #ffffff 50%, #00d9ff 100%);
+            background: linear-gradient(0deg, #FF7070 0%, #5555FF 50%, #00B8A9 100%);
             cursor: ew-resize;
             z-index: 10;
-            box-shadow: 0 0 20px rgba(0, 217, 255, 0.6), 0 0 40px rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 0 4px white;
         }
 
         .slider-handle::before {
@@ -296,10 +296,10 @@
             transform: translate(-50%, -50%);
             width: 50px;
             height: 50px;
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 4px solid #00d9ff;
+            background: #FF7070;
+            border: 5px solid #5555FF;
             border-radius: 0;
-            box-shadow: 0 5px 0 #0a0a0a, 0 0 25px rgba(0, 217, 255, 0.6);
+            box-shadow: 6px 6px 0 rgba(85, 85, 255, 0.3);
         }
 
         .slider-handle::after {
@@ -309,8 +309,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             font-size: 24px;
-            color: #00d9ff;
-            text-shadow: 0 0 10px rgba(0, 217, 255, 0.6);
+            color: white;
         }
 
         .slider-labels {
@@ -324,31 +323,29 @@
         }
 
         .label-before {
-            color: #00d9ff;
-            text-shadow: 0 0 10px rgba(0, 217, 255, 0.4);
+            color: #B2E600;
         }
 
         .label-after {
-            color: #ffffff;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+            color: #FF7070;
         }
 
         .info-panel {
-            background: linear-gradient(135deg, rgba(26, 26, 26, 0.9), rgba(15, 15, 15, 0.9));
+            background: white;
             padding: 25px;
             margin-top: 30px;
-            border: 4px solid #444444;
+            border: 6px solid #00B8A9;
             border-radius: 0;
             width: 90%;
             max-width: 800px;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 8px 8px 0 rgba(0, 184, 169, 0.2);
         }
 
         .info-row {
             display: flex;
             justify-content: space-between;
             padding: 12px 0;
-            border-bottom: 2px dashed #333333;
+            border-bottom: 3px dashed #e0e0e0;
             font-family: 'Space Mono', monospace;
         }
 
@@ -357,35 +354,34 @@
         }
 
         .info-label {
-            color: #ffffff;
+            color: #1a1a1a;
             font-weight: 600;
-            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
         }
 
         .info-row span:last-child {
-            color: #00d9ff;
-            text-shadow: 0 0 8px rgba(0, 217, 255, 0.4);
+            color: #00B8A9;
+            font-weight: bold;
         }
 
         .loading {
             text-align: center;
             padding: 50px;
             font-family: 'Press Start 2P', cursive;
-            color: #ffffff;
+            color: #00B8A9;
         }
 
         .spinner {
-            border: 5px solid transparent;
-            border-top: 5px solid #00d9ff;
-            border-right: 5px solid #ffffff;
-            border-bottom: 5px solid #00d9ff;
-            border-left: 5px solid #ffffff;
+            border: 6px solid #f0f0f0;
+            border-top: 6px solid #B2E600;
+            border-right: 6px solid #FF7070;
+            border-bottom: 6px solid #00B8A9;
+            border-left: 6px solid #5555FF;
             border-radius: 0;
             width: 60px;
             height: 60px;
             animation: spin 0.8s linear infinite;
             margin: 0 auto 20px;
-            box-shadow: 0 0 30px rgba(0, 217, 255, 0.4);
+            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.2);
         }
 
         @keyframes spin {
@@ -399,8 +395,8 @@
         <h1>🛰️ Geo-Watch - Image Comparison</h1>
         <div class="header-buttons">
             <button class="btn btn-secondary" onclick="goBack()">← Back to Map</button>
-            <button class="btn btn-primary" onclick="runAnalysis()" disabled id="analyze-btn">
-                🤖 Run AI Analysis (Coming Soon)
+            <button class="btn btn-primary" onclick="runUrbanAnalysis()" id="analyze-btn">
+                🤖 AI Urban Detection
             </button>
         </div>
     </div>
@@ -600,8 +596,153 @@
             window.location.href = 'dashboard.html';
         }
 
-        function runAnalysis() {
-            alert('AI Analysis feature coming soon! This will detect changes between the images.');
+        async function runUrbanAnalysis() {
+            console.log('🚀 runUrbanAnalysis() called');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = '🔄 Analyzing...';
+
+            try {
+                // Get the actual file paths from the stored image URLs
+                // The URLs are like /api/tile/image/xxx.png
+                // We need to convert these to actual file paths: data/tile_cache/xxx.png
+                
+                console.log('📍 Before URL:', beforeImageUrl);
+                console.log('📍 After URL:', afterImageUrl);
+                
+                const beforePath = beforeImageUrl.replace('/api/tile/image/', 'data/tile_cache/');
+                const afterPath = afterImageUrl.replace('/api/tile/image/', 'data/tile_cache/');
+                
+                console.log('📂 Before Path:', beforePath);
+                console.log('📂 After Path:', afterPath);
+                console.log('🔑 Access Token:', accessToken ? 'Present' : 'Missing');
+                
+                const response = await fetch(`${API_URL}/api/ai/urban`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        before_image_path: beforePath,
+                        after_image_path: afterPath,
+                        pixel_resolution: 10.0  // Sentinel-2 resolution
+                    })
+                });
+                
+                console.log('📡 Response status:', response.status);
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Analysis failed');
+                }
+
+                const results = await response.json();
+                displayUrbanResults(results);
+
+            } catch (error) {
+                console.error('Urban analysis failed:', error);
+                alert(`Urban analysis failed: ${error.message}`);
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '🤖 AI Urban Detection';
+            }
+        }
+
+        function displayUrbanResults(results) {
+            // Create results panel
+            const resultsHTML = `
+                <div style="position: fixed; top: 20%; right: 20px; width: 400px; background: white; 
+                            border: 6px solid #FF7070; padding: 25px; z-index: 10000; 
+                            box-shadow: 10px 10px 0 rgba(255, 112, 112, 0.3); border-radius: 0;
+                            font-family: 'Space Mono', monospace; max-height: 70vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.8em; margin: 0; color: #FF7070;">
+                            🏙️ Urban Analysis
+                        </h3>
+                        <button onclick="closeResults()" style="background: #FF7070; border: 3px solid #FF5555; 
+                                color: white; padding: 8px 15px; cursor: pointer; font-family: 'Press Start 2P'; 
+                                font-size: 0.6em; border-radius: 0;">✕</button>
+                    </div>
+                    
+                    <div style="background: #f8f8f8; padding: 15px; border-left: 5px solid #B2E600; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 0.9em;">📊 BEFORE (${beforeDate})</h4>
+                        <p style="margin: 5px 0; color: #333;"><strong>Urban Coverage:</strong> ${results.before.urban_percent}%</p>
+                        <p style="margin: 5px 0; color: #333;"><strong>Area:</strong> ${results.before.urban_hectares} hectares</p>
+                        <p style="margin: 5px 0; color: #666; font-size: 0.85em;">(${results.before.urban_acres} acres)</p>
+                    </div>
+
+                    <div style="background: #f8f8f8; padding: 15px; border-left: 5px solid #FF7070; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 0.9em;">📊 AFTER (${afterDate})</h4>
+                        <p style="margin: 5px 0; color: #333;"><strong>Urban Coverage:</strong> ${results.after.urban_percent}%</p>
+                        <p style="margin: 5px 0; color: #333;"><strong>Area:</strong> ${results.after.urban_hectares} hectares</p>
+                        <p style="margin: 5px 0; color: #666; font-size: 0.85em;">(${results.after.urban_acres} acres)</p>
+                    </div>
+
+                    <div style="background: ${results.change.percent_change > 0 ? '#FFE6E6' : '#E6FFE6'}; 
+                                padding: 15px; border-left: 5px solid ${results.change.percent_change > 0 ? '#FF7070' : '#B2E600'}; 
+                                margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 0.9em;">
+                            ${results.change.percent_change > 0 ? '📈' : '📉'} CHANGE
+                        </h4>
+                        <p style="margin: 5px 0; color: #333;"><strong>Growth:</strong> ${results.change.percent_change > 0 ? '+' : ''}${results.change.percent_change}%</p>
+                        <p style="margin: 5px 0; color: #333;"><strong>Area Change:</strong> ${results.change.hectares_change > 0 ? '+' : ''}${results.change.hectares_change} hectares</p>
+                        <p style="margin: 5px 0; color: #666; font-size: 0.85em;">(${results.change.acres_change > 0 ? '+' : ''}${results.change.acres_change} acres)</p>
+                        <p style="margin: 5px 0; color: #333;"><strong>Growth Rate:</strong> ${results.change.growth_rate}%</p>
+                    </div>
+
+                    <button onclick="showOverlays('${results.before.overlay_image}', '${results.after.overlay_image}')" 
+                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #5555FF, #4444DD); 
+                                   color: white; border: 4px solid #4444DD; font-family: 'Press Start 2P'; 
+                                   font-size: 0.7em; cursor: pointer; margin-bottom: 10px; border-radius: 0;
+                                   box-shadow: 4px 4px 0 rgba(85, 85, 255, 0.3);">
+                        👁️ Show Overlays
+                    </button>
+
+                    <button onclick="showChangeMap('${results.change.change_overlay}')" 
+                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #FF7070, #FF5555); 
+                                   color: white; border: 4px solid #FF5555; font-family: 'Press Start 2P'; 
+                                   font-size: 0.7em; cursor: pointer; border-radius: 0;
+                                   box-shadow: 4px 4px 0 rgba(255, 112, 112, 0.3);">
+                        🗺️ Show Change Map
+                    </button>
+                </div>
+            `;
+
+            // Remove existing results if any
+            const existing = document.getElementById('ai-results-panel');
+            if (existing) existing.remove();
+
+            // Add new results panel
+            const panel = document.createElement('div');
+            panel.id = 'ai-results-panel';
+            panel.innerHTML = resultsHTML;
+            document.body.appendChild(panel);
+        }
+
+        function closeResults() {
+            const panel = document.getElementById('ai-results-panel');
+            if (panel) panel.remove();
+        }
+
+        function showOverlays(beforeData, afterData) {
+            // Replace the current images with overlay versions
+            document.getElementById('before-image').src = beforeData;
+            document.getElementById('after-image').src = afterData;
+            alert('Urban areas highlighted in red!');
+        }
+
+        function showChangeMap(changeData) {
+            // Show change visualization
+            const changeWindow = window.open('', 'Change Map', 'width=800,height=600');
+            changeWindow.document.write(`
+                <html>
+                <head><title>Urban Growth Map</title></head>
+                <body style="margin: 0; background: #1a1a1a; display: flex; align-items: center; justify-content: center;">
+                    <img src="${changeData}" style="max-width: 100%; max-height: 100vh;">
+                </body>
+                </html>
+            `);
         }
     </script>
 </body>

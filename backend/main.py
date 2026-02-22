@@ -31,6 +31,7 @@ from backend.auth import (
 )
 from backend.tile_fetcher import get_tile_fetcher
 from backend.image_processor import ImageProcessor
+from backend.ai_analyzer import get_urban_detector
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -678,6 +679,70 @@ async def get_tiles_geojson(city_id: str):
         "type": "FeatureCollection",
         "features": []
     }
+
+
+# ========== AI Analysis Endpoints ==========
+
+class AIUrbanAnalysisRequest(BaseModel):
+    before_image_path: str
+    after_image_path: str
+    pixel_resolution: Optional[float] = 10.0  # Sentinel-2 default
+
+
+@app.get("/api/ai/test")
+async def test_ai():
+    """Test endpoint to verify AI module is accessible"""
+    print("\n🧪 TEST ENDPOINT CALLED\n", flush=True)
+    return {"status": "ok", "message": "AI module is accessible"}
+
+
+@app.post("/api/ai/urban")
+async def analyze_urban(
+    request: AIUrbanAnalysisRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    AI-based urban area detection and change analysis
+    Uses brightness-based satellite detection
+    """
+    print(f"\n{'='*60}", flush=True)
+    print(f"🚀 AI URBAN ANALYSIS ENDPOINT CALLED", flush=True)
+    print(f"User: {current_user.username}", flush=True)
+    print(f"Before: {request.before_image_path}", flush=True)
+    print(f"After: {request.after_image_path}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+    
+    try:
+        logger.info(f"Starting AI urban analysis for user {current_user.username}")
+        
+        # Validate image paths
+        before_path = Path(request.before_image_path)
+        after_path = Path(request.after_image_path)
+        
+        if not before_path.exists():
+            raise HTTPException(status_code=404, detail=f"Before image not found: {request.before_image_path}")
+        if not after_path.exists():
+            raise HTTPException(status_code=404, detail=f"After image not found: {request.after_image_path}")
+        
+        # Get urban detector
+        detector = get_urban_detector()
+        
+        # Run analysis
+        results = detector.analyze_urban_change(
+            str(before_path),
+            str(after_path),
+            request.pixel_resolution
+        )
+        
+        logger.info(f"✓ Urban analysis complete: {results['change']['percent_change']:+.2f}%")
+        
+        return results
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Urban analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 # Background task functions
