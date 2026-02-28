@@ -61,3 +61,5 @@ echo "7. Start frontend: cd frontend && python -m http.server 3000"
 echo ""
 echo "For detailed instructions, see QUICKSTART_BANGALORE.md"
 echo ""
+
+

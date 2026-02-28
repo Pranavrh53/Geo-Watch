@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from typing import Dict, Tuple, Optional
+from scipy.ndimage import gaussian_filter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,131 +55,298 @@ class ImageProcessor:
         img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
         return Image.fromarray(img_rgb)
     
+    # ----------------------------------------------------------------
+    # Land-cover labels used by per-pixel classification
+    # ----------------------------------------------------------------
+    CATEGORY_VEGETATION   = 1
+    CATEGORY_BUILT_UP     = 2
+    CATEGORY_BARE_SOIL    = 3
+    CATEGORY_WATER        = 4
+    CATEGORY_OTHER        = 5
+
+    # Colours (RGB) for each change category in the overlay
+    CHANGE_COLORS = {
+        'new_construction':   (255, 100,   0),   # orange
+        'vegetation_loss':    (220, 180,  30),   # yellow
+        'new_vegetation':     (  0, 200,  80),   # green
+        'water_change':       ( 30, 120, 255),   # blue
+        'demolition':         (180,  60, 220),   # purple
+        'other_change':       (200, 200, 200),   # light gray
+    }
+
+    # ----------------------------------------------------------------
+    # Per-pixel land cover classifier (TRUE-COLOR Sentinel-2 imagery)
+    # ----------------------------------------------------------------
+    @staticmethod
+    def _classify_pixel_landcover(rgb: np.ndarray) -> np.ndarray:
+        """
+        Classify every pixel as vegetation / built-up / bare soil / water / other.
+
+        Works on TRUE-COLOR RGB imagery using:
+          * Excess Green Index (ExG = 2G - R - B)  -> vegetation
+          * HSV brightness (V) and saturation (S)  -> built-up vs water
+
+        Returns an int array the same shape as the first two dims of rgb.
+        """
+        r = rgb[:, :, 0].astype(np.float32)
+        g = rgb[:, :, 1].astype(np.float32)
+        b = rgb[:, :, 2].astype(np.float32)
+        hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+        h = hsv[:, :, 0].astype(np.float32)
+        s = hsv[:, :, 1].astype(np.float32)
+        v = hsv[:, :, 2].astype(np.float32)
+
+        exg = 2 * g - r - b
+
+        cat = np.full(rgb.shape[:2], ImageProcessor.CATEGORY_OTHER, dtype=np.uint8)
+
+        # Vegetation: high excess green
+        cat[exg > 10] = ImageProcessor.CATEGORY_VEGETATION
+
+        # Water: very dark + bluish hue
+        cat[(v < 30) | ((v < 55) & (s > 50) & (h > 90) & (h < 130))] = ImageProcessor.CATEGORY_WATER
+
+        # Built-up: non-vegetation, bright, grayish (low saturation)
+        built_mask = (exg <= 10) & (v > 55) & (s < 115) & (v > 20)
+        cat[built_mask] = ImageProcessor.CATEGORY_BUILT_UP
+
+        # Bare soil: non-vegetation, moderate brightness, warmer hue (brownish/tan)
+        bare_mask = (exg <= 10) & (v > 25) & (s >= 60) & (h < 35)
+        # Exclude anything already classified as built-up
+        bare_mask = bare_mask & (cat != ImageProcessor.CATEGORY_BUILT_UP)
+        cat[bare_mask] = ImageProcessor.CATEGORY_BARE_SOIL
+
+        return cat
+
+    # ----------------------------------------------------------------
+    # Main change detection  (colour-coded, multi-category)
+    # ----------------------------------------------------------------
     @staticmethod
     def detect_changes(
         before_img: Image.Image,
         after_img: Image.Image,
-        sensitivity: float = 30.0
+        sensitivity: float = 30.0,
+        pixel_resolution: float = 10.0,
     ) -> Dict:
         """
-        Detect changes between two images
-        
-        Args:
-            before_img: Before image (PIL)
-            after_img: After image (PIL)
-            sensitivity: Change detection threshold (0-255)
-            
-        Returns:
-            Dictionary with change metrics and overlay image
+        Detect and classify structural changes between two Sentinel-2
+        TRUE-COLOR satellite images.
+
+        Produces a colour-coded change map:
+          Orange  - New construction / urbanisation
+          Yellow  - Vegetation loss (cleared land)
+          Green   - New vegetation / re-greening
+          Blue    - Water body change
+          Purple  - Demolition / urban removal
+          Gray    - Other / unclassified change
+
+        Returns dict with change metrics, PIL overlay images, category breakdown,
+        and base64-encoded overlay images.
         """
-        # Ensure same size
+        import io, base64
+
+        # ---- 0. Preparation ----
         if before_img.size != after_img.size:
-            after_img = after_img.resize(before_img.size)
-        
-        # Convert to numpy arrays
-        before = np.array(before_img)
-        after = np.array(after_img)
-        
-        # Convert to grayscale for comparison
-        before_gray = cv2.cvtColor(before, cv2.COLOR_RGB2GRAY)
-        after_gray = cv2.cvtColor(after, cv2.COLOR_RGB2GRAY)
-        
-        # Calculate absolute difference
-        diff = cv2.absdiff(before_gray, after_gray)
-        
-        # Threshold to get binary change mask
-        _, change_mask = cv2.threshold(diff, sensitivity, 255, cv2.THRESH_BINARY)
-        
-        # Morphological operations to remove noise
-        kernel = np.ones((5, 5), np.uint8)
-        change_mask = cv2.morphologyEx(change_mask, cv2.MORPH_OPEN, kernel)
-        change_mask = cv2.morphologyEx(change_mask, cv2.MORPH_CLOSE, kernel)
-        
-        # Calculate change statistics
-        total_pixels = change_mask.size
-        changed_pixels = np.count_nonzero(change_mask)
-        change_percentage = (changed_pixels / total_pixels) * 100
-        
-        # Create colored overlay (red for changes)
-        overlay = after.copy()
-        overlay[change_mask > 0] = [255, 0, 0]  # Red for changes
-        
-        # Blend with original
-        alpha = 0.4
-        result = cv2.addWeighted(after, 1 - alpha, overlay, alpha, 0)
-        
-        # Detect change types using color analysis
+            after_img = after_img.resize(before_img.size, Image.LANCZOS)
+
+        before = np.array(before_img.convert("RGB")).astype(np.float32)
+        after  = np.array(after_img.convert("RGB")).astype(np.float32)
+
+        # ---- 1. Histogram-match after -> before (per channel) ----
+        after_norm = np.empty_like(after)
+        for c in range(3):
+            bm, bs = before[:, :, c].mean(), before[:, :, c].std() + 1e-6
+            am, as_ = after[:, :, c].mean(), after[:, :, c].std() + 1e-6
+            after_norm[:, :, c] = (after[:, :, c] - am) * (bs / as_) + bm
+        after_norm = np.clip(after_norm, 0, 255)
+
+        before_u8 = before.astype(np.uint8)
+        after_u8  = after_norm.astype(np.uint8)
+
+        # ---- 2. Change magnitude ----
+        # 2a  Per-channel absolute difference (max across R,G,B)
+        ch_diff = np.max(np.abs(before - after_norm), axis=2)
+
+        # 2b  Structural (edge) difference
+        bg = cv2.equalizeHist(cv2.cvtColor(before_u8, cv2.COLOR_RGB2GRAY))
+        ag = cv2.equalizeHist(cv2.cvtColor(after_u8,  cv2.COLOR_RGB2GRAY))
+        be = cv2.dilate(cv2.Canny(bg, 50, 150), np.ones((3, 3), np.uint8))
+        ae = cv2.dilate(cv2.Canny(ag, 50, 150), np.ones((3, 3), np.uint8))
+        edge_diff = cv2.absdiff(be, ae).astype(np.float32) / 255.0
+
+        # 2c  Smoothed pixel diff (suppress speckle)
+        px_diff = gaussian_filter(ch_diff, sigma=2.0)
+
+        # ---- 3. Land-cover transition approach ----
+        # Classify both images into land-cover categories
+        lc_before = ImageProcessor._classify_pixel_landcover(before_u8)
+        lc_after  = ImageProcessor._classify_pixel_landcover(after.astype(np.uint8))
+
+        # Primary signal: pixels where land-cover category changed
+        lc_changed = (lc_before != lc_after).astype(np.uint8) * 255
+
+        # Clean the LC-change mask: median filter removes scattered noise
+        lc_clean = cv2.medianBlur(lc_changed, 5)
+        # Close small gaps
+        lc_clean = cv2.morphologyEx(lc_clean, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+
+        # Secondary signal: high pixel diff areas even if LC didn't change
+        high_diff = (px_diff > 50).astype(np.uint8) * 255
+
+        # Use LC-clean as the change mask base
+        change_mask = np.maximum(lc_clean, high_diff)
+
+        # Remove tiny blobs (< 200 px)
+        n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(change_mask, 8)
+        for i in range(1, n_labels):
+            if stats[i, cv2.CC_STAT_AREA] < 200:
+                change_mask[labels == i] = 0
+
+        # ---- 4. Classify changed pixels ----
+        # Only meaningful categories shown; "other" is suppressed
+
+        V = ImageProcessor.CATEGORY_VEGETATION
+        B = ImageProcessor.CATEGORY_BUILT_UP
+        S = ImageProcessor.CATEGORY_BARE_SOIL
+        W = ImageProcessor.CATEGORY_WATER
+
+        # Category map (same shape, 0 = no change)
+        category_map = np.zeros(change_mask.shape, dtype=np.uint8)
+        changed = change_mask > 0
+
+        # New construction: (veg / bare / water) -> built-up
+        category_map[changed & (lc_before != B) & (lc_after == B)] = 1
+        # Vegetation loss: vegetation -> (bare / other) but NOT built-up
+        category_map[changed & (lc_before == V) & (lc_after != V) & (lc_after != B)] = 2
+        # New vegetation: non-veg -> vegetation
+        category_map[changed & (lc_before != V) & (lc_after == V)] = 3
+        # Water change: gain / loss of water
+        category_map[changed & ((lc_before == W) != (lc_after == W))] = 4
+        # Demolition: built-up -> vegetation / bare
+        category_map[changed & (lc_before == B) & (lc_after != B)] = 5
+        # Remaining changed pixels — mark as 'other' for stats but remove from overlay
+        category_map[changed & (category_map == 0)] = 6
+
+        # Remove "other" from the change mask — only show clearly classified changes
+        change_mask[category_map == 6] = 0
+
+        CAT_LABELS = {
+            1: 'new_construction',
+            2: 'vegetation_loss',
+            3: 'new_vegetation',
+            4: 'water_change',
+            5: 'demolition',
+        }
+        CAT_DISPLAY = {
+            1: 'New Construction',
+            2: 'Vegetation Loss',
+            3: 'New Vegetation',
+            4: 'Water Change',
+            5: 'Demolition',
+        }
+
+        # ---- 5. Build colour-coded overlay ----
+        after_orig = np.array(after_img.convert("RGB"))
+        overlay_img = after_orig.copy()
+
+        for cat_id, cat_name in CAT_LABELS.items():
+            mask_cat = (category_map == cat_id).astype(np.uint8)
+            if np.sum(mask_cat) == 0:
+                continue
+            color = ImageProcessor.CHANGE_COLORS[cat_name]
+            # Semi-transparent fill (30%)
+            fill = overlay_img.copy()
+            fill[mask_cat > 0] = color
+            overlay_img = cv2.addWeighted(overlay_img, 0.70, fill, 0.30, 0)
+            # Category contour
+            cnts, _ = cv2.findContours(mask_cat, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(overlay_img, cnts, -1, color, 2)
+
+        # Also overlay on the before image for comparison
+        before_overlay = np.array(before_img.convert("RGB")).copy()
+        for cat_id, cat_name in CAT_LABELS.items():
+            mask_cat = (category_map == cat_id).astype(np.uint8)
+            if np.sum(mask_cat) == 0:
+                continue
+            color = ImageProcessor.CHANGE_COLORS[cat_name]
+            fill = before_overlay.copy()
+            fill[mask_cat > 0] = color
+            before_overlay = cv2.addWeighted(before_overlay, 0.70, fill, 0.30, 0)
+            cnts, _ = cv2.findContours(mask_cat, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(before_overlay, cnts, -1, color, 2)
+
+        # ---- 6. Statistics ----
+        total_pixels   = int(change_mask.size)
+        changed_pixels = int(np.count_nonzero(change_mask))
+        change_pct     = round((changed_pixels / total_pixels) * 100, 2)
+        pixel_area_ha  = (pixel_resolution ** 2) / 10_000
+        changed_hectares = round(changed_pixels * pixel_area_ha, 2)
+
+        category_stats = {}
+        for cat_id, cat_name in CAT_LABELS.items():
+            n = int(np.sum(category_map == cat_id))
+            if n > 0:
+                category_stats[cat_name] = {
+                    'pixels': n,
+                    'percent': round((n / total_pixels) * 100, 2),
+                    'hectares': round(n * pixel_area_ha, 2),
+                    'label': CAT_DISPLAY[cat_id],
+                    'color': 'rgb({},{},{})'.format(*ImageProcessor.CHANGE_COLORS[cat_name]),
+                }
+
+        if change_pct < 2:
+            severity = 'Minimal'
+        elif change_pct < 8:
+            severity = 'Low'
+        elif change_pct < 20:
+            severity = 'Medium'
+        elif change_pct < 40:
+            severity = 'High'
+        else:
+            severity = 'Very High'
+
+        # Dominant change
+        dominant = 'No significant change'
+        if category_stats:
+            top = max(category_stats.values(), key=lambda x: x['pixels'])
+            dominant = top['label']
+
+        # ---- 7. Base64 encode overlays ----
+        def pil_to_b64(img_array):
+            buf = io.BytesIO()
+            Image.fromarray(img_array).save(buf, format='JPEG', quality=92)
+            buf.seek(0)
+            return 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+        overlay_pil = Image.fromarray(overlay_img)
+        before_overlay_pil = Image.fromarray(before_overlay)
+
         changes_detected = {
-            'total_pixels': int(total_pixels),
-            'changed_pixels': int(changed_pixels),
-            'change_percentage': round(change_percentage, 2),
-            'change_area_hectares': round(change_percentage * 0.01, 4),  # Rough estimate
-            'overlay_image': Image.fromarray(result),
-            'change_mask': Image.fromarray(change_mask),
-            'severity': 'High' if change_percentage > 10 else 'Medium' if change_percentage > 5 else 'Low'
+            'total_pixels':         total_pixels,
+            'changed_pixels':       changed_pixels,
+            'change_percentage':    change_pct,
+            'change_area_hectares': changed_hectares,
+            'overlay_image':        overlay_pil,
+            'before_overlay_image': before_overlay_pil,
+            'change_mask':          Image.fromarray(change_mask),
+            'severity':             severity,
+            'change_type':          dominant,
+            'confidence':           'High' if change_pct > 5 else 'Medium',
+            'categories':           category_stats,
+            'after_overlay_b64':    pil_to_b64(overlay_img),
+            'before_overlay_b64':   pil_to_b64(before_overlay),
         }
-        
-        # Classify change types
-        change_types = ImageProcessor._classify_changes(before, after, change_mask)
-        changes_detected.update(change_types)
-        
+
+        logger.info(
+            f"Change detection: {change_pct:.1f}% changed, "
+            f"severity={severity}, dominant={dominant}, "
+            f"categories={list(category_stats.keys())}"
+        )
+
         return changes_detected
-    
-    @staticmethod
-    def _classify_changes(before: np.ndarray, after: np.ndarray, mask: np.ndarray) -> Dict:
-        """
-        Classify types of changes (construction, deforestation, etc.)
-        
-        Returns:
-            Dictionary with classified change types
-        """
-        # Get only changed regions
-        changed_before = before[mask > 0]
-        changed_after = after[mask > 0]
-        
-        if len(changed_before) == 0:
-            return {'change_type': 'No significant change'}
-        
-        # Calculate average colors in changed regions
-        before_avg = np.mean(changed_before.reshape(-1, 3), axis=0)
-        after_avg = np.mean(changed_after.reshape(-1, 3), axis=0)
-        
-        # Simple heuristic classification
-        # Green (vegetation): high G, low R and B
-        # Gray (urban/construction): balanced RGB, high intensity
-        # Blue (water): high B, low R and G
-        # Brown (bare land): R > G > B
-        
-        before_green = (before_avg[1] > before_avg[0] * 1.1) and (before_avg[1] > before_avg[2] * 1.1)
-        after_green = (after_avg[1] > after_avg[0] * 1.1) and (after_avg[1] > after_avg[2] * 1.1)
-        
-        before_gray = max(before_avg) - min(before_avg) < 30 and np.mean(before_avg) > 100
-        after_gray = max(after_avg) - min(after_avg) < 30 and np.mean(after_avg) > 100
-        
-        # Determine change type
-        change_type = "General change detected"
-        confidence = "Low"
-        
-        if before_green and after_gray:
-            change_type = "Possible Construction (Vegetation → Urban)"
-            confidence = "Medium"
-        elif before_green and not after_green:
-            change_type = "Possible Deforestation (Vegetation Loss)"
-            confidence = "Medium"
-        elif not before_gray and after_gray:
-            change_type = "Possible Urban Development"
-            confidence = "Medium"
-        elif after_green and not before_green:
-            change_type = "Possible Greening (Vegetation Increase)"
-            confidence = "Medium"
-        
-        return {
-            'change_type': change_type,
-            'confidence': confidence,
-            'before_avg_color': before_avg.tolist(),
-            'after_avg_color': after_avg.tolist()
-        }
-    
+
     @staticmethod
     def calculate_ndvi(image: Image.Image, nir_band: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
         """

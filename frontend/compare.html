@@ -395,8 +395,9 @@
         <h1>🛰️ Geo-Watch - Image Comparison</h1>
         <div class="header-buttons">
             <button class="btn btn-secondary" onclick="goBack()">← Back to Map</button>
-            <button class="btn btn-primary" onclick="runUrbanAnalysis()" id="analyze-btn">
-                🤖 AI Urban Detection
+            <button class="btn btn-primary" onclick="runBuildingDetection()" id="building-btn"
+                    style="background: linear-gradient(135deg, #FF8C00, #FF6600); border-color: #FF6600;">
+                🏗️ Detect Buildings
             </button>
         </div>
     </div>
@@ -596,28 +597,30 @@
             window.location.href = 'dashboard.html';
         }
 
-        async function runUrbanAnalysis() {
-            console.log('🚀 runUrbanAnalysis() called');
-            const analyzeBtn = document.getElementById('analyze-btn');
-            analyzeBtn.disabled = true;
-            analyzeBtn.textContent = '🔄 Analyzing...';
+        function resetImages() {
+            // Restore original satellite images
+            document.getElementById('before-image').src = `${API_URL}${beforeImageUrl}`;
+            document.getElementById('after-image').src = `${API_URL}${afterImageUrl}`;
+        }
+
+        // ============================================================
+        // BUILDING DETECTION
+        // ============================================================
+
+        async function runBuildingDetection() {
+            const btn = document.getElementById('building-btn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Detecting...';
+
+            // Clean up previous run: reset images and close old results panel
+            resetImages();
+            closeBuildingResults();
 
             try {
-                // Get the actual file paths from the stored image URLs
-                // The URLs are like /api/tile/image/xxx.png
-                // We need to convert these to actual file paths: data/tile_cache/xxx.png
-                
-                console.log('📍 Before URL:', beforeImageUrl);
-                console.log('📍 After URL:', afterImageUrl);
-                
                 const beforePath = beforeImageUrl.replace('/api/tile/image/', 'data/tile_cache/');
                 const afterPath = afterImageUrl.replace('/api/tile/image/', 'data/tile_cache/');
-                
-                console.log('📂 Before Path:', beforePath);
-                console.log('📂 After Path:', afterPath);
-                console.log('🔑 Access Token:', accessToken ? 'Present' : 'Missing');
-                
-                const response = await fetch(`${API_URL}/api/ai/urban`, {
+
+                const response = await fetch(`${API_URL}/api/ai/buildings`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -626,123 +629,156 @@
                     body: JSON.stringify({
                         before_image_path: beforePath,
                         after_image_path: afterPath,
-                        pixel_resolution: 10.0  // Sentinel-2 resolution
+                        pixel_resolution: 10.0
                     })
                 });
-                
-                console.log('📡 Response status:', response.status);
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Analysis failed');
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Detection failed');
                 }
 
                 const results = await response.json();
-                displayUrbanResults(results);
+                displayBuildingResults(results);
 
             } catch (error) {
-                console.error('Urban analysis failed:', error);
-                alert(`Urban analysis failed: ${error.message}`);
+                console.error('Building detection failed:', error);
+                alert(`Building detection failed: ${error.message}`);
             } finally {
-                analyzeBtn.disabled = false;
-                analyzeBtn.innerHTML = '🤖 AI Urban Detection';
+                btn.disabled = false;
+                btn.textContent = '🏗️ Detect Buildings';
             }
         }
 
-        function displayUrbanResults(results) {
-            // Create results panel
-            const resultsHTML = `
-                <div style="position: fixed; top: 20%; right: 20px; width: 400px; background: white; 
-                            border: 6px solid #FF7070; padding: 25px; z-index: 10000; 
-                            box-shadow: 10px 10px 0 rgba(255, 112, 112, 0.3); border-radius: 0;
-                            font-family: 'Space Mono', monospace; max-height: 70vh; overflow-y: auto;">
+        function displayBuildingResults(results) {
+            const r = results;
+            const changePct = r.change.percent_change;
+            const isGrowth = changePct > 0;
+
+            const html = `
+                <div style="position: fixed; top: 10%; right: 20px; width: 420px; background: white; 
+                            border: 6px solid #FF8C00; padding: 25px; z-index: 10000; 
+                            box-shadow: 10px 10px 0 rgba(255, 140, 0, 0.3); border-radius: 0;
+                            font-family: 'Space Mono', monospace; max-height: 80vh; overflow-y: auto;">
+                    
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.8em; margin: 0; color: #FF7070;">
-                            🏙️ Urban Analysis
+                        <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.75em; margin: 0; color: #FF8C00;">
+                            🏗️ New Buildings
                         </h3>
-                        <button onclick="closeResults()" style="background: #FF7070; border: 3px solid #FF5555; 
+                        <button onclick="closeBuildingResults()" style="background: #FF8C00; border: 3px solid #FF6600; 
                                 color: white; padding: 8px 15px; cursor: pointer; font-family: 'Press Start 2P'; 
                                 font-size: 0.6em; border-radius: 0;">✕</button>
                     </div>
-                    
-                    <div style="background: #f8f8f8; padding: 15px; border-left: 5px solid #B2E600; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 0.9em;">📊 BEFORE (${beforeDate})</h4>
-                        <p style="margin: 5px 0; color: #333;"><strong>Urban Coverage:</strong> ${results.before.urban_percent}%</p>
-                        <p style="margin: 5px 0; color: #333;"><strong>Area:</strong> ${results.before.urban_hectares} hectares</p>
-                        <p style="margin: 5px 0; color: #666; font-size: 0.85em;">(${results.before.urban_acres} acres)</p>
+
+                    <p style="font-size: 0.75em; color: #888; margin: 0 0 15px 0;">
+                        Method: HSV Colour Analysis + Excess-Green Index + Edge Density
+                    </p>
+
+                    <!-- Before stats -->
+                    <div style="background: #f8f8f8; padding: 12px; border-left: 5px solid #0078FF; margin-bottom: 12px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.85em;">📊 BEFORE (${beforeDate})</h4>
+                        <p style="margin: 3px 0; color: #333;">Built-up: <strong>${r.before.buildup_percent}%</strong></p>
+                        <p style="margin: 3px 0; color: #666; font-size: 0.85em;">
+                            ${r.before.buildup_hectares} ha (${r.before.buildup_acres} acres)
+                        </p>
                     </div>
 
-                    <div style="background: #f8f8f8; padding: 15px; border-left: 5px solid #FF7070; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 0.9em;">📊 AFTER (${afterDate})</h4>
-                        <p style="margin: 5px 0; color: #333;"><strong>Urban Coverage:</strong> ${results.after.urban_percent}%</p>
-                        <p style="margin: 5px 0; color: #333;"><strong>Area:</strong> ${results.after.urban_hectares} hectares</p>
-                        <p style="margin: 5px 0; color: #666; font-size: 0.85em;">(${results.after.urban_acres} acres)</p>
+                    <!-- After stats -->
+                    <div style="background: #f8f8f8; padding: 12px; border-left: 5px solid #FF8C00; margin-bottom: 12px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.85em;">📊 AFTER (${afterDate})</h4>
+                        <p style="margin: 3px 0; color: #333;">Built-up: <strong>${r.after.buildup_percent}%</strong></p>
+                        <p style="margin: 3px 0; color: #666; font-size: 0.85em;">
+                            ${r.after.buildup_hectares} ha (${r.after.buildup_acres} acres)
+                        </p>
                     </div>
 
-                    <div style="background: ${results.change.percent_change > 0 ? '#FFE6E6' : '#E6FFE6'}; 
-                                padding: 15px; border-left: 5px solid ${results.change.percent_change > 0 ? '#FF7070' : '#B2E600'}; 
-                                margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 0.9em;">
-                            ${results.change.percent_change > 0 ? '📈' : '📉'} CHANGE
+                    <!-- Change summary -->
+                    <div style="background: ${isGrowth ? '#FFF3E0' : '#E8F5E9'}; padding: 12px; 
+                                border-left: 5px solid ${isGrowth ? '#FF8C00' : '#4CAF50'}; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.85em;">
+                            ${isGrowth ? '📈' : '📉'} CHANGE DETECTED
                         </h4>
-                        <p style="margin: 5px 0; color: #333;"><strong>Growth:</strong> ${results.change.percent_change > 0 ? '+' : ''}${results.change.percent_change}%</p>
-                        <p style="margin: 5px 0; color: #333;"><strong>Area Change:</strong> ${results.change.hectares_change > 0 ? '+' : ''}${results.change.hectares_change} hectares</p>
-                        <p style="margin: 5px 0; color: #666; font-size: 0.85em;">(${results.change.acres_change > 0 ? '+' : ''}${results.change.acres_change} acres)</p>
-                        <p style="margin: 5px 0; color: #333;"><strong>Growth Rate:</strong> ${results.change.growth_rate}%</p>
+                        <p style="margin: 3px 0;"><strong>New construction zones:</strong> ${r.change.new_clusters}</p>
+                        <p style="margin: 3px 0;"><strong>New built-up area:</strong> +${r.change.new_buildup_hectares} ha</p>
+                        <p style="margin: 3px 0;"><strong>Removed/cleared:</strong> -${r.change.removed_hectares} ha</p>
+                        <p style="margin: 8px 0 0 0; font-size: 1.1em; font-weight: bold; 
+                                  color: ${isGrowth ? '#E65100' : '#2E7D32'};">
+                            Net change: ${isGrowth ? '+' : ''}${r.change.net_change_hectares} ha 
+                            (${isGrowth ? '+' : ''}${changePct.toFixed(1)}%)
+                        </p>
                     </div>
 
-                    <button onclick="showOverlays('${results.before.overlay_image}', '${results.after.overlay_image}')" 
-                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #5555FF, #4444DD); 
-                                   color: white; border: 4px solid #4444DD; font-family: 'Press Start 2P'; 
-                                   font-size: 0.7em; cursor: pointer; margin-bottom: 10px; border-radius: 0;
-                                   box-shadow: 4px 4px 0 rgba(85, 85, 255, 0.3);">
-                        👁️ Show Overlays
+                    <!-- Legend -->
+                    <div style="background: #f5f5f5; padding: 10px; margin-bottom: 15px; font-size: 0.8em;">
+                        <strong>Legend:</strong>
+                        <div style="margin-top: 5px;">
+                            <span style="display:inline-block;width:14px;height:14px;background:rgba(0,120,255,0.4);
+                                         border:2px solid #0050DD;vertical-align:middle;margin-right:5px;"></span>
+                            Existing buildings (before)
+                        </div>
+                        <div style="margin-top: 3px;">
+                            <span style="display:inline-block;width:14px;height:14px;background:rgba(255,140,0,0.5);
+                                         border:2px solid #FF6400;vertical-align:middle;margin-right:5px;"></span>
+                            <strong>NEW construction (after)</strong>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <button onclick="showBuildingOverlays()" 
+                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #FF8C00, #FF6600); 
+                                   color: white; border: 4px solid #FF6600; font-family: 'Press Start 2P'; 
+                                   font-size: 0.65em; cursor: pointer; margin-bottom: 8px; border-radius: 0;
+                                   box-shadow: 4px 4px 0 rgba(255, 100, 0, 0.3);">
+                        👁️ Show on Images
                     </button>
 
-                    <button onclick="showChangeMap('${results.change.change_overlay}')" 
-                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #FF7070, #FF5555); 
-                                   color: white; border: 4px solid #FF5555; font-family: 'Press Start 2P'; 
-                                   font-size: 0.7em; cursor: pointer; border-radius: 0;
-                                   box-shadow: 4px 4px 0 rgba(255, 112, 112, 0.3);">
-                        🗺️ Show Change Map
+                    <button onclick="resetImages(); closeBuildingResults()" 
+                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #666, #444); 
+                                   color: white; border: 4px solid #444; font-family: 'Press Start 2P'; 
+                                   font-size: 0.65em; cursor: pointer; margin-bottom: 8px; border-radius: 0;">
+                        🔄 Reset
+                    </button>
+
+                    <button onclick="showDifferenceView()" 
+                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #7C4DFF, #651FFF); 
+                                   color: white; border: 4px solid #651FFF; font-family: 'Press Start 2P'; 
+                                   font-size: 0.65em; cursor: pointer; border-radius: 0;
+                                   box-shadow: 4px 4px 0 rgba(101, 31, 255, 0.3);">
+                        🗺️ Show Difference Map
                     </button>
                 </div>
             `;
 
-            // Remove existing results if any
-            const existing = document.getElementById('ai-results-panel');
+            // Store results
+            window._buildingResults = results;
+
+            const existing = document.getElementById('building-results-panel');
             if (existing) existing.remove();
 
-            // Add new results panel
             const panel = document.createElement('div');
-            panel.id = 'ai-results-panel';
-            panel.innerHTML = resultsHTML;
+            panel.id = 'building-results-panel';
+            panel.innerHTML = html;
             document.body.appendChild(panel);
         }
 
-        function closeResults() {
-            const panel = document.getElementById('ai-results-panel');
+        function showBuildingOverlays() {
+            if (!window._buildingResults) return;
+            const r = window._buildingResults;
+            document.getElementById('before-image').src = r.before.overlay_image;
+            document.getElementById('after-image').src = r.overlays.new_buildings;
+        }
+
+        function showDifferenceView() {
+            if (!window._buildingResults) return;
+            const r = window._buildingResults;
+            // Show difference map on both panels for clear comparison
+            document.getElementById('before-image').src = r.before.overlay_image;
+            document.getElementById('after-image').src = r.overlays.difference;
+        }
+
+        function closeBuildingResults() {
+            const panel = document.getElementById('building-results-panel');
             if (panel) panel.remove();
-        }
-
-        function showOverlays(beforeData, afterData) {
-            // Replace the current images with overlay versions
-            document.getElementById('before-image').src = beforeData;
-            document.getElementById('after-image').src = afterData;
-            alert('Urban areas highlighted in red!');
-        }
-
-        function showChangeMap(changeData) {
-            // Show change visualization
-            const changeWindow = window.open('', 'Change Map', 'width=800,height=600');
-            changeWindow.document.write(`
-                <html>
-                <head><title>Urban Growth Map</title></head>
-                <body style="margin: 0; background: #1a1a1a; display: flex; align-items: center; justify-content: center;">
-                    <img src="${changeData}" style="max-width: 100%; max-height: 100vh;">
-                </body>
-                </html>
-            `);
         }
     </script>
 </body>

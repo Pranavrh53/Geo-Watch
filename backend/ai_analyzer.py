@@ -1,7 +1,7 @@
 """
 AI-Based Urban Detection Module
-Uses advanced color analysis for satellite false-color imagery
-Optimized for Sentinel-2 false-color composites (NIR-Red-Green)
+Uses SegFormer pre-trained model for semantic segmentation
+Model: nvidia/segformer-b0-finetuned-ade-512-512 (ADE20K, 150 classes)
 """
 import torch
 import numpy as np
@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 class UrbanDetector:
     """
-    Urban area detection using SegFormer pre-trained model
-    Model: nvidia/segformer-b0-finetuned-ade-512-512
+    Urban area detection using SegFormer semantic segmentation.
+    Uses nvidia/segformer-b0-finetuned-ade-512-512 trained on ADE20K (150 classes).
+    Identifies buildings, roads, sidewalks, houses etc. as 'urban'.
     """
     
     def __init__(self):
@@ -29,32 +30,39 @@ class UrbanDetector:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_name = "nvidia/segformer-b0-finetuned-ade-512-512"
         
-        # ADE20K urban-related class IDs (0-indexed, 150 classes total)
-        # Based on ADE20K official class mapping
-        # Source: https://github.com/CSAILVision/ADE20K
+        # ADE20K urban-related class IDs (0-indexed)
+        # Full list: https://github.com/CSAILVision/ADE20K
         self.urban_classes = [
+            0,   # wall
             1,   # building
             6,   # road
-            11,  # sidewalk
-            49,  # house  
-            74,  # skyscraper
-            60,  # bridge
-            0,   # wall (often appears in urban areas)
+            11,  # sidewalk, pavement
+            13,  # path
+            28,  # house
+            48,  # skyscraper
+            52,  # bridge
+            53,  # tower
+            54,  # awning
+            64,  # fence
+            84,  # truck
+            90,  # car
+            102, # bus
+            127, # parking
         ]
         
-        logger.info(f"UrbanDetector initialized on device: {self.device}")
+        logger.info(f"UrbanDetector initialized (device: {self.device})")
     
     def load_model(self):
         """Load SegFormer model from Hugging Face"""
         try:
-            logger.info("Loading SegFormer model...")
+            logger.info(f"Loading SegFormer model: {self.model_name}...")
             self.processor = SegformerImageProcessor.from_pretrained(self.model_name)
             self.model = SegformerForSemanticSegmentation.from_pretrained(self.model_name)
             self.model.to(self.device)
             self.model.eval()
             logger.info("✓ SegFormer model loaded successfully")
         except Exception as e:
-            logger.error(f"Failed to load model: {e}")
+            logger.error(f"Failed to load SegFormer model: {e}")
             raise
     
     def preprocess_image(self, image_path: str) -> Image.Image:
@@ -67,138 +75,189 @@ class UrbanDetector:
             logger.error(f"Failed to load image {image_path}: {e}")
             raise
     
+    def _false_color_to_rgb(self, image: Image.Image) -> Image.Image:
+        """
+        Convert Sentinel-2 false-color composite to pseudo-true-color for SegFormer.
+        
+        False-color (NIR-Red-Green displayed as R-G-B):
+          Channel 0 (displayed Red) = NIR band
+          Channel 1 (displayed Green) = Red band
+          Channel 2 (displayed Blue) = Green band
+        
+        Pseudo true-color:
+          New R = channel 1 (actual Red)
+          New G = channel 2 (actual Green)  
+          New B = (channel 2 * 0.85) (approximate Blue)
+        """
+        img_array = np.array(image)
+        
+        # Check if this looks like false-color (Red channel has high vegetation signal)
+        r_mean = img_array[:, :, 0].mean()
+        g_mean = img_array[:, :, 1].mean()
+        b_mean = img_array[:, :, 2].mean()
+        
+        # In false-color, red channel (NIR) and green channel (Red) tend to be 
+        # significantly different from blue channel (Green)
+        is_false_color = (r_mean > b_mean * 1.3) or (g_mean > b_mean * 1.3)
+        
+        if is_false_color:
+            pseudo_rgb = np.stack([
+                img_array[:, :, 1],  # Actual Red band
+                img_array[:, :, 2],  # Actual Green band
+                np.clip(img_array[:, :, 2].astype(np.float32) * 0.85, 0, 255).astype(np.uint8)
+            ], axis=2)
+            logger.info("Converted false-color → pseudo-true-color for SegFormer")
+            return Image.fromarray(pseudo_rgb)
+        else:
+            logger.info("Image appears to be true-color, using as-is")
+            return image
+    
     def detect_urban_areas(self, image: Image.Image) -> Tuple[np.ndarray, float]:
         """
-        Advanced urban detection for FALSE-COLOR satellite imagery
-        Uses multi-spectral analysis optimized for Sentinel-2 composites
+        Detect urban areas using SegFormer semantic segmentation.
         
-        For Sentinel-2 False-Color (NIR-Red-Green):
-        - Channel 0 (Red in display) = NIR band (high for vegetation)
-        - Channel 1 (Green in display) = Red band
-        - Channel 2 (Blue in display) = Green band
+        The model segments the image into 150 ADE20K classes, then we
+        combine urban-related classes (building, road, sidewalk, etc.)
+        into a single urban mask.
         
-        Urban characteristics in false-color:
-        - LOW NIR (appears dark/gray, not red)
-        - Uniform texture
-        - Medium brightness (not too dark like water, not bright like vegetation)
+        Returns:
+            (urban_mask, urban_percentage) - binary mask and % of urban pixels
         """
         try:
-            # Convert to numpy array
+            # Load model on first call
+            if self.model is None:
+                self.load_model()
+            
             img_array = np.array(image)
+            h, w = img_array.shape[:2]
             
             print(f"🖼️  Image shape: {img_array.shape}", flush=True)
-            print(f"🎨 Image dtype: {img_array.dtype}", flush=True)
             
-            if len(img_array.shape) != 3 or img_array.shape[2] < 3:
-                raise ValueError("Image must be RGB/false-color composite")
+            # Convert false-color to pseudo-true-color for better model performance
+            model_input = self._false_color_to_rgb(image)
             
-            # Extract channels (assuming NIR-R-G false-color composite)
-            nir = img_array[:, :, 0].astype(float)  # Red channel = NIR
-            red = img_array[:, :, 1].astype(float)  # Green channel = Red
-            green = img_array[:, :, 2].astype(float)  # Blue channel = Green
+            # Run SegFormer inference
+            print("🧠 Running SegFormer semantic segmentation...", flush=True)
+            inputs = self.processor(images=model_input, return_tensors="pt")
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
             
-            print(f"📊 NIR range: {nir.min():.1f} to {nir.max():.1f}, mean: {nir.mean():.1f}", flush=True)
-            print(f"📊 Red range: {red.min():.1f} to {red.max():.1f}, mean: {red.mean():.1f}", flush=True)
-            print(f"📊 Green range: {green.min():.1f} to {green.max():.1f}, mean: {green.mean():.1f}", flush=True)
+            with torch.no_grad():
+                outputs = self.model(**inputs)
             
-            # Method 1: NDVI-like index (vegetation indicator)
-            # High vegetation = high NIR, low in urban areas
-            # NDVI = (NIR - Red) / (NIR + Red)
-            epsilon = 1e-8
-            ndvi = (nir - red) / (nir + red + epsilon)
+            # Upsample logits to original image size
+            logits = outputs.logits  # shape: (1, num_classes, H/4, W/4)
+            upsampled = torch.nn.functional.interpolate(
+                logits,
+                size=(h, w),
+                mode="bilinear",
+                align_corners=False
+            )
             
-            # Urban areas have LOW or negative NDVI
-            # Vegetation has high positive NDVI (> 0.2)
-            # Urban typically: -0.1 to 0.2
-            # Water: negative NDVI
-            urban_from_ndvi = (ndvi < 0.25) & (ndvi > -0.3)  # Exclude water
+            # Get per-pixel class predictions
+            seg_map = upsampled.argmax(dim=1).squeeze().cpu().numpy()
             
-            print(f"📊 NDVI range: {ndvi.min():.3f} to {ndvi.max():.3f}", flush=True)
-            print(f"🔍 Low NDVI pixels (potential urban): {np.sum(urban_from_ndvi)}", flush=True)
+            # Create urban mask: 1 where any urban class is detected
+            urban_mask = np.isin(seg_map, self.urban_classes).astype(np.uint8)
             
-            # Method 2: NIR threshold
-            # Vegetation appears BRIGHT RED (high NIR > 100)
-            # Urban appears DARK/GRAY (low NIR < 100)
-            nir_threshold = np.percentile(nir, 40)  # Adapt to image
-            urban_from_nir = nir < nir_threshold
-            
-            print(f"🔍 NIR threshold (40th percentile): {nir_threshold:.1f}", flush=True)
-            print(f"🔍 Low NIR pixels: {np.sum(urban_from_nir)}", flush=True)
-            
-            # Method 3: Brightness check (exclude very dark water/shadows)
-            grayscale = np.mean(img_array, axis=2)
-            brightness_mask = (grayscale > 30) & (grayscale < 150)  # Urban range
-            
-            print(f"🔍 Medium brightness pixels: {np.sum(brightness_mask)}", flush=True)
-            
-            # Method 4: Texture analysis (urban areas have more edges)
-            gray_uint8 = grayscale.astype(np.uint8)
-            edges = cv2.Canny(gray_uint8, 30, 100)
-            edges_dilated = cv2.dilate(edges, np.ones((3,3), np.uint8), iterations=1)
-            texture_mask = edges_dilated > 0
-            
-            print(f"🔍 High texture pixels (edges): {np.sum(texture_mask)}", flush=True)
-            
-            # COMBINE ALL METHODS with weighted voting
-            # Core urban detection: Low NDVI + Low NIR + Medium Brightness
-            core_urban = urban_from_ndvi & urban_from_nir & brightness_mask
-            
-            # Expand with texture (buildings have sharp edges)
-            urban_mask = core_urban | (urban_from_nir & brightness_mask & texture_mask)
-            
-            # Clean up noise
-            kernel = np.ones((3,3), np.uint8)
-            urban_mask_clean = cv2.morphologyEx(urban_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
-            urban_mask_clean = cv2.morphologyEx(urban_mask_clean, cv2.MORPH_OPEN, kernel)
+            # Morphological cleanup
+            kernel = np.ones((5, 5), np.uint8)
+            urban_mask = cv2.morphologyEx(urban_mask, cv2.MORPH_CLOSE, kernel)
+            urban_mask = cv2.morphologyEx(urban_mask, cv2.MORPH_OPEN, kernel)
             
             # Calculate urban percentage
-            total_pixels = urban_mask_clean.size
-            urban_pixels = np.sum(urban_mask_clean)
+            total_pixels = urban_mask.size
+            urban_pixels = int(np.sum(urban_mask))
             urban_percentage = (urban_pixels / total_pixels) * 100
             
-            print(f"✓ Urban detection: {urban_percentage:.2f}% ({urban_pixels}/{total_pixels} pixels)", flush=True)
-            print(f"✓ Methods used: NDVI + NIR + Brightness + Texture", flush=True)
+            # Log class distribution for debugging
+            unique, counts = np.unique(seg_map, return_counts=True)
+            top_classes = sorted(zip(unique, counts), key=lambda x: -x[1])[:5]
+            print(f"📊 Top 5 detected classes: {top_classes}", flush=True)
+            print(f"✅ Urban detection: {urban_percentage:.2f}% "
+                  f"({urban_pixels}/{total_pixels} pixels)", flush=True)
             
-            logger.info(f"Urban detection complete: {urban_percentage:.2f}% urban (multi-spectral)")
-            
-            return urban_mask_clean, urban_percentage
+            return urban_mask, urban_percentage
             
         except Exception as e:
-            print(f"❌ Urban detection failed: {e}", flush=True)
-            logger.error(f"Urban detection failed: {e}")
-            raise
+            print(f"❌ SegFormer failed: {e}", flush=True)
+            logger.error(f"SegFormer urban detection failed: {e}")
+            # Fallback to improved heuristic method
+            print("⚠️ Falling back to heuristic method...", flush=True)
+            return self._detect_urban_heuristic(image)
     
-    def create_overlay_image(self, original_image: Image.Image, mask: np.ndarray, 
-                            color=(255, 0, 0), alpha=0.5) -> Image.Image:
+    def _detect_urban_heuristic(self, image: Image.Image) -> Tuple[np.ndarray, float]:
         """
-        Create an overlay image with urban areas highlighted
+        Fallback heuristic urban detection when SegFormer is unavailable.
+        Fixed version: proper brightness handling, consistent thresholds.
         """
-        # Convert mask to RGB overlay
-        overlay = np.zeros((*mask.shape, 3), dtype=np.uint8)
-        overlay[mask == 1] = color  # Red for urban areas
+        img_array = np.array(image)
+        nir = img_array[:, :, 0].astype(float)
+        red = img_array[:, :, 1].astype(float)
+        green = img_array[:, :, 2].astype(float)
         
-        # Convert to PIL Image
-        overlay_img = Image.fromarray(overlay, mode='RGB')
+        # NDVI: vegetation has high NDVI, urban has low
+        epsilon = 1e-8
+        ndvi = (nir - red) / (nir + red + epsilon)
         
-        # Resize overlay to match original image
-        overlay_img = overlay_img.resize(original_image.size, Image.BILINEAR)
+        # Urban = low NDVI (not vegetation) but not water (very negative)
+        urban_from_ndvi = (ndvi < 0.2) & (ndvi > -0.2)
         
-        # Blend with original image
-        blended = Image.blend(original_image, overlay_img, alpha)
+        # Brightness: urban areas can be BRIGHT (concrete, roofs) or medium
+        # Key fix: DON'T cap at 150 — bright urban areas exist!
+        grayscale = np.mean(img_array[:, :, :3], axis=2)
+        brightness_mask = grayscale > 25  # Just exclude very dark (water/shadow)
         
-        return blended
+        # Low NIR ratio: vegetation has HIGH NIR, urban has LOW relative NIR
+        nir_ratio = nir / (grayscale + epsilon)
+        low_nir = nir_ratio < 1.3  # Urban: NIR not much higher than average
+        
+        # Combine
+        urban_mask = (urban_from_ndvi & brightness_mask & low_nir).astype(np.uint8)
+        
+        # Cleanup
+        kernel = np.ones((5, 5), np.uint8)
+        urban_mask = cv2.morphologyEx(urban_mask, cv2.MORPH_CLOSE, kernel)
+        urban_mask = cv2.morphologyEx(urban_mask, cv2.MORPH_OPEN, kernel)
+        
+        urban_percentage = (np.sum(urban_mask) / urban_mask.size) * 100
+        print(f"✅ Heuristic urban detection: {urban_percentage:.2f}%", flush=True)
+        
+        return urban_mask, urban_percentage
+    
+    def create_overlay_image(self, original_image: Image.Image, mask: np.ndarray,
+                            color=(255, 0, 0), alpha=0.3) -> Image.Image:
+        """
+        Create a clean overlay with semi-transparent fill + contour outlines.
+        Much cleaner than solid color blocks.
+        """
+        orig_array = np.array(original_image)
+        if orig_array.shape[2] == 4:
+            orig_array = orig_array[:, :, :3]  # Drop alpha
+        
+        # Resize mask to match image if needed
+        if mask.shape[:2] != orig_array.shape[:2]:
+            mask = cv2.resize(mask, (orig_array.shape[1], orig_array.shape[0]),
+                            interpolation=cv2.INTER_NEAREST)
+        
+        result = orig_array.copy()
+        
+        # Semi-transparent fill
+        fill = orig_array.copy()
+        fill[mask > 0] = color
+        result = cv2.addWeighted(orig_array, 1 - alpha, fill, alpha, 0)
+        
+        # Add contour outlines for clarity
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(result, contours, -1, color, 2)
+        
+        return Image.fromarray(result)
     
     def mask_to_base64(self, mask: np.ndarray) -> str:
         """Convert numpy mask to base64 encoded PNG"""
-        # Convert binary mask to image (0 = black, 255 = white)
         mask_img = Image.fromarray((mask * 255).astype(np.uint8), mode='L')
-        
-        # Save to bytes
         buffer = io.BytesIO()
         mask_img.save(buffer, format='PNG')
         buffer.seek(0)
-        
-        # Encode to base64
         img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{img_base64}"
     
@@ -207,76 +266,109 @@ class UrbanDetector:
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=90)
         buffer.seek(0)
-        
         img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
         return f"data:image/jpeg;base64,{img_base64}"
     
     def analyze_urban_change(self, before_image_path: str, after_image_path: str,
                             pixel_resolution: float = 10.0) -> Dict:
         """
-        Analyze urban change between two satellite images
+        Analyze urban change between two satellite images using SegFormer.
         
-        Args:
-            before_image_path: Path to before image
-            after_image_path: Path to after image
-            pixel_resolution: Resolution in meters per pixel (default: 10m for Sentinel-2)
-        
-        Returns:
-            Dictionary with analysis results
+        Returns results with:
+        - Before/after urban percentages and areas
+        - Clean overlay images (semi-transparent, contour-outlined)
+        - Change map highlighting only NEW urban growth
         """
-        print(f"\n🔬 STARTING URBAN CHANGE ANALYSIS", flush=True)
+        print(f"\n🔬 STARTING URBAN CHANGE ANALYSIS (SegFormer)", flush=True)
         print(f"Before: {before_image_path}", flush=True)
         print(f"After: {after_image_path}", flush=True)
         
-        logger.info("Starting urban change analysis...")
-        
         # Load images
-        print("📸 Loading images...", flush=True)
         before_img = self.preprocess_image(before_image_path)
         after_img = self.preprocess_image(after_image_path)
-        print(f"✓ Images loaded: {before_img.size}", flush=True)
         
-        # Detect urban areas
+        # Detect urban areas in both images
+        print("\n📊 Analyzing BEFORE image...", flush=True)
         before_mask, before_percent = self.detect_urban_areas(before_img)
+        
+        print("\n📊 Analyzing AFTER image...", flush=True)
         after_mask, after_percent = self.detect_urban_areas(after_img)
+        
+        # Ensure masks are same size
+        if before_mask.shape != after_mask.shape:
+            after_mask = cv2.resize(after_mask, (before_mask.shape[1], before_mask.shape[0]),
+                                   interpolation=cv2.INTER_NEAREST)
         
         # Calculate change
         change_percent = after_percent - before_percent
         
-        # Calculate area in different units
-        total_pixels = before_mask.size
+        # Area calculations
         pixel_area_sqm = pixel_resolution ** 2
-        
-        # Use int64 to prevent overflow
         before_urban_pixels = int(np.sum(before_mask))
         after_urban_pixels = int(np.sum(after_mask))
-        change_pixels = after_urban_pixels - before_urban_pixels
         
-        before_area_sqm = before_urban_pixels * pixel_area_sqm
-        after_area_sqm = after_urban_pixels * pixel_area_sqm
-        change_area_sqm = change_pixels * pixel_area_sqm
+        before_hectares = (before_urban_pixels * pixel_area_sqm) / 10000
+        after_hectares = (after_urban_pixels * pixel_area_sqm) / 10000
+        change_hectares = after_hectares - before_hectares
         
-        # Convert to hectares
-        before_hectares = before_area_sqm / 10000
-        after_hectares = after_area_sqm / 10000
-        change_hectares = change_area_sqm / 10000
-        
-        # Convert to acres
         before_acres = before_hectares * 2.47105
         after_acres = after_hectares * 2.47105
         change_acres = change_hectares * 2.47105
         
-        # Create overlay images
-        before_overlay = self.create_overlay_image(before_img, before_mask, color=(255, 0, 0), alpha=0.4)
-        after_overlay = self.create_overlay_image(after_img, after_mask, color=(255, 0, 0), alpha=0.4)
+        # Create clean overlay images
+        # Before: urban areas in BLUE (30% opacity + contours)
+        before_overlay = self.create_overlay_image(
+            before_img, before_mask, color=(0, 120, 255), alpha=0.3
+        )
+        # After: urban areas in RED (30% opacity + contours)
+        after_overlay = self.create_overlay_image(
+            after_img, after_mask, color=(255, 60, 60), alpha=0.3
+        )
         
-        # Create change visualization (new urban areas)
-        new_urban_mask = (after_mask > before_mask).astype(np.uint8)
-        change_overlay = self.create_overlay_image(after_img, new_urban_mask, color=(255, 165, 0), alpha=0.5)
+        # Change map: highlight only NEW urban areas (growth) in orange,
+        # and lost urban areas (demolition) in green
+        new_urban = ((after_mask > 0) & (before_mask == 0)).astype(np.uint8)
+        lost_urban = ((before_mask > 0) & (after_mask == 0)).astype(np.uint8)
         
-        # Convert to base64 for web display
+        # Create a combined change visualization on the after image
+        after_array = np.array(after_img)
+        if after_array.shape[2] == 4:
+            after_array = after_array[:, :, :3]
+        
+        if new_urban.shape[:2] != after_array.shape[:2]:
+            new_urban = cv2.resize(new_urban, (after_array.shape[1], after_array.shape[0]),
+                                  interpolation=cv2.INTER_NEAREST)
+            lost_urban = cv2.resize(lost_urban, (after_array.shape[1], after_array.shape[0]),
+                                   interpolation=cv2.INTER_NEAREST)
+        
+        change_vis = after_array.copy()
+        # New urban → Orange highlight
+        change_fill = change_vis.copy()
+        change_fill[new_urban > 0] = [255, 140, 0]   # Orange = new construction
+        change_fill[lost_urban > 0] = [0, 200, 80]    # Green = vegetation recovery
+        change_vis = cv2.addWeighted(after_array, 0.6, change_fill, 0.4, 0)
+        
+        # Add contours
+        contours_new, _ = cv2.findContours(new_urban, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours_lost, _ = cv2.findContours(lost_urban, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(change_vis, contours_new, -1, (255, 100, 0), 2)
+        cv2.drawContours(change_vis, contours_lost, -1, (0, 180, 60), 2)
+        
+        change_overlay = Image.fromarray(change_vis)
+        
+        growth_rate = ((change_percent / before_percent) * 100) if before_percent > 0 else 0
+        
+        print(f"\n{'='*50}", flush=True)
+        print(f"📊 RESULTS:", flush=True)
+        print(f"  Before urban: {before_percent:.2f}%", flush=True)
+        print(f"  After urban:  {after_percent:.2f}%", flush=True)
+        print(f"  Change:       {change_percent:+.2f}%", flush=True)
+        print(f"  Growth rate:  {growth_rate:+.2f}%", flush=True)
+        print(f"{'='*50}\n", flush=True)
+        
         results = {
             "status": "success",
+            "model": "SegFormer (nvidia/segformer-b0-finetuned-ade-512-512)",
             "before": {
                 "urban_percent": round(before_percent, 2),
                 "urban_hectares": round(before_hectares, 2),
@@ -293,14 +385,13 @@ class UrbanDetector:
                 "percent_change": round(change_percent, 2),
                 "hectares_change": round(change_hectares, 2),
                 "acres_change": round(change_acres, 2),
-                "growth_rate": round((change_percent / before_percent * 100) if before_percent > 0 else 0, 2),
+                "growth_rate": round(growth_rate, 2),
                 "change_overlay": self.overlay_to_base64(change_overlay),
-                "new_urban_pixels": int(np.sum(new_urban_mask))
+                "new_urban_pixels": int(np.sum(new_urban))
             }
         }
         
         logger.info(f"Urban analysis complete: {change_percent:+.2f}% change")
-        
         return results
 
 

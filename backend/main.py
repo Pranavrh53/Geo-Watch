@@ -32,6 +32,7 @@ from backend.auth import (
 from backend.tile_fetcher import get_tile_fetcher
 from backend.image_processor import ImageProcessor
 from backend.ai_analyzer import get_urban_detector
+from backend.feature_detectors import get_building_detector
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -715,14 +716,15 @@ async def analyze_urban(
     try:
         logger.info(f"Starting AI urban analysis for user {current_user.username}")
         
-        # Validate image paths
-        before_path = Path(request.before_image_path)
-        after_path = Path(request.after_image_path)
+        # Validate image paths - resolve relative to project root
+        project_root = Path(__file__).parent.parent
+        before_path = project_root / request.before_image_path
+        after_path = project_root / request.after_image_path
         
         if not before_path.exists():
-            raise HTTPException(status_code=404, detail=f"Before image not found: {request.before_image_path}")
+            raise HTTPException(status_code=404, detail=f"Before image not found: {before_path}")
         if not after_path.exists():
-            raise HTTPException(status_code=404, detail=f"After image not found: {request.after_image_path}")
+            raise HTTPException(status_code=404, detail=f"After image not found: {after_path}")
         
         # Get urban detector
         detector = get_urban_detector()
@@ -743,6 +745,118 @@ async def analyze_urban(
     except Exception as e:
         logger.error(f"Urban analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+# ---- Feature Detection Endpoints ----
+
+class FeatureDetectionRequest(BaseModel):
+    before_image_path: str
+    after_image_path: str
+    pixel_resolution: Optional[float] = 10.0
+
+
+@app.post("/api/ai/change-detection")
+async def detect_changes_api(
+    request: FeatureDetectionRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Colour-coded change detection between two satellite images.
+    Classifies changes as: new construction, vegetation loss, new vegetation,
+    water change, demolition, or other.
+    """
+    print(f"\n{'='*60}", flush=True)
+    print(f"🔍  CHANGE DETECTION ENDPOINT", flush=True)
+    print(f"User: {current_user.username}", flush=True)
+    print(f"Before: {request.before_image_path}", flush=True)
+    print(f"After: {request.after_image_path}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+
+    try:
+        project_root = Path(__file__).parent.parent
+        before_path = project_root / request.before_image_path
+        after_path = project_root / request.after_image_path
+
+        if not before_path.exists():
+            raise HTTPException(status_code=404, detail=f"Before image not found: {before_path}")
+        if not after_path.exists():
+            raise HTTPException(status_code=404, detail=f"After image not found: {after_path}")
+
+        from PIL import Image
+        before_img = Image.open(str(before_path)).convert("RGB")
+        after_img = Image.open(str(after_path)).convert("RGB")
+
+        processor = ImageProcessor()
+        results = processor.detect_changes(
+            before_img, after_img,
+            sensitivity=30.0,
+            pixel_resolution=request.pixel_resolution
+        )
+
+        # Return JSON-serialisable subset (exclude PIL objects)
+        return {
+            "status": "success",
+            "total_pixels": results["total_pixels"],
+            "changed_pixels": results["changed_pixels"],
+            "change_percentage": results["change_percentage"],
+            "change_area_hectares": results["change_area_hectares"],
+            "severity": results["severity"],
+            "change_type": results["change_type"],
+            "confidence": results["confidence"],
+            "categories": results["categories"],
+            "before_overlay": results["before_overlay_b64"],
+            "after_overlay": results["after_overlay_b64"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Change detection failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Change detection failed: {str(e)}")
+
+
+@app.post("/api/ai/buildings")
+def detect_new_buildings(
+    request: FeatureDetectionRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Detect new buildings / built-up areas between two satellite images.
+    Uses HSV + Excess-Green analysis on Sentinel-2 TRUE-COLOR imagery.
+    """
+    print(f"\n{'='*60}", flush=True)
+    print(f"🏗️  NEW BUILDING DETECTION ENDPOINT", flush=True)
+    print(f"User: {current_user.username}", flush=True)
+    print(f"Before: {request.before_image_path}", flush=True)
+    print(f"After: {request.after_image_path}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+
+    try:
+        project_root = Path(__file__).parent.parent
+        before_path = project_root / request.before_image_path
+        after_path = project_root / request.after_image_path
+
+        if not before_path.exists():
+            raise HTTPException(status_code=404, detail=f"Before image not found: {before_path}")
+        if not after_path.exists():
+            raise HTTPException(status_code=404, detail=f"After image not found: {after_path}")
+
+        from PIL import Image
+        before_img = Image.open(str(before_path)).convert("RGB")
+        after_img = Image.open(str(after_path)).convert("RGB")
+
+        detector = get_building_detector()
+        results = detector.detect_new_buildings(
+            before_img, after_img, request.pixel_resolution
+        )
+
+        return results
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Building detection failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Building detection failed: {str(e)}")
 
 
 # Background task functions
