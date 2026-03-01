@@ -1,25 +1,33 @@
-"""
-Modular Feature Detectors for Satellite Change Detection
+﻿"""
+Satellite Change Detection -- Vegetation Loss -> New Construction
+===============================================================
 
-Each detector identifies a specific land cover type using colour-space
-analysis designed for Sentinel-2 TRUE-COLOR composites (Red-Green-Blue).
+Goal: Find places where GREEN VEGETATION existed before but has been
+      REPLACED by buildings/concrete/roads (deforestation + urbanisation).
 
-Channel mapping for TRUE-COLOR composite (layers=TRUE_COLOR):
-  Channel 0 = Red   band (B04, 10 m)
-  Channel 1 = Green band (B03, 10 m)
-  Channel 2 = Blue  band (B02, 10 m)
+Algorithm (direct, accurate):
+  1. Compute Excess Green Index (ExG) for BEFORE image
+     ExG = (2xG - R - B) / (R+G+B)  ->  high = vegetation, low = concrete
+  2. Compute ExG for AFTER image
+  3. Vegetation Loss Mask = was_green_before AND not_green_after
+  4. Cloud masking to remove satellite artifacts
+  5. Morphological cleanup to remove noise
 
-Key detection indices used (all visible-band):
-  ExG   = 2·G − R − B          (Excess Green → vegetation)
-  HSV-V = brightness            (built-up = brighter)
-  HSV-S = saturation            (built-up = less saturated / gray)
-  Texture / edge density        (buildings create strong edges)
+IDEAL INPUT FOR ACCURATE RESULTS:
+  OK  Cloud-free images (no white patches over the area)
+  OK  Same season for both dates (e.g. both in winter, or both in summer)
+      -- avoids seasonal greenness changes being mistaken for construction
+  OK  At least 3-10 years apart (to ensure real land-use change)
+  OK  Same geographic area / same zoom level
+  OK  Sentinel-2 TRUE COLOR (RGB) at 10 m resolution
+  NO  Avoid images with heavy haze, fog, or smoke
+  NO  Avoid comparing monsoon season vs dry season (green vs brown = false positive)
 """
 
 import cv2
 import numpy as np
 from PIL import Image
-from typing import Dict, Tuple, Optional
+from typing import Dict
 import logging
 import io
 import base64
@@ -27,402 +35,285 @@ import base64
 logger = logging.getLogger(__name__)
 
 
-class BaseDetector:
-    """Base class for all feature detectors"""
+# ============================================================
+#  SPECTRAL UTILITIES
+# ============================================================
 
-    def detect(self, image: Image.Image) -> Tuple[np.ndarray, float]:
-        """
-        Detect features in image.
-        Returns (binary_mask, percentage_coverage)
-        """
-        raise NotImplementedError
+def compute_exg(img):
+    """
+    Compute Excess Green Index (ExG) per pixel.
+    ExG = (2*Green - Red - Blue) / (Red + Green + Blue)
+    Interpretation:
+      ExG > 0.05  ->  vegetation (trees, crops, grass)
+      ExG < 0.02  ->  bare soil, concrete, buildings, roads, water
+    Returns: float32 array [H, W]
+    """
+    arr = np.array(img.convert("RGB")).astype(np.float32)
+    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+    total = r + g + b + 1e-6
+    return ((2.0 * g - r - b) / total).astype(np.float32)
 
-    @staticmethod
-    def cleanup_mask(mask: np.ndarray, kernel_size: int = 5,
-                     min_blob_area: int = 100) -> np.ndarray:
-        """Remove noise and tiny blobs from a binary mask"""
-        kernel = np.ones((kernel_size, kernel_size), np.uint8)
-        cleaned = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel)
 
-        # Remove small blobs
-        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
-            cleaned, connectivity=8
-        )
-        for i in range(1, num_labels):
-            if stats[i, cv2.CC_STAT_AREA] < min_blob_area:
-                cleaned[labels == i] = 0
+def detect_cloud_mask(img, brightness_thresh=180, saturation_thresh=35):
+    """
+    Detect cloud/bright haze pixels.
+    Clouds are BRIGHT (high V) and DESATURATED (low S) in HSV.
+    Returns binary mask: 1 = cloud/haze, 0 = clear.
+    """
+    arr = np.array(img.convert("RGB"))
+    hsv = cv2.cvtColor(arr, cv2.COLOR_RGB2HSV)
+    bright = hsv[:, :, 2] > brightness_thresh
+    desat = hsv[:, :, 1] < saturation_thresh
+    cloud = (bright & desat).astype(np.uint8)
+    kernel = np.ones((21, 21), np.uint8)
+    return cv2.dilate(cloud, kernel, iterations=1)
 
-        return cleaned
 
-    @staticmethod
-    def create_overlay(base_image: Image.Image, mask: np.ndarray,
-                       fill_color: Tuple[int, int, int],
-                       contour_color: Tuple[int, int, int],
-                       fill_alpha: float = 0.25,
-                       contour_thickness: int = 2) -> Image.Image:
-        """
-        Create a clean overlay: light transparent fill + bold contour outlines.
-        The base image remains clearly visible.
-        """
-        base = np.array(base_image.convert("RGB"))
+def cleanup_mask(mask, kernel_size=5, min_blob_area=300):
+    """
+    Morphological cleanup:
+      OPEN (erode->dilate) removes isolated noise pixels.
+      Remove blobs smaller than min_blob_area pixels.
+    Does NOT use CLOSE -- avoids merging separate change zones.
+    """
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+    cleaned = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        cleaned, connectivity=8
+    )
+    for i in range(1, num_labels):
+        if stats[i, cv2.CC_STAT_AREA] < min_blob_area:
+            cleaned[labels == i] = 0
+    return cleaned
 
-        # Resize mask if needed
-        if mask.shape[:2] != base.shape[:2]:
-            mask = cv2.resize(mask, (base.shape[1], base.shape[0]),
-                              interpolation=cv2.INTER_NEAREST)
 
-        result = base.copy()
+def auto_brighten(arr: np.ndarray) -> np.ndarray:
+    """
+    Auto-brighten a dark satellite image for display using CLAHE
+    (Contrast Limited Adaptive Histogram Equalization) per channel.
 
-        if np.any(mask > 0):
-            # Semi-transparent fill
-            fill = base.copy()
-            fill[mask > 0] = fill_color
-            result = cv2.addWeighted(base, 1 - fill_alpha, fill, fill_alpha, 0)
+    This only affects the VISUAL output -- the raw pixel values used
+    for ExG analysis are never modified.
+    """
+    # Check if the image is actually dark (mean brightness < 60)
+    mean_brightness = np.mean(arr)
+    if mean_brightness >= 60:
+        return arr  # already bright enough, no change
 
-            # Bold contour outlines
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-            cv2.drawContours(result, contours, -1, contour_color, contour_thickness)
+    result = np.zeros_like(arr)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    for c in range(3):
+        result[:, :, c] = clahe.apply(arr[:, :, c])
+    return result
 
-        return Image.fromarray(result)
 
-    @staticmethod
-    def image_to_base64(image: Image.Image, fmt: str = "JPEG") -> str:
-        """Convert PIL Image to base64 data URI"""
-        buf = io.BytesIO()
-        image.save(buf, format=fmt, quality=92)
-        buf.seek(0)
-        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-        mime = "image/jpeg" if fmt == "JPEG" else "image/png"
-        return f"data:{mime};base64,{b64}"
+def image_to_base64(image, fmt="JPEG"):
+    """Convert PIL Image to base64 data URI."""
+    if fmt == "JPEG" and image.mode != "RGB":
+        image = image.convert("RGB")
+    buf = io.BytesIO()
+    image.save(buf, format=fmt, quality=92)
+    buf.seek(0)
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    mime = "image/jpeg" if fmt == "JPEG" else "image/png"
+    return f"data:{mime};base64,{b64}"
 
 
 # ============================================================
-# BUILDING / BUILT-UP AREA DETECTOR  (TRUE-COLOR)
+#  VEGETATION-LOSS DETECTOR
 # ============================================================
 
-class BuildingDetector(BaseDetector):
+class BuildingDetector:
     """
-    Detects built-up areas (buildings, roads, constructed surfaces) in
-    Sentinel-2 **TRUE-COLOR** imagery (R-G-B) using visible-band indices.
+    Detects areas where vegetation was LOST between two satellite images,
+    indicating deforestation / new construction.
 
-    Approach — **confidence scoring** (not simple thresholding)
-    ------------------------------------------------------------
-    Each non-vegetation pixel accumulates a confidence score from
-    multiple independent signals.  Only pixels whose aggregate score
-    exceeds a threshold are labelled "built-up".
-
-    Signals used:
-      1. **ExG** (Excess Green Index = 2G − R − B)
-         Low / negative ExG → NOT vegetation → +20 pts base.
-      2. **HSV Value (brightness)**
-         Concrete, asphalt, metal roofs reflect more light.
-      3. **HSV Saturation (grayness)**
-         Man-made surfaces are distinctly less saturated than soil or
-         vegetation.
-      4. **Local texture (σ in 11×11 window)**
-         Buildings at 10 m create brightness variation (roof edges,
-         shadow gaps) that bare soil / water lack.
-      5. **Canny edge density (21×21 window)**
-         Dense, structured edges → buildings and roads.
-
-    At Sentinel-2's 10 m resolution individual buildings aren't visible,
-    but *clusters* of buildings / construction zones are clearly
-    detectable through these combined signals.
+    Method: Direct ExG (Excess Green Index) comparison.
+      was_vegetated  = ExG_before > VEG_THRESH
+      lost_vegation  = ExG_after  < LOSS_THRESH
+      change_mask    = was_vegetated AND lost_vegetation AND no_cloud
     """
 
-    # ---------- tuneable thresholds ----------
-    EXG_VEG_THRESH  = 8      # ExG > this  → vegetation
-    MIN_BRIGHTNESS  = 25     # V < this → shadow / water → exclude
-    SCORE_THRESH    = 40     # minimum confidence to call "built-up"
+    VEG_THRESH = 0.06   # ExG_before must exceed this -> "was green"
+    LOSS_THRESH = 0.03  # ExG_after must be below this -> "lost green"
+    MIN_DROP = 0.04     # Minimum ExG drop to filter noise
 
-    def detect(self, image: Image.Image) -> Tuple[np.ndarray, float]:
-        """Detect built-up areas in a TRUE-COLOR image.
+    def detect_new_buildings(self, before_img, after_img, pixel_resolution=10.0):
+        """Detect vegetation loss -> new construction."""
+        print("Detecting vegetation loss (ExG comparison)...", flush=True)
 
-        Uses a multi-signal confidence score per pixel.
-        Returns (binary_mask uint8, percentage_coverage float).
-        """
-        rgb = np.array(image.convert("RGB"))
-        r, g, b = (rgb[:, :, 0].astype(np.float32),
-                    rgb[:, :, 1].astype(np.float32),
-                    rgb[:, :, 2].astype(np.float32))
-
-        # ---- 1. Vegetation & shadow exclusion ----
-        exg = 2.0 * g - r - b
-        hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
-        v_chan = hsv[:, :, 2].astype(np.float32)
-        s_chan = hsv[:, :, 1].astype(np.float32)
-
-        is_vegetation = exg > self.EXG_VEG_THRESH
-        is_shadow     = v_chan < self.MIN_BRIGHTNESS
-        candidate     = (~is_vegetation) & (~is_shadow)
-
-        # ---- 2. Local texture: std-dev in 11×11 window ----
-        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
-        mu    = cv2.blur(gray, (11, 11))
-        mu_sq = cv2.blur(gray ** 2, (11, 11))
-        local_std = np.sqrt(np.maximum(mu_sq - mu ** 2, 0))
-
-        # ---- 3. Edge density in 21×21 window ----
-        edges = cv2.Canny(rgb, 50, 130).astype(np.float32) / 255.0
-        edge_density = cv2.blur(edges, (21, 21))
-
-        # ---- 4. Confidence score (0-100) ----
-        score = np.zeros(gray.shape, dtype=np.float32)
-
-        # 4a  Brightness contribution (0-20 pts)
-        #     V in [50, 180] maps linearly to 0-20
-        score += np.clip((v_chan - 50) / 130.0, 0, 1) * 20
-
-        # 4b  Grayness / low-saturation contribution (0-20 pts)
-        #     S in [130, 40] maps linearly to 0-20
-        #     Widened to include Indian brick / clay construction (S~100-120)
-        score += np.clip((130 - s_chan) / 90.0, 0, 1) * 20
-
-        # 4c  Low ExG contribution (0-20 pts)
-        #     ExG in [8, -20] maps linearly to 0-20
-        score += np.clip((self.EXG_VEG_THRESH - exg) / 28.0, 0, 1) * 20
-
-        # 4d  Texture contribution (0-20 pts)
-        #     local_std in [5, 25] maps linearly to 0-20
-        score += np.clip((local_std - 5) / 20.0, 0, 1) * 20
-
-        # 4e  Edge density contribution (0-20 pts)
-        #     edge_density in [0.03, 0.20] maps linearly to 0-20
-        score += np.clip((edge_density - 0.03) / 0.17, 0, 1) * 20
-
-        # ---- 5. Apply candidate mask and threshold ----
-        score[~candidate] = 0
-        buildup_mask = (score >= self.SCORE_THRESH).astype(np.uint8)
-
-        # ---- 6. Morphological cleanup ----
-        buildup_mask = self.cleanup_mask(
-            buildup_mask, kernel_size=5, min_blob_area=150
-        )
-
-        total = buildup_mask.size
-        built = int(np.sum(buildup_mask > 0))
-        pct = (built / total) * 100.0
-
-        logger.info(f"BuildingDetector: {pct:.1f}% built-up ({built}/{total} px)")
-        return buildup_mask, pct
-
-    def detect_new_buildings(
-        self,
-        before_img: Image.Image,
-        after_img: Image.Image,
-        pixel_resolution: float = 10.0
-    ) -> Dict:
-        """
-        Detect NEW built-up areas that appeared between before and after images.
-
-        Returns a dict with:
-        - before/after coverage stats
-        - overlay images showing new construction
-        - area calculations in hectares/acres
-        """
-        print("🏗️  BUILDING DETECTION: Analyzing before image...", flush=True)
-        before_mask, before_pct = self.detect(before_img)
-
-        print("🏗️  BUILDING DETECTION: Analyzing after image...", flush=True)
-        after_mask, after_pct = self.detect(after_img)
-
-        # Ensure same size
-        if before_mask.shape != after_mask.shape:
-            after_mask = cv2.resize(
-                after_mask, (before_mask.shape[1], before_mask.shape[0]),
-                interpolation=cv2.INTER_NEAREST
-            )
-
-        # ---- Find NEW buildings (in after but NOT in before) ----
-        new_buildings = ((after_mask > 0) & (before_mask == 0)).astype(np.uint8)
-        new_buildings = self.cleanup_mask(new_buildings, kernel_size=7, min_blob_area=200)
-
-        # ---- Find demolished/removed buildings ----
-        removed_buildings = ((before_mask > 0) & (after_mask == 0)).astype(np.uint8)
-        removed_buildings = self.cleanup_mask(removed_buildings, kernel_size=7, min_blob_area=200)
-
-        # ---- Area calculations ----
-        pixel_area_sqm = pixel_resolution ** 2
-        new_pixels = int(np.sum(new_buildings))
-        removed_pixels = int(np.sum(removed_buildings))
-
-        new_hectares = (new_pixels * pixel_area_sqm) / 10000
-        removed_hectares = (removed_pixels * pixel_area_sqm) / 10000
-        before_hectares = (int(np.sum(before_mask)) * pixel_area_sqm) / 10000
-        after_hectares = (int(np.sum(after_mask)) * pixel_area_sqm) / 10000
-
-        change_pct = after_pct - before_pct
-
-        # ---- Count distinct new building clusters ----
-        num_new_clusters, _, new_stats, _ = cv2.connectedComponentsWithStats(
-            new_buildings, connectivity=8
-        )
-        num_new_clusters -= 1  # Subtract background
-
-        print(f"✅ New built-up zones: {num_new_clusters}", flush=True)
-        print(f"✅ New area: {new_hectares:.1f} ha | Removed: {removed_hectares:.1f} ha", flush=True)
-        print(f"✅ Before: {before_pct:.1f}% | After: {after_pct:.1f}% | Change: {change_pct:+.1f}%", flush=True)
-
-        # ---- Create overlay images ----
-
-        # Before: show existing buildings in blue
-        before_overlay = self.create_overlay(
-            before_img, before_mask,
-            fill_color=(0, 120, 255), contour_color=(0, 80, 220),
-            fill_alpha=0.2, contour_thickness=2
-        )
-
-        # After: show all buildings in light gray, NEW ones in bright orange
+        before_arr = np.array(before_img.convert("RGB"))
         after_arr = np.array(after_img.convert("RGB"))
-        result = after_arr.copy()
+        h, w = before_arr.shape[:2]
 
-        # Existing buildings (were already there): subtle blue
-        existing = ((after_mask > 0) & (before_mask > 0)).astype(np.uint8)
-        if existing.shape[:2] != result.shape[:2]:
-            existing = cv2.resize(existing, (result.shape[1], result.shape[0]),
-                                  interpolation=cv2.INTER_NEAREST)
-        if np.any(existing > 0):
-            fill = result.copy()
-            fill[existing > 0] = [100, 160, 220]
-            result = cv2.addWeighted(result, 0.85, fill, 0.15, 0)
+        # Step 1: Cloud masking
+        cloud_b = detect_cloud_mask(before_img)
+        cloud_a = detect_cloud_mask(after_img)
+        cloud_b = cv2.resize(cloud_b, (w, h), interpolation=cv2.INTER_NEAREST)
+        cloud_a = cv2.resize(cloud_a, (w, h), interpolation=cv2.INTER_NEAREST)
+        cloud = ((cloud_b > 0) | (cloud_a > 0)).astype(np.uint8)
+        cloud_pct = float(np.sum(cloud) / cloud.size * 100)
+        print(f"Clouds/haze masked: {cloud_pct:.1f}%", flush=True)
 
-        # NEW buildings: bold orange fill + thick contours + numbered clusters
-        if new_buildings.shape[:2] != result.shape[:2]:
-            new_buildings_resized = cv2.resize(
-                new_buildings, (result.shape[1], result.shape[0]),
-                interpolation=cv2.INTER_NEAREST
-            )
-        else:
-            new_buildings_resized = new_buildings
+        # Step 2: ExG for both images
+        exg_before = compute_exg(before_img)
+        exg_after = compute_exg(after_img)
+        exg_before = cv2.resize(exg_before, (w, h), interpolation=cv2.INTER_LINEAR)
+        exg_after = cv2.resize(exg_after, (w, h), interpolation=cv2.INTER_LINEAR)
+        exg_drop = exg_before - exg_after
 
-        if np.any(new_buildings_resized > 0):
-            fill = result.copy()
-            fill[new_buildings_resized > 0] = [255, 140, 0]  # Orange
-            result = cv2.addWeighted(result, 0.65, fill, 0.35, 0)
+        veg_before_pct = float(np.sum(exg_before > self.VEG_THRESH) / exg_before.size * 100)
+        veg_after_pct = float(np.sum(exg_after > self.VEG_THRESH) / exg_after.size * 100)
+        print(f"Vegetation BEFORE: {veg_before_pct:.1f}%  AFTER: {veg_after_pct:.1f}%", flush=True)
+
+        # Step 3: Vegetation-loss mask
+        was_vegetated = (exg_before > self.VEG_THRESH).astype(np.uint8)
+        lost_vegetation = (exg_after < self.LOSS_THRESH).astype(np.uint8)
+        significant_drop = (exg_drop > self.MIN_DROP).astype(np.uint8)
+        veg_loss = (
+            (was_vegetated > 0) &
+            (lost_vegetation > 0) &
+            (significant_drop > 0) &
+            (cloud == 0)
+        ).astype(np.uint8)
+
+        # Step 4: Morphological cleanup
+        change_mask = cleanup_mask(veg_loss, kernel_size=5, min_blob_area=300)
+
+        # Step 5: Statistics
+        total_pixels = change_mask.size
+        changed_pixels = int(np.sum(change_mask > 0))
+        change_pct = changed_pixels / total_pixels * 100.0
+        pixel_area_sqm = pixel_resolution ** 2
+        change_ha = (changed_pixels * pixel_area_sqm) / 10_000
+        num_labels, labels, stats_cc, _ = cv2.connectedComponentsWithStats(
+            change_mask, connectivity=8
+        )
+        num_clusters = num_labels - 1
+        print(f"Vegetation loss zones: {num_clusters}", flush=True)
+        print(f"Area: {change_ha:.1f} ha  ({change_pct:.1f}%)", flush=True)
+
+        # Step 6: Overlays
+        # Auto-brighten the after image for all visual outputs
+        # (the ANALYSIS above already ran on raw values -- this is display only)
+        after_display = auto_brighten(after_arr)
+        print(f"After image mean brightness: raw={np.mean(after_arr):.0f}  display={np.mean(after_display):.0f}", flush=True)
+
+        # --- BEFORE overlay ---
+        # Show original before image with green tint on vegetated areas
+        # AND red hatching on zones that will be lost ("was here, now gone")
+        before_result = before_arr.copy()
+        veg_vis = (exg_before > self.VEG_THRESH).astype(np.uint8)
+        green_fill = before_result.copy()
+        green_fill[veg_vis > 0] = [30, 200, 60]
+        before_result = cv2.addWeighted(before_result, 0.75, green_fill, 0.25, 0)
+        # Draw cleared zones on BEFORE image -- clearly shows what was lost
+        if changed_pixels > 0:
             contours, _ = cv2.findContours(
-                new_buildings_resized, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                change_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
-            cv2.drawContours(result, contours, -1, (255, 100, 0), 3)
+            # Solid red fill over cleared zones on before image
+            cleared_fill = before_result.copy()
+            cleared_fill[change_mask > 0] = [220, 30, 10]
+            before_result = cv2.addWeighted(before_result, 0.55, cleared_fill, 0.45, 0)
+            cv2.drawContours(before_result, contours, -1, (255, 220, 0), 2)
+        before_overlay = Image.fromarray(before_result)
 
-            # Number each new-construction cluster
-            for i in range(1, num_new_clusters + 1):
-                cx = int(new_stats[i, cv2.CC_STAT_LEFT] + new_stats[i, cv2.CC_STAT_WIDTH] / 2)
-                cy = int(new_stats[i, cv2.CC_STAT_TOP] + new_stats[i, cv2.CC_STAT_HEIGHT] / 2)
-                if new_buildings.shape != new_buildings_resized.shape:
-                    sx = result.shape[1] / new_buildings.shape[1]
-                    sy = result.shape[0] / new_buildings.shape[0]
-                    cx, cy = int(cx * sx), int(cy * sy)
-                cv2.putText(result, str(i), (cx - 8, cy + 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 4)
-                cv2.putText(result, str(i), (cx - 8, cy + 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
-
-        after_overlay = Image.fromarray(result)
-
-        # ---- Difference view: dark background + bright change zones + numbers ----
-        diff_img = np.zeros_like(after_arr)   # black canvas
-
-        # Faintly show the after image so spatial context is visible
-        diff_img = cv2.addWeighted(diff_img, 1.0, after_arr, 0.25, 0)
-
-        # Draw existing buildings in dim blue
-        if np.any(existing > 0):
-            diff_img[existing > 0] = [40, 80, 140]
-
-        # Draw new buildings in bright orange with thick contours
-        if np.any(new_buildings_resized > 0):
-            diff_img[new_buildings_resized > 0] = [255, 160, 30]
-            cnts, _ = cv2.findContours(
-                new_buildings_resized, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        # --- AFTER overlay ---
+        # Brightened after image with red zones showing cleared vegetation
+        after_result = after_display.copy()
+        if changed_pixels > 0:
+            # Solid color fill -- does not depend on underlying pixel brightness
+            after_result[change_mask > 0] = [220, 40, 20]
+            contours, _ = cv2.findContours(
+                change_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
-            cv2.drawContours(diff_img, cnts, -1, (255, 255, 255), 2)
+            cv2.drawContours(after_result, contours, -1, (255, 220, 0), 2)
+        after_overlay = Image.fromarray(after_result)
 
-            # Number each cluster on the diff view
-            for i in range(1, num_new_clusters + 1):
-                cx = int(new_stats[i, cv2.CC_STAT_LEFT] + new_stats[i, cv2.CC_STAT_WIDTH] / 2)
-                cy = int(new_stats[i, cv2.CC_STAT_TOP] + new_stats[i, cv2.CC_STAT_HEIGHT] / 2)
-                if new_buildings.shape != new_buildings_resized.shape:
-                    sx = result.shape[1] / new_buildings.shape[1]
-                    sy = result.shape[0] / new_buildings.shape[0]
-                    cx, cy = int(cx * sx), int(cy * sy)
-                # White text with black outline for readability
-                cv2.putText(diff_img, str(i), (cx - 8, cy + 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 4)
-                cv2.putText(diff_img, str(i), (cx - 8, cy + 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
-
-        # Draw removed buildings in green (if any)
-        if removed_pixels > 0:
-            rm = removed_buildings
-            if rm.shape[:2] != diff_img.shape[:2]:
-                rm = cv2.resize(rm, (diff_img.shape[1], diff_img.shape[0]),
-                                interpolation=cv2.INTER_NEAREST)
-            diff_img[rm > 0] = [0, 200, 80]
-
+        # --- DIFFERENCE (spotlight) overlay ---
+        # Dim the BEFORE image (it's well-exposed), spotlight cleared zones
+        dimmed = (before_arr * 0.2).astype(np.uint8)
+        diff_img = dimmed.copy()
+        if changed_pixels > 0:
+            diff_img[change_mask > 0] = before_arr[change_mask > 0]
+            contours, _ = cv2.findContours(
+                change_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            cv2.drawContours(diff_img, contours, -1, (255, 220, 0), 2)
         diff_overlay = Image.fromarray(diff_img)
 
-        # Removed buildings overlay (on before image)
-        if removed_pixels > 0:
-            removed_overlay_resized = removed_buildings
-            if removed_buildings.shape[:2] != np.array(before_img.convert("RGB")).shape[:2]:
-                removed_overlay_resized = cv2.resize(
-                    removed_buildings,
-                    (np.array(before_img.convert("RGB")).shape[1],
-                     np.array(before_img.convert("RGB")).shape[0]),
-                    interpolation=cv2.INTER_NEAREST
-                )
-            removed_vis = self.create_overlay(
-                before_img, removed_overlay_resized,
-                fill_color=(0, 200, 80), contour_color=(0, 160, 60),
-                fill_alpha=0.3, contour_thickness=2
-            )
-        else:
-            removed_vis = before_overlay
+        # --- HEATMAP of ExG drop intensity ---
+        drop_clipped = np.clip(exg_drop, 0, 0.4)
+        drop_u8 = (drop_clipped / 0.4 * 255).astype(np.uint8)
+        heatmap_color = cv2.applyColorMap(drop_u8, cv2.COLORMAP_JET)
+        heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
+        # Blend with brightened after for context
+        heatmap_blend = cv2.addWeighted(after_display, 0.35, heatmap_color, 0.65, 0)
+        heatmap_overlay = Image.fromarray(heatmap_blend)
+
+        # Step 7: Explanation
+        net_veg_loss = max(0.0, veg_before_pct - veg_after_pct)
+        explanation = (
+            "HOW THIS DETECTION WORKS\n"
+            "-------------------------------\n"
+            "Uses the Excess Green Index (ExG), a standard spectral formula\n"
+            "used in satellite remote sensing:\n\n"
+            "  ExG = (2 x Green - Red - Blue) / (R + G + B)\n\n"
+            "  Vegetation (trees/grass): ExG > 0.06\n"
+            "  Concrete/buildings/roads: ExG < 0.03\n\n"
+            "LOGIC:\n"
+            "  Was the pixel GREEN in the BEFORE image? (ExG_before > 0.06)\n"
+            "  Is the pixel NO LONGER GREEN in the AFTER image? (ExG_after < 0.03)\n"
+            "  If BOTH are true -> vegetation was cleared (shown in RED)\n\n"
+            f"THIS RUN:\n"
+            f"  Vegetation BEFORE: {veg_before_pct:.1f}%\n"
+            f"  Vegetation AFTER:  {veg_after_pct:.1f}%\n"
+            f"  Net vegetation loss: {net_veg_loss:.1f}%\n"
+            f"  Clouds masked: {cloud_pct:.1f}%\n"
+            f"  Zones detected: {num_clusters}\n"
+            f"  Area cleared: {change_ha:.1f} ha ({change_pct:.1f}%)\n\n"
+            "FOR BEST RESULTS:\n"
+            "  OK  Cloud-free images for both dates\n"
+            "  OK  Same SEASON for both (Jan vs Jan, not Jan vs July)\n"
+            "      Comparing monsoon vs dry season gives false positives!\n"
+            "  OK  3-10 years apart for meaningful change\n"
+            "  OK  Same area, same zoom level\n"
+            "  OK  Sentinel-2 True Color at 10m resolution\n"
+            "  NO  Haze, smoke, heavy shadows in either image\n"
+        )
 
         return {
             "status": "success",
             "feature": "new_buildings",
-            "before": {
-                "buildup_percent": round(before_pct, 2),
-                "buildup_hectares": round(before_hectares, 2),
-                "buildup_acres": round(before_hectares * 2.47105, 2),
-                "overlay_image": self.image_to_base64(before_overlay),
-            },
-            "after": {
-                "buildup_percent": round(after_pct, 2),
-                "buildup_hectares": round(after_hectares, 2),
-                "buildup_acres": round(after_hectares * 2.47105, 2),
-                "overlay_image": self.image_to_base64(after_overlay),
-            },
+            "method": "Vegetation Loss Detection (ExG Spectral Index)",
+            "before": {"overlay_image": image_to_base64(before_overlay)},
+            "after": {"overlay_image": image_to_base64(after_overlay)},
             "change": {
                 "percent_change": round(change_pct, 2),
-                "new_buildup_hectares": round(new_hectares, 2),
-                "new_buildup_acres": round(new_hectares * 2.47105, 2),
-                "removed_hectares": round(removed_hectares, 2),
-                "net_change_hectares": round(new_hectares - removed_hectares, 2),
-                "new_clusters": num_new_clusters,
-                "new_pixels": new_pixels,
-                "removed_pixels": removed_pixels,
+                "new_buildup_hectares": round(change_ha, 2),
+                "new_buildup_acres": round(change_ha * 2.47105, 2),
+                "net_change_hectares": round(change_ha, 2),
+                "new_clusters": num_clusters,
+                "new_pixels": changed_pixels,
             },
+            "explanation": explanation,
             "overlays": {
-                "new_buildings": self.image_to_base64(after_overlay),
-                "removed_buildings": self.image_to_base64(removed_vis),
-                "difference": self.image_to_base64(diff_overlay),
-            }
+                "new_buildings": image_to_base64(after_overlay),
+                "difference": image_to_base64(diff_overlay),
+                "heatmap": image_to_base64(heatmap_overlay),
+            },
         }
 
 
 # ============================================================
-# SINGLETON ACCESSORS
+# SINGLETON ACCESSOR
 # ============================================================
 
 _building_detector = None
 
 
-def get_building_detector() -> BuildingDetector:
+def get_building_detector():
     global _building_detector
     if _building_detector is None:
         _building_detector = BuildingDetector()

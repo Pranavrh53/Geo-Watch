@@ -125,6 +125,46 @@ function initMap() {
     });
 }
 
+function applyManualCoords() {
+    const west  = parseFloat(document.getElementById('manual-west').value);
+    const south = parseFloat(document.getElementById('manual-south').value);
+    const east  = parseFloat(document.getElementById('manual-east').value);
+    const north = parseFloat(document.getElementById('manual-north').value);
+
+    if ([west, south, east, north].some(isNaN)) {
+        alert('Please fill in all four coordinate fields.');
+        return;
+    }
+    if (west >= east || south >= north) {
+        alert('Invalid bbox: West must be < East and South must be < North.');
+        return;
+    }
+
+    // Set the global bbox
+    selectedBbox = { north, south, east, west };
+
+    // Draw rectangle on the map
+    if (typeof drawnItems !== 'undefined') {
+        drawnItems.clearLayers();
+    }
+    const bounds = L.latLngBounds([south, west], [north, east]);
+    const rect = L.rectangle(bounds, {
+        color: '#B2E600', weight: 3, fillOpacity: 0.15, dashArray: '8 4'
+    });
+    if (typeof drawnItems !== 'undefined') {
+        drawnItems.addLayer(rect);
+    } else {
+        rect.addTo(map);
+    }
+
+    // Fly to the area
+    map.fitBounds(bounds, { padding: [40, 40] });
+
+    // Update sidebar display and enable fetch
+    displayCoordinates(selectedBbox);
+    document.getElementById('fetch-btn').disabled = false;
+}
+
 function addGeolocationControl() {
     // Create custom geolocation control
     const GeolocationControl = L.Control.extend({

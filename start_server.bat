@@ -4,6 +4,9 @@ echo   Geo-Watch Interactive Dashboard
 echo ================================================
 echo.
 
+REM Set UTF-8 output so unicode characters print correctly on Windows
+set PYTHONIOENCODING=utf-8
+
 REM Check if venv exists
 if not exist "venv" (
     echo ERROR: Virtual environment not found!

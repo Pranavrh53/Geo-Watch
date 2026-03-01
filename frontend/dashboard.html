@@ -539,6 +539,36 @@
                 </div>
 
                 <div class="section">
+                    <h3 class="section-title">📍 Manual Coordinates</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-size:0.72em;">West (Lng)</label>
+                            <input type="number" step="0.0001" id="manual-west" placeholder="77.68"
+                                   style="font-size:0.82em;padding:6px 8px;width:100%;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-size:0.72em;">South (Lat)</label>
+                            <input type="number" step="0.0001" id="manual-south" placeholder="12.86"
+                                   style="font-size:0.82em;padding:6px 8px;width:100%;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-size:0.72em;">East (Lng)</label>
+                            <input type="number" step="0.0001" id="manual-east" placeholder="77.72"
+                                   style="font-size:0.82em;padding:6px 8px;width:100%;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-size:0.72em;">North (Lat)</label>
+                            <input type="number" step="0.0001" id="manual-north" placeholder="12.90"
+                                   style="font-size:0.82em;padding:6px 8px;width:100%;">
+                        </div>
+                    </div>
+                    <button onclick="applyManualCoords()" class="btn btn-primary"
+                            style="width:100%;padding:8px;font-size:0.65em;background:#00B8A9;border-color:#009688;">
+                        ✅ Apply Coordinates
+                    </button>
+                </div>
+
+                <div class="section">
                     <h3 class="section-title">City Quick Select</h3>
                     <div class="form-group">
                         <label>Jump to City</label>

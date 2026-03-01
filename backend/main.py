@@ -33,6 +33,8 @@ from backend.tile_fetcher import get_tile_fetcher
 from backend.image_processor import ImageProcessor
 from backend.ai_analyzer import get_urban_detector
 from backend.feature_detectors import get_building_detector
+from backend.spectral_analyzer import get_spectral_detector
+from backend.ml_change_detector import get_ml_detector
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -857,6 +859,163 @@ def detect_new_buildings(
     except Exception as e:
         logger.error(f"Building detection failed: {e}")
         raise HTTPException(status_code=500, detail=f"Building detection failed: {str(e)}")
+
+
+# ---- Spectral-based Deforestation Detection ----
+
+class DeforestationRequest(BaseModel):
+    bbox: Dict[str, float]   # {west, south, east, north}
+    before_date: str         # YYYY-MM-DD
+    after_date: str          # YYYY-MM-DD
+    before_image_path: Optional[str] = None  # optional true-color for overlay
+    after_image_path: Optional[str] = None
+    pixel_resolution: Optional[float] = 10.0
+
+
+@app.post("/api/ai/deforestation")
+def detect_deforestation(
+    request: DeforestationRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Spectral deforestation detection using NDVI + NDBI indices.
+
+    Uses Sentinel-2 Process API to fetch real NIR, SWIR, SCL bands.
+    Much more accurate than RGB-only methods.
+
+    Categories detected:
+      - Deforestation due to construction (NDVI drop + NDBI rise)
+      - Vegetation loss (general)
+      - New construction on bare land
+      - Vegetation recovery
+    """
+    print(f"\n{'='*60}", flush=True)
+    print(f"🌳  SPECTRAL DEFORESTATION DETECTION ENDPOINT", flush=True)
+    print(f"User: {current_user.username}", flush=True)
+    print(f"Dates: {request.before_date} → {request.after_date}", flush=True)
+    print(f"Bbox: {request.bbox}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+
+    try:
+        detector = get_spectral_detector()
+
+        # Resolve true-color image paths for overlay (optional)
+        project_root = Path(__file__).parent.parent
+        before_tc = None
+        after_tc = None
+        if request.before_image_path:
+            p = project_root / request.before_image_path
+            if p.exists():
+                before_tc = str(p)
+        if request.after_image_path:
+            p = project_root / request.after_image_path
+            if p.exists():
+                after_tc = str(p)
+
+        results = detector.detect_deforestation(
+            bbox=request.bbox,
+            before_date=request.before_date,
+            after_date=request.after_date,
+            before_true_color_url=before_tc,
+            after_true_color_url=after_tc,
+            pixel_resolution=request.pixel_resolution or 10.0,
+        )
+
+        return results
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Deforestation detection failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Deforestation detection failed: {str(e)}"
+        )
+
+
+# ---- Unified ML Change Detection (ChangeFormer + Spectral) ----
+
+class AnalyzeChangesRequest(BaseModel):
+    bbox: Dict[str, float]                     # {west, south, east, north}
+    before_date: str                            # YYYY-MM-DD
+    after_date: str                             # YYYY-MM-DD
+    before_image_path: Optional[str] = None     # cached true-color tile
+    after_image_path: Optional[str] = None
+    detect_types: Optional[List[str]] = None    # subset of categories
+    pixel_resolution: Optional[float] = 10.0
+
+
+@app.post("/api/ai/analyze-changes")
+def analyze_changes_ml(
+    request: AnalyzeChangesRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    🧠 Full ML Change Detection Pipeline
+
+    Uses ChangeFormer (DL Transformer) for pixel-level change detection
+    + spectral indices (NDVI/NDBI) for change classification.
+
+    Categories:
+      - Deforestation (forest → built-up)
+      - New Construction
+      - Water Body Changes
+      - Agricultural Changes
+      - Road Development
+      - Vegetation Recovery
+    """
+    print(f"\n{'='*60}", flush=True)
+    print(f"\U0001f9e0  ML CHANGE DETECTION — FULL PIPELINE", flush=True)
+    print(f"User: {current_user.username}", flush=True)
+    print(f"Dates: {request.before_date} \u2192 {request.after_date}", flush=True)
+    print(f"Detect: {request.detect_types or 'ALL'}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+
+    try:
+        project_root = Path(__file__).parent.parent
+        fetcher = get_tile_fetcher()
+
+        # Load or fetch before/after true-color images
+        if request.before_image_path:
+            before_path = project_root / request.before_image_path
+        else:
+            before_path = fetcher.get_tile(
+                db, request.bbox, request.before_date, (1024, 1024)
+            )
+        if request.after_image_path:
+            after_path = project_root / request.after_image_path
+        else:
+            after_path = fetcher.get_tile(
+                db, request.bbox, request.after_date, (1024, 1024)
+            )
+
+        from PIL import Image
+        before_img = Image.open(str(before_path)).convert("RGB")
+        after_img = Image.open(str(after_path)).convert("RGB")
+
+        # Run ML pipeline
+        detector = get_ml_detector()
+        results = detector.analyze_changes(
+            before_img=before_img,
+            after_img=after_img,
+            bbox=request.bbox,
+            before_date=request.before_date,
+            after_date=request.after_date,
+            detect_types=request.detect_types,
+            pixel_resolution=request.pixel_resolution or 10.0,
+        )
+
+        return results
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"ML change detection failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"ML change detection failed: {str(e)}"
+        )
 
 
 # Background task functions

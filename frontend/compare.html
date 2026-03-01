@@ -395,6 +395,10 @@
         <h1>🛰️ Geo-Watch - Image Comparison</h1>
         <div class="header-buttons">
             <button class="btn btn-secondary" onclick="goBack()">← Back to Map</button>
+            <button class="btn btn-primary" onclick="runDeforestationDetection()" id="deforest-btn"
+                    style="background: linear-gradient(135deg, #2E7D32, #1B5E20); border-color: #1B5E20;">
+                🌳 Detect Deforestation
+            </button>
             <button class="btn btn-primary" onclick="runBuildingDetection()" id="building-btn"
                     style="background: linear-gradient(135deg, #FF8C00, #FF6600); border-color: #FF6600;">
                 🏗️ Detect Buildings
@@ -653,98 +657,95 @@
         function displayBuildingResults(results) {
             const r = results;
             const changePct = r.change.percent_change;
-            const isGrowth = changePct > 0;
+            const method = r.method || 'ChangeFormer (MiT-b1 Transformer)';
 
             const html = `
-                <div style="position: fixed; top: 10%; right: 20px; width: 420px; background: white; 
-                            border: 6px solid #FF8C00; padding: 25px; z-index: 10000; 
-                            box-shadow: 10px 10px 0 rgba(255, 140, 0, 0.3); border-radius: 0;
-                            font-family: 'Space Mono', monospace; max-height: 80vh; overflow-y: auto;">
+                <div style="position: fixed; top: 8%; right: 20px; width: 380px; background: white; 
+                            border: 3px solid #FF5722; padding: 22px; z-index: 10000; 
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 8px;
+                            font-family: 'Space Mono', monospace; max-height: 85vh; overflow-y: auto;">
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.75em; margin: 0; color: #FF8C00;">
-                            🏗️ New Buildings
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.65em; margin: 0; color: #FF5722;">
+                            🤖 Change Detection
                         </h3>
-                        <button onclick="closeBuildingResults()" style="background: #FF8C00; border: 3px solid #FF6600; 
-                                color: white; padding: 8px 15px; cursor: pointer; font-family: 'Press Start 2P'; 
-                                font-size: 0.6em; border-radius: 0;">✕</button>
+                        <button onclick="closeBuildingResults()" style="background: #FF5722; border: none; 
+                                color: white; padding: 5px 10px; cursor: pointer; font-size: 0.8em; border-radius: 4px;">✕</button>
                     </div>
 
-                    <p style="font-size: 0.75em; color: #888; margin: 0 0 15px 0;">
-                        Method: HSV Colour Analysis + Excess-Green Index + Edge Density
+                    <p style="font-size: 0.7em; color: #999; margin: 0 0 12px 0;">
+                        Model: ${method}
                     </p>
 
-                    <!-- Before stats -->
-                    <div style="background: #f8f8f8; padding: 12px; border-left: 5px solid #0078FF; margin-bottom: 12px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 0.85em;">📊 BEFORE (${beforeDate})</h4>
-                        <p style="margin: 3px 0; color: #333;">Built-up: <strong>${r.before.buildup_percent}%</strong></p>
-                        <p style="margin: 3px 0; color: #666; font-size: 0.85em;">
-                            ${r.before.buildup_hectares} ha (${r.before.buildup_acres} acres)
+                    <!-- Results -->
+                    <div style="background: #FFF3E0; padding: 14px; border-radius: 6px; margin-bottom: 14px;">
+                        <p style="margin: 4px 0; font-size: 1.05em; font-weight: bold; color: #E65100;">
+                            ${r.change.new_buildup_hectares} ha of new changes detected
                         </p>
-                    </div>
-
-                    <!-- After stats -->
-                    <div style="background: #f8f8f8; padding: 12px; border-left: 5px solid #FF8C00; margin-bottom: 12px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 0.85em;">📊 AFTER (${afterDate})</h4>
-                        <p style="margin: 3px 0; color: #333;">Built-up: <strong>${r.after.buildup_percent}%</strong></p>
-                        <p style="margin: 3px 0; color: #666; font-size: 0.85em;">
-                            ${r.after.buildup_hectares} ha (${r.after.buildup_acres} acres)
+                        <p style="margin: 4px 0; font-size: 0.85em; color: #666;">
+                            ${r.change.new_clusters} zone${r.change.new_clusters !== 1 ? 's' : ''} · 
+                            ${changePct.toFixed(1)}% of image area
                         </p>
-                    </div>
-
-                    <!-- Change summary -->
-                    <div style="background: ${isGrowth ? '#FFF3E0' : '#E8F5E9'}; padding: 12px; 
-                                border-left: 5px solid ${isGrowth ? '#FF8C00' : '#4CAF50'}; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 0.85em;">
-                            ${isGrowth ? '📈' : '📉'} CHANGE DETECTED
-                        </h4>
-                        <p style="margin: 3px 0;"><strong>New construction zones:</strong> ${r.change.new_clusters}</p>
-                        <p style="margin: 3px 0;"><strong>New built-up area:</strong> +${r.change.new_buildup_hectares} ha</p>
-                        <p style="margin: 3px 0;"><strong>Removed/cleared:</strong> -${r.change.removed_hectares} ha</p>
-                        <p style="margin: 8px 0 0 0; font-size: 1.1em; font-weight: bold; 
-                                  color: ${isGrowth ? '#E65100' : '#2E7D32'};">
-                            Net change: ${isGrowth ? '+' : ''}${r.change.net_change_hectares} ha 
-                            (${isGrowth ? '+' : ''}${changePct.toFixed(1)}%)
+                        <p style="margin: 4px 0; font-size: 0.85em; color: #666;">
+                            ${r.change.new_buildup_acres} acres · ${r.change.new_pixels.toLocaleString()} pixels
                         </p>
                     </div>
 
                     <!-- Legend -->
-                    <div style="background: #f5f5f5; padding: 10px; margin-bottom: 15px; font-size: 0.8em;">
-                        <strong>Legend:</strong>
-                        <div style="margin-top: 5px;">
-                            <span style="display:inline-block;width:14px;height:14px;background:rgba(0,120,255,0.4);
-                                         border:2px solid #0050DD;vertical-align:middle;margin-right:5px;"></span>
-                            Existing buildings (before)
+                    <div style="background: #f9f9f9; padding: 10px; margin-bottom: 14px; font-size: 0.78em; border-radius: 6px;">
+                        <div style="margin-bottom: 4px;">
+                            <span style="display:inline-block;width:14px;height:14px;background:rgba(255,60,30,0.4);
+                                         border:1px solid #FF3C1E;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>
+                            New construction (vegetation → built-up)
                         </div>
-                        <div style="margin-top: 3px;">
-                            <span style="display:inline-block;width:14px;height:14px;background:rgba(255,140,0,0.5);
-                                         border:2px solid #FF6400;vertical-align:middle;margin-right:5px;"></span>
-                            <strong>NEW construction (after)</strong>
+                        <div>
+                            <span style="display:inline-block;width:14px;height:4px;background:linear-gradient(90deg,blue,cyan,green,yellow,red);
+                                         vertical-align:middle;margin-right:6px;border-radius:1px;"></span>
+                            Heatmap intensity (blue=low, red=high)
                         </div>
                     </div>
 
+                    <!-- Explanation for students -->
+                    ${r.explanation ? `
+                    <details style="margin-bottom: 14px;">
+                        <summary style="cursor:pointer; font-size: 0.82em; font-weight: bold; color: #1565C0; 
+                                        padding: 8px; background: #E3F2FD; border-radius: 6px;">
+                            📖 How does this detection work? (click to expand)
+                        </summary>
+                        <div style="background: #F5F5F5; padding: 12px; border-radius: 0 0 6px 6px; 
+                                    font-size: 0.75em; line-height: 1.6; color: #333; white-space: pre-line;">
+                            ${r.explanation}
+                        </div>
+                    </details>
+                    ` : ''}
+
                     <!-- Action buttons -->
                     <button onclick="showBuildingOverlays()" 
-                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #FF8C00, #FF6600); 
-                                   color: white; border: 4px solid #FF6600; font-family: 'Press Start 2P'; 
-                                   font-size: 0.65em; cursor: pointer; margin-bottom: 8px; border-radius: 0;
-                                   box-shadow: 4px 4px 0 rgba(255, 100, 0, 0.3);">
-                        👁️ Show on Images
-                    </button>
-
-                    <button onclick="resetImages(); closeBuildingResults()" 
-                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #666, #444); 
-                                   color: white; border: 4px solid #444; font-family: 'Press Start 2P'; 
-                                   font-size: 0.65em; cursor: pointer; margin-bottom: 8px; border-radius: 0;">
-                        🔄 Reset
+                            style="width: 100%; padding: 10px; background: #FF5722; 
+                                   color: white; border: none; font-family: 'Press Start 2P'; 
+                                   font-size: 0.55em; cursor: pointer; margin-bottom: 6px; border-radius: 6px;">
+                        🌿 Green Before / Red Cleared After
                     </button>
 
                     <button onclick="showDifferenceView()" 
-                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #7C4DFF, #651FFF); 
-                                   color: white; border: 4px solid #651FFF; font-family: 'Press Start 2P'; 
-                                   font-size: 0.65em; cursor: pointer; border-radius: 0;
-                                   box-shadow: 4px 4px 0 rgba(101, 31, 255, 0.3);">
-                        🗺️ Show Difference Map
+                            style="width: 100%; padding: 10px; background: #7C4DFF; 
+                                   color: white; border: none; font-family: 'Press Start 2P'; 
+                                   font-size: 0.55em; cursor: pointer; margin-bottom: 6px; border-radius: 6px;">
+                        🔍 Spotlight Cleared Zones Only
+                    </button>
+
+                    <button onclick="showHeatmapView()" 
+                            style="width: 100%; padding: 10px; background: #00897B; 
+                                   color: white; border: none; font-family: 'Press Start 2P'; 
+                                   font-size: 0.55em; cursor: pointer; margin-bottom: 6px; border-radius: 6px;">
+                        🌡️ Greenness-Loss Heatmap
+                    </button>
+
+                    <button onclick="resetImages(); closeBuildingResults()" 
+                            style="width: 100%; padding: 10px; background: #555; 
+                                   color: white; border: none; font-family: 'Press Start 2P'; 
+                                   font-size: 0.55em; cursor: pointer; border-radius: 6px;">
+                        🔄 Reset
                     </button>
                 </div>
             `;
@@ -764,6 +765,7 @@
         function showBuildingOverlays() {
             if (!window._buildingResults) return;
             const r = window._buildingResults;
+            // Show green-tinted BEFORE (where vegetation was) vs red AFTER (where it was cleared)
             document.getElementById('before-image').src = r.before.overlay_image;
             document.getElementById('after-image').src = r.overlays.new_buildings;
         }
@@ -771,13 +773,262 @@
         function showDifferenceView() {
             if (!window._buildingResults) return;
             const r = window._buildingResults;
-            // Show difference map on both panels for clear comparison
             document.getElementById('before-image').src = r.before.overlay_image;
             document.getElementById('after-image').src = r.overlays.difference;
         }
 
+        function showHeatmapView() {
+            if (!window._buildingResults) return;
+            const r = window._buildingResults;
+            document.getElementById('before-image').src = `${API_URL}${beforeImageUrl}`;
+            document.getElementById('after-image').src = r.overlays.heatmap;
+        }
+
         function closeBuildingResults() {
             const panel = document.getElementById('building-results-panel');
+            if (panel) panel.remove();
+        }
+
+        // ============================================================
+        // SPECTRAL DEFORESTATION DETECTION  (NDVI + NDBI)
+        // ============================================================
+
+        async function runDeforestationDetection() {
+            const btn = document.getElementById('deforest-btn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Analyzing...';
+
+            // Clean up previous runs
+            resetImages();
+            closeDeforestResults();
+            closeBuildingResults();
+
+            try {
+                if (!bbox) {
+                    throw new Error('No bounding box available. Go back and select a region.');
+                }
+
+                const beforePath = beforeImageUrl
+                    ? beforeImageUrl.replace('/api/tile/image/', 'data/tile_cache/')
+                    : null;
+                const afterPath = afterImageUrl
+                    ? afterImageUrl.replace('/api/tile/image/', 'data/tile_cache/')
+                    : null;
+
+                const response = await fetch(`${API_URL}/api/ai/deforestation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        bbox: bbox,
+                        before_date: beforeDate,
+                        after_date: afterDate,
+                        before_image_path: beforePath,
+                        after_image_path: afterPath,
+                        pixel_resolution: 10.0
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Deforestation detection failed');
+                }
+
+                const results = await response.json();
+                displayDeforestResults(results);
+
+            } catch (error) {
+                console.error('Deforestation detection failed:', error);
+                alert(`Deforestation detection failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🌳 Detect Deforestation';
+            }
+        }
+
+        function displayDeforestResults(results) {
+            const r = results;
+            const c = r.change || {};
+            const method = r.method || 'Spectral Index (NDVI + NDBI)';
+            const cats = r.categories || {};
+
+            // Build category rows
+            let catRows = '';
+            const catColors = {
+                'Deforestation → Construction': '#D32F2F',
+                'Vegetation Loss (general)': '#F57C00',
+                'New Construction (bare land)': '#1976D2',
+                'Vegetation Recovery': '#388E3C',
+            };
+            for (const [label, info] of Object.entries(cats)) {
+                const color = catColors[label] || '#666';
+                catRows += `
+                    <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.85em;">
+                        <span>
+                            <span style="display:inline-block;width:12px;height:12px;background:${info.color};
+                                         border-radius:2px;vertical-align:middle;margin-right:6px;"></span>
+                            ${label}
+                        </span>
+                        <span style="font-weight:bold;color:${color};">${info.hectares} ha (${info.percent}%)</span>
+                    </div>`;
+            }
+            if (!catRows) {
+                catRows = '<div style="font-size:0.85em;color:#666;">No significant changes detected</div>';
+            }
+
+            const html = `
+                <div style="position: fixed; top: 8%; right: 20px; width: 400px; background: white;
+                            border: 3px solid #2E7D32; padding: 22px; z-index: 10000;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 8px;
+                            font-family: 'Space Mono', monospace; max-height: 85vh; overflow-y: auto;">
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h3 style="font-family:'Press Start 2P',cursive;font-size:0.60em;margin:0;color:#2E7D32;">
+                            🌳 Deforestation Detection
+                        </h3>
+                        <button onclick="closeDeforestResults()" style="background:#2E7D32;border:none;
+                                color:white;padding:5px 10px;cursor:pointer;font-size:0.8em;border-radius:4px;">✕</button>
+                    </div>
+
+                    <p style="font-size:0.7em;color:#999;margin:0 0 12px 0;">
+                        ${method}<br>
+                        Data: ${r.data_source || 'Sentinel-2'}
+                    </p>
+
+                    <!-- Vegetation change summary -->
+                    <div style="background:#E8F5E9;padding:14px;border-radius:6px;margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <span style="font-size:0.85em;">Vegetation before:</span>
+                            <span style="font-weight:bold;color:#2E7D32;">${r.before?.veg_percent ?? '—'}%</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <span style="font-size:0.85em;">Vegetation after:</span>
+                            <span style="font-weight:bold;color:#D32F2F;">${r.after?.veg_percent ?? '—'}%</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;">
+                            <span style="font-size:0.85em;font-weight:bold;">Net vegetation loss:</span>
+                            <span style="font-weight:bold;color:#D32F2F;font-size:1.1em;">
+                                ${c.net_vegetation_loss_percent ?? 0}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Category breakdown -->
+                    <div style="background:#FFF3E0;padding:14px;border-radius:6px;margin-bottom:14px;">
+                        <div style="font-weight:bold;margin-bottom:8px;font-size:0.85em;">Change Breakdown:</div>
+                        ${catRows}
+                    </div>
+
+                    ${c.cloud_masked_percent > 10 ? `
+                    <div style="background:#FFF9C4;padding:8px 12px;border-radius:6px;margin-bottom:14px;font-size:0.78em;">
+                        ⚠️ ${c.cloud_masked_percent}% of pixels were cloudy — results
+                        may be less accurate. Try dates with clearer weather.
+                    </div>` : ''}
+
+                    <!-- Legend -->
+                    <div style="background:#f9f9f9;padding:10px;margin-bottom:14px;font-size:0.75em;border-radius:6px;">
+                        <div style="margin-bottom:3px;">
+                            <span style="display:inline-block;width:12px;height:12px;background:rgba(220,30,30,0.7);
+                                         border:1px solid #B71C1C;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>
+                            Deforestation → Construction
+                        </div>
+                        <div style="margin-bottom:3px;">
+                            <span style="display:inline-block;width:12px;height:12px;background:rgba(255,160,0,0.7);
+                                         border:1px solid #E65100;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>
+                            Vegetation Loss (general)
+                        </div>
+                        <div style="margin-bottom:3px;">
+                            <span style="display:inline-block;width:12px;height:12px;background:rgba(60,80,255,0.7);
+                                         border:1px solid #1565C0;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>
+                            New Construction (bare land)
+                        </div>
+                        <div>
+                            <span style="display:inline-block;width:12px;height:12px;background:rgba(30,200,80,0.7);
+                                         border:1px solid #1B5E20;vertical-align:middle;margin-right:6px;border-radius:2px;"></span>
+                            Vegetation Recovery
+                        </div>
+                    </div>
+
+                    <!-- Explanation -->
+                    ${r.explanation ? `
+                    <details style="margin-bottom:14px;">
+                        <summary style="cursor:pointer;font-size:0.82em;font-weight:bold;color:#1565C0;
+                                        padding:8px;background:#E3F2FD;border-radius:6px;">
+                            📖 How does this detection work? (click to expand)
+                        </summary>
+                        <div style="background:#F5F5F5;padding:12px;border-radius:0 0 6px 6px;
+                                    font-size:0.72em;line-height:1.6;color:#333;white-space:pre-line;">
+                            ${r.explanation}
+                        </div>
+                    </details>` : ''}
+
+                    <!-- Action buttons -->
+                    <button onclick="showDeforestOverlays()"
+                            style="width:100%;padding:10px;background:#D32F2F;
+                                   color:white;border:none;font-family:'Press Start 2P';
+                                   font-size:0.52em;cursor:pointer;margin-bottom:6px;border-radius:6px;">
+                        🔴 Deforestation Overlay
+                    </button>
+
+                    <button onclick="showDeforestHeatmap()"
+                            style="width:100%;padding:10px;background:#00897B;
+                                   color:white;border:none;font-family:'Press Start 2P';
+                                   font-size:0.52em;cursor:pointer;margin-bottom:6px;border-radius:6px;">
+                        🌡️ NDVI Change Heatmap
+                    </button>
+
+                    <button onclick="showDeforestSpotlight()"
+                            style="width:100%;padding:10px;background:#7C4DFF;
+                                   color:white;border:none;font-family:'Press Start 2P';
+                                   font-size:0.52em;cursor:pointer;margin-bottom:6px;border-radius:6px;">
+                        🔍 Spotlight Changed Zones
+                    </button>
+
+                    <button onclick="resetImages(); closeDeforestResults()"
+                            style="width:100%;padding:10px;background:#555;
+                                   color:white;border:none;font-family:'Press Start 2P';
+                                   font-size:0.52em;cursor:pointer;border-radius:6px;">
+                        🔄 Reset
+                    </button>
+                </div>
+            `;
+
+            window._deforestResults = results;
+
+            const existing = document.getElementById('deforest-results-panel');
+            if (existing) existing.remove();
+
+            const panel = document.createElement('div');
+            panel.id = 'deforest-results-panel';
+            panel.innerHTML = html;
+            document.body.appendChild(panel);
+        }
+
+        function showDeforestOverlays() {
+            if (!window._deforestResults) return;
+            const r = window._deforestResults;
+            document.getElementById('before-image').src = r.before.overlay_image;
+            document.getElementById('after-image').src = r.overlays.deforestation;
+        }
+
+        function showDeforestHeatmap() {
+            if (!window._deforestResults) return;
+            const r = window._deforestResults;
+            document.getElementById('before-image').src = r.before.overlay_image;
+            document.getElementById('after-image').src = r.overlays.heatmap;
+        }
+
+        function showDeforestSpotlight() {
+            if (!window._deforestResults) return;
+            const r = window._deforestResults;
+            document.getElementById('before-image').src = r.before.overlay_image;
+            document.getElementById('after-image').src = r.overlays.spotlight;
+        }
+
+        function closeDeforestResults() {
+            const panel = document.getElementById('deforest-results-panel');
             if (panel) panel.remove();
         }
     </script>
