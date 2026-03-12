@@ -395,6 +395,10 @@
         <h1>🛰️ Geo-Watch - Image Comparison</h1>
         <div class="header-buttons">
             <button class="btn btn-secondary" onclick="goBack()">← Back to Map</button>
+            <button class="btn btn-primary" onclick="runAllChangesDetection()" id="allchanges-btn"
+                    style="background: linear-gradient(135deg, #5555FF, #3333CC); border-color: #3333CC;">
+                🔍 Detect All Changes
+            </button>
             <button class="btn btn-primary" onclick="runDeforestationDetection()" id="deforest-btn"
                     style="background: linear-gradient(135deg, #2E7D32, #1B5E20); border-color: #1B5E20;">
                 🌳 Detect Deforestation
@@ -1029,6 +1033,213 @@
 
         function closeDeforestResults() {
             const panel = document.getElementById('deforest-results-panel');
+            if (panel) panel.remove();
+        }
+
+        // ============================================================
+        // COMPREHENSIVE CHANGE DETECTION  (all 6 categories)
+        // ============================================================
+
+        async function runAllChangesDetection() {
+            const btn = document.getElementById('allchanges-btn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Analyzing...';
+
+            resetImages();
+            closeAllChanges();
+            closeBuildingResults();
+            closeDeforestResults();
+
+            try {
+                const beforePath = beforeImageUrl.replace('/api/tile/image/', 'data/tile_cache/');
+                const afterPath  = afterImageUrl.replace('/api/tile/image/', 'data/tile_cache/');
+
+                const response = await fetch(`${API_URL}/api/ai/change-detection`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        before_image_path: beforePath,
+                        after_image_path:  afterPath,
+                        pixel_resolution:  10.0
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Change detection failed');
+                }
+
+                const results = await response.json();
+                displayAllChanges(results);
+
+            } catch (error) {
+                console.error('Change detection failed:', error);
+                alert(`Change detection failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 Detect All Changes';
+            }
+        }
+
+        function displayAllChanges(results) {
+            const cats = results.categories || {};
+            const severity  = results.severity  || 'Unknown';
+            const changePct = results.change_percentage || 0;
+            const changeHa  = results.change_area_hectares || 0;
+            const dominant  = results.change_type || 'None';
+
+            // Category icons & colours
+            const catMeta = {
+                'new_construction': { icon: '🟠', label: 'New Construction',       desc: 'Vegetation/bare land converted to built-up area' },
+                'vegetation_loss':  { icon: '🟡', label: 'Vegetation Loss',        desc: 'Green land cleared — land use change' },
+                'new_vegetation':   { icon: '🟢', label: 'New Vegetation',         desc: 'Bare/built area now vegetated (recovery/farming)' },
+                'water_change':     { icon: '🔵', label: 'Water Body Change',      desc: 'Lake/river gained or dried out' },
+                'demolition':       { icon: '🟣', label: 'Demolition',             desc: 'Built structures removed (urban removal)' },
+                'new_route':        { icon: '⚫', label: 'New Route / Road',       desc: 'Linear built-up pattern — road/path/canal' },
+            };
+
+            let catRows = '';
+            for (const [key, info] of Object.entries(cats)) {
+                const meta = catMeta[key] || { icon: '⬜', label: key, desc: '' };
+                catRows += `
+                    <div style="padding:8px 0; border-bottom:1px solid #eee;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span>
+                                <span style="display:inline-block;width:14px;height:14px;
+                                             background:${info.color};border-radius:3px;
+                                             vertical-align:middle;margin-right:6px;border:1px solid #ccc;"></span>
+                                <strong>${meta.icon} ${meta.label}</strong>
+                            </span>
+                            <span style="font-weight:bold;color:#333;">${info.hectares} ha</span>
+                        </div>
+                        <div style="font-size:0.78em;color:#777;margin-top:2px;padding-left:22px;">
+                            ${meta.desc} — ${info.pixels.toLocaleString()} px (${info.percent}%)
+                        </div>
+                    </div>`;
+            }
+            if (!catRows) {
+                catRows = '<div style="font-size:0.85em;color:#888;padding:8px 0;">No significant changes detected in this region.</div>';
+            }
+
+            const severityColor = {
+                'Minimal': '#4CAF50', 'Low': '#8BC34A',
+                'Medium': '#FFC107', 'High': '#FF5722', 'Very High': '#D32F2F'
+            }[severity] || '#888';
+
+            const html = `
+                <div style="position:fixed;top:8%;right:20px;width:400px;background:white;
+                            border:3px solid #5555FF;padding:22px;z-index:10000;
+                            box-shadow:0 4px 24px rgba(0,0,0,0.18);border-radius:10px;
+                            font-family:'Space Mono',monospace;max-height:85vh;overflow-y:auto;">
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h3 style="font-family:'Press Start 2P',cursive;font-size:0.60em;margin:0;color:#5555FF;">
+                            🔍 All Changes
+                        </h3>
+                        <button onclick="closeAllChanges()" style="background:#5555FF;border:none;
+                                color:white;padding:5px 10px;cursor:pointer;font-size:0.8em;border-radius:4px;">✕</button>
+                    </div>
+
+                    <p style="font-size:0.68em;color:#888;margin:0 0 12px 0;">
+                        Land-cover transition analysis (RGB spectral)
+                    </p>
+
+                    <!-- Summary bar -->
+                    <div style="background:#EEF2FF;padding:14px;border-radius:8px;margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:0.85em;">Total change area:</span>
+                            <span style="font-weight:bold;color:#5555FF;">${changeHa} ha (${changePct}%)</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:0.85em;">Severity:</span>
+                            <span style="font-weight:bold;color:${severityColor};">${severity}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;">
+                            <span style="font-size:0.85em;">Dominant change:</span>
+                            <span style="font-weight:bold;color:#333;font-size:0.85em;">${dominant}</span>
+                        </div>
+                    </div>
+
+                    <!-- Category breakdown -->
+                    <div style="background:#FAFAFA;padding:14px;border-radius:8px;margin-bottom:14px;font-size:0.82em;">
+                        <div style="font-weight:bold;margin-bottom:6px;">Change Breakdown:</div>
+                        ${catRows}
+                    </div>
+
+                    <!-- Legend -->
+                    <div style="background:#f0f0f0;padding:10px;margin-bottom:14px;font-size:0.73em;
+                                border-radius:6px;line-height:1.7;">
+                        <div style="font-weight:bold;margin-bottom:4px;">Colour Legend:</div>
+                        <div>🟠 <span style="color:#FF6400;">Orange</span> — New Construction (buildings)</div>
+                        <div>🟡 <span style="color:#DCB41E;">Yellow</span> — Vegetation Loss (cleared land)</div>
+                        <div>🟢 <span style="color:#00C850;">Green</span>  — New Vegetation (recovery/farming)</div>
+                        <div>🔵 <span style="color:#1E78FF;">Blue</span>   — Water Body Change (dried / new lake)</div>
+                        <div>🟣 <span style="color:#B43CDC;">Purple</span> — Demolition (structures removed)</div>
+                        <div>⚫ <span style="color:#646464;">Gray</span>   — New Route / Road</div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <button onclick="showAllChangesAfterOverlay()"
+                            style="width:100%;padding:10px;background:#5555FF;color:white;border:none;
+                                   font-family:'Press Start 2P';font-size:0.50em;cursor:pointer;
+                                   margin-bottom:6px;border-radius:6px;">
+                        🗺️ Show Changes on AFTER Image
+                    </button>
+                    <button onclick="showAllChangesBeforeOverlay()"
+                            style="width:100%;padding:10px;background:#3333CC;color:white;border:none;
+                                   font-family:'Press Start 2P';font-size:0.50em;cursor:pointer;
+                                   margin-bottom:6px;border-radius:6px;">
+                        🗺️ Show Changes on BEFORE Image
+                    </button>
+                    <button onclick="resetImages();closeAllChanges()"
+                            style="width:100%;padding:10px;background:#555;color:white;border:none;
+                                   font-family:'Press Start 2P';font-size:0.50em;cursor:pointer;
+                                   border-radius:6px;">
+                        🔄 Reset
+                    </button>
+                </div>
+            `;
+
+            window._allChangesResults = results;
+
+            const existing = document.getElementById('allchanges-results-panel');
+            if (existing) existing.remove();
+
+            const panel = document.createElement('div');
+            panel.id = 'allchanges-results-panel';
+            panel.innerHTML = html;
+            document.body.appendChild(panel);
+
+            // Auto-show overlay on after image
+            if (results.after_overlay) {
+                document.getElementById('after-image').src = results.after_overlay;
+            }
+            if (results.before_overlay) {
+                document.getElementById('before-image').src = results.before_overlay;
+            }
+        }
+
+        function showAllChangesAfterOverlay() {
+            if (!window._allChangesResults) return;
+            const r = window._allChangesResults;
+            if (r.after_overlay)  document.getElementById('after-image').src  = r.after_overlay;
+            if (r.before_overlay) document.getElementById('before-image').src = r.before_overlay;
+        }
+
+        function showAllChangesBeforeOverlay() {
+            if (!window._allChangesResults) return;
+            const r = window._allChangesResults;
+            if (r.before_overlay) {
+                document.getElementById('before-image').src = r.before_overlay;
+                document.getElementById('after-image').src  = r.before_overlay;
+            }
+        }
+
+        function closeAllChanges() {
+            const panel = document.getElementById('allchanges-results-panel');
             if (panel) panel.remove();
         }
     </script>
