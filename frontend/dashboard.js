@@ -3,6 +3,8 @@ const API_URL = 'http://localhost:8000';
 let map = null;
 let drawnItems = null;
 let selectedBbox = null;
+let mapLayerControl = null;
+let unifiedLayerRefs = {};
 let accessToken = localStorage.getItem('access_token');
 let currentUser = localStorage.getItem('username');
 
@@ -60,7 +62,7 @@ function initMap() {
     baseLayers["Satellite"].addTo(map);
 
     // Add layer control
-    L.control.layers(baseLayers).addTo(map);
+    mapLayerControl = L.control.layers(baseLayers).addTo(map);
 
     // Initialize drawn items layer
     drawnItems = new L.FeatureGroup();
@@ -116,12 +118,14 @@ function initMap() {
         
         // Enable fetch button
         document.getElementById('fetch-btn').disabled = false;
+        document.getElementById('analyze-map-btn').disabled = false;
     });
 
     map.on(L.Draw.Event.DELETED, function () {
         selectedBbox = null;
         document.getElementById('coordinates-display').classList.remove('show');
         document.getElementById('fetch-btn').disabled = true;
+        document.getElementById('analyze-map-btn').disabled = true;
     });
 }
 
@@ -163,6 +167,111 @@ function applyManualCoords() {
     // Update sidebar display and enable fetch
     displayCoordinates(selectedBbox);
     document.getElementById('fetch-btn').disabled = false;
+    document.getElementById('analyze-map-btn').disabled = false;
+}
+
+function clearUnifiedOverlays() {
+    const keys = Object.keys(unifiedLayerRefs);
+    keys.forEach((key) => {
+        const layer = unifiedLayerRefs[key];
+        if (layer) {
+            map.removeLayer(layer);
+            if (mapLayerControl) {
+                mapLayerControl.removeLayer(layer);
+            }
+        }
+    });
+    unifiedLayerRefs = {};
+}
+
+async function runUnifiedAnalysisOnMap() {
+    if (!selectedBbox) {
+        showAlert('Select a region first.', 'error');
+        return;
+    }
+
+    const beforeDate = document.getElementById('before-date').value;
+    const afterDate = document.getElementById('after-date').value;
+    if (!beforeDate || !afterDate) {
+        showAlert('Select before and after dates.', 'error');
+        return;
+    }
+
+    showLoading('Running unified multi-temporal analysis...');
+    document.getElementById('analyze-map-btn').disabled = true;
+
+    try {
+        const response = await fetch(`${API_URL}/api/ai/analyze-changes`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bbox: selectedBbox,
+                before_date: beforeDate,
+                after_date: afterDate,
+                pixel_resolution: 10.0
+            })
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+            const error = await response.json();
+            throw new Error(error.detail || 'Unified analysis failed');
+        }
+
+        const result = await response.json();
+        const layers = result.leaflet_layers || {};
+        const bounds = L.latLngBounds(
+            [selectedBbox.south, selectedBbox.west],
+            [selectedBbox.north, selectedBbox.east]
+        );
+
+        clearUnifiedOverlays();
+
+        if (layers.change_probability_heatmap?.image) {
+            const layer = L.imageOverlay(
+                layers.change_probability_heatmap.image,
+                bounds,
+                { opacity: layers.change_probability_heatmap.opacity || 0.75 }
+            ).addTo(map);
+            unifiedLayerRefs.probability = layer;
+            if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Change Probability Heatmap');
+        }
+
+        if (layers.classified_change_map?.image) {
+            const layer = L.imageOverlay(
+                layers.classified_change_map.image,
+                bounds,
+                { opacity: layers.classified_change_map.opacity || 0.8 }
+            ).addTo(map);
+            unifiedLayerRefs.classified = layer;
+            if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Classified Change Map');
+        }
+
+        if (layers.temporal_trend_visualization?.image) {
+            const layer = L.imageOverlay(
+                layers.temporal_trend_visualization.image,
+                bounds,
+                { opacity: layers.temporal_trend_visualization.opacity || 0.75 }
+            ).addTo(map);
+            unifiedLayerRefs.trend = layer;
+            if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Temporal Trend Visualization');
+        }
+
+        map.fitBounds(bounds, { padding: [20, 20] });
+        showAlert('Unified map overlays added. Use layer control to toggle layers.', 'success');
+    } catch (error) {
+        console.error('Unified map analysis failed:', error);
+        showAlert(error.message || 'Unified map analysis failed', 'error');
+    } finally {
+        hideLoading();
+        document.getElementById('analyze-map-btn').disabled = false;
+    }
 }
 
 function addGeolocationControl() {
@@ -468,6 +577,7 @@ function loadHistoryItem(item) {
 
     // Enable fetch button
     document.getElementById('fetch-btn').disabled = false;
+    document.getElementById('analyze-map-btn').disabled = false;
 }
 
 function showLoading(text) {

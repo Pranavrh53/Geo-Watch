@@ -120,14 +120,14 @@ class SpectralChangeDetector:
     """
 
     # ── Thresholds (tuned for 10 m Sentinel-2 L2A) ──────────
-    NDVI_VEG_THRESH     =  0.30   # pixel "was forest" if NDVI_before > this
-    NDVI_DENSE_FOREST   =  0.50   # dense forest/canopy
-    DNDVI_LOSS_FALLBACK = -0.12   # fallback loss threshold (if adaptive is looser)
-    DNDBI_BUILT_FALLBACK=  0.08   # fallback built-up threshold
-    ADAPTIVE_SIGMA      =  1.5    # N stddevs from mean for adaptive thresholds
-    MIN_BLOB_AREA       =  200    # min connected-component (px); noise handled by preprocessing
-    MAX_ZONES_PER_CAT   =  50     # keep top N biggest zones per category
-    GAUSS_KERNEL        =  5      # Gaussian blur kernel size (odd number)
+    NDVI_VEG_THRESH     =  0.20   # pixel "was vegetated" — catches crops & scrub
+    NDVI_DENSE_FOREST   =  0.45   # dense forest/canopy
+    DNDVI_LOSS_FALLBACK = -0.08   # hardcoded loss floor
+    DNDBI_BUILT_FALLBACK=  0.05   # hardcoded built-up floor
+    NDBI_ABS_BUILT      =  0.10   # absolute: NDBI_after > this → built-up
+    MIN_BLOB_AREA       = 2000    # ~2 ha minimum zone (filters crop-rotation noise)
+    MAX_ZONES_PER_CAT   =  30     # keep top N largest zones
+    GAUSS_KERNEL        =  3      # light blur for noise only
 
     PROCESS_API_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
 
@@ -188,7 +188,7 @@ class SpectralChangeDetector:
         bbox: Dict[str, float],
         date: str,
         size: int = 1024,
-        search_days: int = 60,
+        search_days: int = 45,
     ) -> Optional[np.ndarray]:
         """
         Fetch [NDVI, NDBI, SCL] encoded PNG from Sentinel Hub Process API.
@@ -201,7 +201,12 @@ class SpectralChangeDetector:
             ch2 = SCL class
         or None on failure.
         """
+        print(f"  fetch_spectral_tile: date={date}, search_days={search_days}, "
+              f"bbox=W{bbox['west']:.3f}/S{bbox['south']:.3f}/"
+              f"E{bbox['east']:.3f}/N{bbox['north']:.3f}", flush=True)
+
         if self.demo_mode:
+            print("  [DEMO MODE] returning synthetic data", flush=True)
             return self._generate_demo_spectral(bbox, date, size)
 
         token = self._get_access_token()
@@ -249,7 +254,8 @@ class SpectralChangeDetector:
         }
 
         try:
-            print(f"  Fetching spectral data for {date} …", flush=True)
+            print(f"  Fetching spectral data for {date} (window: {start} → {end}) …",
+                  flush=True)
             resp = _make_session().post(
                 self.PROCESS_API_URL,
                 json=body, headers=headers,
@@ -258,6 +264,8 @@ class SpectralChangeDetector:
             resp.raise_for_status()
 
             ct = resp.headers.get("Content-Type", "")
+            print(f"  API response: status={resp.status_code}, "
+                  f"content-type={ct}, size={len(resp.content)} bytes", flush=True)
             if "image" not in ct:
                 logger.warning(f"Unexpected content-type: {ct}")
                 logger.warning(resp.text[:500])
@@ -265,6 +273,12 @@ class SpectralChangeDetector:
 
             img = Image.open(io.BytesIO(resp.content)).convert("RGB")
             arr = np.array(img)
+
+            ndvi_ch = arr[:, :, 0].astype(np.float32)
+            ndvi_decoded = (ndvi_ch / 127.5) - 1.0
+            print(f"  ✓ Tile decoded: shape={arr.shape}, "
+                  f"NDVI[0ch] mean_raw={ndvi_ch.mean():.1f} "
+                  f"→ decoded={ndvi_decoded.mean():.3f}", flush=True)
 
             # Sanity check
             if float(np.std(arr[:, :, 0])) < 1.0:
@@ -349,71 +363,31 @@ class SpectralChangeDetector:
         valid = np.isin(scl, list(GOOD_SCL))
 
         return ndvi, ndbi, valid
-    # ── IMAGE PREPROCESSING (histogram matching + blur) ───
-    @staticmethod
-    def _histogram_match_channel(source: np.ndarray,
-                                  reference: np.ndarray,
-                                  valid_s: np.ndarray,
-                                  valid_r: np.ndarray) -> np.ndarray:
-        """
-        Match the histogram of `source` to `reference` on valid pixels.
-        This removes atmospheric/illumination differences between dates
-        so that only REAL surface changes remain.
-        """
-        src_valid = source[valid_s]
-        ref_valid = reference[valid_r]
-        if len(src_valid) < 100 or len(ref_valid) < 100:
-            return source  # not enough data
-
-        # Compute CDFs
-        src_sorted = np.sort(src_valid)
-        ref_sorted = np.sort(ref_valid)
-
-        # Build mapping: for each source value, find matching reference quantile
-        src_quantiles = np.linspace(0, 1, len(src_sorted))
-        ref_quantiles = np.linspace(0, 1, len(ref_sorted))
-
-        # Map source values to reference distribution
-        result = source.copy()
-        # Normalize to 0-1 quantile using source distribution
-        flat = source.flatten()
-        mapped = np.interp(flat, src_sorted, src_quantiles)  # source -> quantile
-        matched = np.interp(mapped, ref_quantiles, ref_sorted)  # quantile -> reference
-        result = matched.reshape(source.shape)
-
-        return result.astype(np.float32)
-
+    # ── IMAGE PREPROCESSING (noise reduction) ───────────
     def _preprocess_spectral(self, ndvi_b, ndbi_b, valid_b,
                               ndvi_a, ndbi_a, valid_a):
         """
-        Preprocess spectral index maps before change computation:
+        Preprocess spectral index maps before change computation.
+
+        Sentinel-2 L2A is already atmospherically corrected (BOA reflectance),
+        so we do NOT apply radiometric normalization (histogram matching or
+        linear normalization both destroy real changes when a significant
+        portion of the scene has changed).
+
+        Instead:
         1. Gaussian blur to reduce per-pixel sensor noise
-        2. Histogram-match 'after' to 'before' distribution
-           so atmospheric/seasonal bias is removed at pixel level
+        2. Rely on adaptive thresholds (mean ± Nσ) to handle any
+           residual seasonal / atmospheric shift in the differences.
         """
         k = self.GAUSS_KERNEL
 
-        # Step 1: Gaussian blur both dates
         ndvi_b = cv2.GaussianBlur(ndvi_b, (k, k), 0)
         ndbi_b = cv2.GaussianBlur(ndbi_b, (k, k), 0)
         ndvi_a = cv2.GaussianBlur(ndvi_a, (k, k), 0)
         ndbi_a = cv2.GaussianBlur(ndbi_a, (k, k), 0)
 
-        # Step 2: Histogram-match 'after' to 'before'
-        # This makes the two dates directly comparable by aligning
-        # their spectral distributions — pixels that really changed
-        # on the ground will still stand out, but atmospheric
-        # differences ($\tau_{atm}$, sun angle, etc.) are neutralised.
-        ndvi_a_matched = self._histogram_match_channel(
-            ndvi_a, ndvi_b, valid_a, valid_b
-        )
-        ndbi_a_matched = self._histogram_match_channel(
-            ndbi_a, ndbi_b, valid_a, valid_b
-        )
-
-        print(f"  Preprocessing: Gaussian blur k={k}, histogram matching done",
-              flush=True)
-        return ndvi_b, ndbi_b, ndvi_a_matched, ndbi_a_matched
+        print(f"  Preprocessing: Gaussian blur k={k}", flush=True)
+        return ndvi_b, ndbi_b, ndvi_a, ndbi_a
     # ────────────────────────────────────────────────────────
     #  MAIN CHANGE DETECTION PIPELINE
     # ────────────────────────────────────────────────────────
@@ -494,108 +468,140 @@ class SpectralChangeDetector:
         veg_after_pct  = float(np.sum((ndvi_a > self.NDVI_VEG_THRESH) & valid)
                                ) / max(1, np.sum(valid)) * 100
 
+        # Raw tile difference check — detect if API returned same image twice
+        raw_diff = float(np.mean(np.abs(ndvi_b_raw[valid] - ndvi_a_raw[valid])))
+        print(f"  RAW tile mean |NDVI diff|: {raw_diff:.4f}  "
+              f"(if ~0 → API returned same image for both dates!)", flush=True)
+
+        # Print absolute index ranges so we can diagnose value-range issues
+        print(f"  NDVI_before: min={ndvi_b_raw[valid].min():.3f}, "
+              f"max={ndvi_b_raw[valid].max():.3f}, "
+              f"mean={ndvi_b_raw[valid].mean():.3f}", flush=True)
+        print(f"  NDVI_after:  min={ndvi_a_raw[valid].min():.3f}, "
+              f"max={ndvi_a_raw[valid].max():.3f}, "
+              f"mean={ndvi_a_raw[valid].mean():.3f}", flush=True)
+        print(f"  NDBI_after:  min={ndbi_a_raw[valid].min():.3f}, "
+              f"max={ndbi_a_raw[valid].max():.3f}, "
+              f"mean={ndbi_a_raw[valid].mean():.3f}", flush=True)
         print(f"  NDVI before mean: {np.mean(ndvi_b[valid]):.3f}", flush=True)
         print(f"  NDVI after  mean: {np.mean(ndvi_a[valid]):.3f}", flush=True)
         print(f"  Vegetation before: {veg_before_pct:.1f}%", flush=True)
         print(f"  Vegetation after:  {veg_after_pct:.1f}%", flush=True)
 
-        # ── 4. ADAPTIVE THRESHOLDS (data-driven) ──────────
-        print("Step 4/6: Computing adaptive thresholds …", flush=True)
+        # ── 4. THRESHOLDS (percentile + absolute) ─────────
+        print("Step 4/6: Computing thresholds …", flush=True)
         h, w = dndvi.shape
 
         dndvi_valid = dndvi[valid]
         dndbi_valid = dndbi[valid]
 
-        dndvi_mean = float(np.mean(dndvi_valid))
-        dndvi_std  = float(np.std(dndvi_valid))
-        dndbi_mean = float(np.mean(dndbi_valid))
-        dndbi_std  = float(np.std(dndbi_valid))
+        # ── PERCENTILE-BASED thresholds ───────────────────
+        # Flag the bottom 15% of dNDVI as "vegetation loss" — this
+        # always catches the worst-changed pixels regardless of how
+        # small the changed area is relative to the whole scene.
+        # (Adaptive mean±σ fails when only 10% of scene changed.)
+        LOSS_PERCENTILE  = 15   # bottom 15% → vegetation loss
+        BUILT_PERCENTILE = 85   # top 15% → new built-up
+        GAIN_PERCENTILE  = 88   # top 12% → vegetation gain
 
-        sigma = self.ADAPTIVE_SIGMA
+        dndvi_loss_thresh  = float(np.percentile(dndvi_valid, LOSS_PERCENTILE))
+        dndbi_built_thresh = float(np.percentile(dndbi_valid, BUILT_PERCENTILE))
+        dndvi_gain_thresh  = float(np.percentile(dndvi_valid, GAIN_PERCENTILE))
 
-        # Vegetation LOSS threshold: mean - sigma*std (negative tail)
-        # Clamped so it's never looser than the fallback
-        dndvi_loss_thresh = min(
-            self.DNDVI_LOSS_FALLBACK,
-            dndvi_mean - sigma * dndvi_std
-        )
-        # Built-up RISE threshold: mean + sigma*std (positive tail)
-        dndbi_built_thresh = max(
-            self.DNDBI_BUILT_FALLBACK,
-            dndbi_mean + sigma * dndbi_std
-        )
-        # Vegetation GAIN threshold: mean + sigma*std of dndvi
-        dndvi_gain_thresh = max(0.10, dndvi_mean + sigma * dndvi_std)
+        # Clamp: never looser than hard fallbacks
+        dndvi_loss_thresh  = min(self.DNDVI_LOSS_FALLBACK, dndvi_loss_thresh)
+        dndbi_built_thresh = max(self.DNDBI_BUILT_FALLBACK, dndbi_built_thresh)
+        dndvi_gain_thresh  = max(0.05, dndvi_gain_thresh)
 
-        print(f"  dNDVI: mean={dndvi_mean:+.4f}, std={dndvi_std:.4f}", flush=True)
-        print(f"  dNDBI: mean={dndbi_mean:+.4f}, std={dndbi_std:.4f}", flush=True)
-        print(f"  Adaptive thresholds ({sigma}σ):", flush=True)
-        print(f"    Loss  : dNDVI < {dndvi_loss_thresh:+.4f}", flush=True)
-        print(f"    Built : dNDBI > {dndbi_built_thresh:+.4f}", flush=True)
-        print(f"    Recov : dNDVI > {dndvi_gain_thresh:+.4f}", flush=True)
+        print(f"  dNDVI p{LOSS_PERCENTILE}: {dndvi_loss_thresh:+.4f}  "
+              f"(loss threshold)", flush=True)
+        print(f"  dNDBI p{BUILT_PERCENTILE}: {dndbi_built_thresh:+.4f}  "
+              f"(built-up threshold)", flush=True)
+        print(f"  dNDVI p{GAIN_PERCENTILE}: {dndvi_gain_thresh:+.4f}  "
+              f"(recovery threshold)", flush=True)
+        print(f"  Absolute built-up (NDBI_after > {self.NDBI_ABS_BUILT})",
+              flush=True)
 
-        # ── 5. Classification (adaptive thresholds) ───────
+        # ── 5. Classification (adaptive + absolute thresholds) ───
         print("Step 5/6: Classifying changes …", flush=True)
 
         # Category map (0 = no change)
         cat = np.zeros((h, w), dtype=np.uint8)
 
-        # Detect vegetation status
+        # Detect vegetation status in before-image
         was_veg    = (ndvi_b > self.NDVI_VEG_THRESH) & valid
         was_forest = (ndvi_b > self.NDVI_DENSE_FOREST) & valid
 
+        # Adaptive flags
         ndvi_dropped = dndvi < dndvi_loss_thresh
         ndbi_rose    = dndbi > dndbi_built_thresh
 
-        # 1 = Deforestation → Construction (was vegetated + NDVI dropped + NDBI rose)
-        deforest_construct = was_veg & ndvi_dropped & ndbi_rose
+        # ABSOLUTE built-up detection: after-NDBI > threshold means
+        # the surface is definitely built-up NOW, regardless of dNDBI
+        is_built_now = (ndbi_a_abs > self.NDBI_ABS_BUILT) & valid
+        # Was NOT built-up before
+        was_not_built = (ndbi_b < self.NDBI_ABS_BUILT)
+        # Combined: NDBI rose OR surface is newly built-up
+        became_built = (ndbi_rose | (is_built_now & was_not_built)) & valid
+
+        # NDVI dropped even mildly (for catch-all)
+        ndvi_any_drop = (dndvi < -0.05) & valid
+
+        # 1 = Deforestation → Construction
+        #     Was vegetated + (NDVI dropped OR now built-up)
+        deforest_construct = was_veg & (ndvi_dropped | (ndvi_any_drop & is_built_now)) & became_built
         cat[deforest_construct] = 1
 
-        # 2 = Vegetation loss (general) — NDVI dropped but no NDBI rise
-        veg_loss_general = was_veg & ndvi_dropped & ~ndbi_rose & valid
+        # 2 = Vegetation loss (general) — NDVI dropped significantly, but no built-up
+        veg_loss_general = was_veg & ndvi_dropped & ~became_built & valid
         cat[veg_loss_general & (cat == 0)] = 2
 
-        # 3 = New construction on bare/agricultural land
-        #     NDBI rose AND pixel is still not vegetated
-        new_construct_bare = (
-            ~was_veg & ndbi_rose &
-            (ndvi_a < self.NDVI_VEG_THRESH) &  # still not vegetated
+        # 3 = New construction on any land (bare OR low-veg agriculture)
+        #     Surface became built-up AND vegetation is low/absent after
+        new_construct = (
+            became_built &
+            (ndvi_a < self.NDVI_DENSE_FOREST) &  # not dense forest after
             valid & (cat == 0)
         )
-        cat[new_construct_bare] = 3
+        cat[new_construct] = 3
 
-        # 4 = Vegetation recovery — ONLY if NDVI went up AND NDBI didn't also rise
-        #     AND after-NDBI is negative (real vegetation, not concrete+landscaping)
+        # 4 = Vegetation recovery — NDVI went up AND NOT built-up after
         veg_recovery = (
             (dndvi > dndvi_gain_thresh) &
-            ~ndbi_rose &                    # not built-up
+            ~is_built_now &                 # not built-up now
             (ndbi_a_abs < 0.0) &            # after NDBI negative → vegetation
             valid &
             (cat == 0)
         )
         cat[veg_recovery] = 4
 
+        # 5 = General land-use change — REMOVED (was pure noise)
+        # The catch-all was flagging crop rotation / seasonal moisture.
+        # Cats 1-4 are sufficient with the absolute NDBI check.
+
         # ── Morphological cleanup + zone filtering ────────
-        # 5x5 open (remove noise but keep real zones), 11x11 close (merge nearby)
-        kernel_open  = np.ones((5, 5), np.uint8)
-        kernel_close = np.ones((11, 11), np.uint8)
+        # 3×3 open = removes 1-pixel salt/pepper noise
+        # 51×51 close = merges fragments up to ~250 m apart → one big zone
+        kernel_open  = np.ones((3, 3), np.uint8)
+        kernel_close = np.ones((51, 51), np.uint8)
         for c in [1, 2, 3, 4]:
             mask_c = (cat == c).astype(np.uint8)
             mask_c = cv2.morphologyEx(mask_c, cv2.MORPH_OPEN, kernel_open)
             mask_c = cv2.morphologyEx(mask_c, cv2.MORPH_CLOSE, kernel_close)
 
-            # Connected components — remove tiny blobs, keep top N
+            # Connected components — keep only zones ≥ MIN_BLOB_AREA
             n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
                 mask_c, connectivity=8
             )
             areas = []
             for i in range(1, n_labels):
                 a = stats[i, cv2.CC_STAT_AREA]
-                if a < self.MIN_BLOB_AREA:
-                    mask_c[labels == i] = 0
-                else:
+                if a >= self.MIN_BLOB_AREA:
                     areas.append((a, i))
+                else:
+                    mask_c[labels == i] = 0
 
+            # Keep only the N largest zones per category
             if len(areas) > self.MAX_ZONES_PER_CAT:
                 areas.sort(reverse=True)
                 for _, lbl_id in areas[self.MAX_ZONES_PER_CAT:]:
@@ -609,14 +615,41 @@ class SpectralChangeDetector:
             print(f"  Cat {c}: {n} px ({n * 100.0 / max(1, np.sum(valid)):.2f}%)",
                   flush=True)
 
+        # ── PRIMARY ZONE — merge ALL categories into one big outline ──
+        # This is the "ChatGPT-style" single clean polygon that shows
+        # the entire area of interest as one coherent zone, regardless
+        # of which sub-category each pixel belongs to.
+        all_change = (cat > 0).astype(np.uint8)
+        if np.sum(all_change) > 0:
+            # Very large close to create ONE convex-ish region
+            kp = np.ones((81, 81), np.uint8)
+            primary_zone = cv2.morphologyEx(all_change, cv2.MORPH_CLOSE, kp)
+            primary_zone = cv2.morphologyEx(primary_zone, cv2.MORPH_OPEN,
+                                             np.ones((5, 5), np.uint8))
+            # Keep only the largest connected primary zone(s)
+            n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+                primary_zone, connectivity=8
+            )
+            primary_zone[:] = 0
+            if n_labels > 1:
+                top = sorted([(stats[i, cv2.CC_STAT_AREA], i)
+                               for i in range(1, n_labels)], reverse=True)
+                # Keep zones that are at least 30% of the largest zone's area
+                biggest = top[0][0]
+                for area, lbl in top:
+                    if area >= biggest * 0.30:
+                        primary_zone[labels == lbl] = 1
+        else:
+            primary_zone = all_change.copy()
+
         # ── 6. Visualisation & stats ───────────────────
         print("Step 6/6: Building visualisations …", flush=True)
 
         CAT_INFO = {
-            1: ("Deforestation → Construction", (220, 30, 30)),   # red
-            2: ("Vegetation Loss (general)",    (255, 160, 0)),   # orange
-            3: ("New Construction (bare land)",  (60, 80, 255)),  # blue
-            4: ("Vegetation Recovery",           (30, 200, 80)),  # green
+            1: ("Deforestation → Construction", (220, 30,  30)),   # red
+            2: ("Vegetation Loss (general)",    (255, 160,   0)),   # orange
+            3: ("New Construction",             ( 60,  80, 255)),   # blue
+            4: ("Vegetation Recovery",          ( 30, 200,  80)),   # green
         }
 
         pixel_area_sqm = pixel_resolution ** 2
@@ -659,61 +692,73 @@ class SpectralChangeDetector:
             except Exception:
                 pass
 
-        # ── After overlay — BOLD colour-coded change zones ──
+        any_change = (cat > 0).astype(np.uint8)
+
+        # ── After overlay — colour-coded fills + PRIMARY ZONE outline ──
         after_overlay = after_display.copy()
         for c, (label, color) in CAT_INFO.items():
             mask_c = (cat == c).astype(np.uint8)
             if np.sum(mask_c) == 0:
                 continue
-            # Strong semi-transparent fill (50% opacity)
+            # Semi-transparent fill
             fill = after_overlay.copy()
             fill[mask_c > 0] = color
-            after_overlay = cv2.addWeighted(after_overlay, 0.50, fill, 0.50, 0)
-            # Thick bright outline around each zone
+            after_overlay = cv2.addWeighted(after_overlay, 0.55, fill, 0.45, 0)
+            # Thin category outline
             cnts, _ = cv2.findContours(mask_c, cv2.RETR_EXTERNAL,
                                        cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(after_overlay, cnts, -1, (255, 255, 255), 4)
-            cv2.drawContours(after_overlay, cnts, -1, color, 2)
+            cv2.drawContours(after_overlay, cnts, -1, (255, 255, 255), 2)
+            cv2.drawContours(after_overlay, cnts, -1, color, 1)
 
-        # ── Before overlay — highlight zones that WILL be lost ──
+        # PRIMARY ZONE — thick bold outline enclosing the entire change area
+        # This is the "one big shape" that makes the zone immediately obvious
+        pz_contours, _ = cv2.findContours(
+            primary_zone.astype(np.uint8), cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE)
+        if pz_contours:
+            # Draw a thick outer glow (black shadow), then bright yellow border
+            cv2.drawContours(after_overlay, pz_contours, -1, (0, 0, 0), 10)
+            cv2.drawContours(after_overlay, pz_contours, -1, (255, 230, 0), 6)
+            cv2.drawContours(after_overlay, pz_contours, -1, (255, 255, 255), 2)
+
+        # ── Before overlay — show what was there before ──
         before_overlay = before_display.copy()
-        # Only tint actual detection zones on the before image
-        deforest_mask = ((cat == 1) | (cat == 2)).astype(np.uint8)
-        if np.sum(deforest_mask) > 0:
+        loss_mask = ((cat == 1) | (cat == 2)).astype(np.uint8)
+        if np.sum(loss_mask) > 0:
             fill_r = before_overlay.copy()
-            fill_r[deforest_mask > 0] = (255, 50, 30)
+            fill_r[loss_mask > 0] = (255, 50, 30)
             before_overlay = cv2.addWeighted(
-                before_overlay, 0.45, fill_r, 0.55, 0)
-            cnts, _ = cv2.findContours(deforest_mask, cv2.RETR_EXTERNAL,
+                before_overlay, 0.50, fill_r, 0.50, 0)
+            cnts, _ = cv2.findContours(loss_mask, cv2.RETR_EXTERNAL,
                                        cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(before_overlay, cnts, -1, (255, 255, 255), 4)
+            cv2.drawContours(before_overlay, cnts, -1, (255, 255, 255), 3)
             cv2.drawContours(before_overlay, cnts, -1, (255, 50, 30), 2)
-        # Lightly tint construction zones on before image
         construct_mask = (cat == 3).astype(np.uint8)
         if np.sum(construct_mask) > 0:
             fill_b = before_overlay.copy()
             fill_b[construct_mask > 0] = (60, 80, 255)
             before_overlay = cv2.addWeighted(
-                before_overlay, 0.50, fill_b, 0.50, 0)
+                before_overlay, 0.55, fill_b, 0.45, 0)
             cnts, _ = cv2.findContours(construct_mask, cv2.RETR_EXTERNAL,
                                        cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(before_overlay, cnts, -1, (255, 255, 255), 3)
+            cv2.drawContours(before_overlay, cnts, -1, (255, 255, 255), 2)
+        # Primary zone outline on before image too (same yellow border)
+        if pz_contours:
+            cv2.drawContours(before_overlay, pz_contours, -1, (0, 0, 0), 8)
+            cv2.drawContours(before_overlay, pz_contours, -1, (255, 230, 0), 5)
 
-        # ── NDVI difference heatmap (uses normalized dndvi) ──
+        # ── NDVI difference heatmap ──
         dndvi_clip = np.clip(dndvi, -0.5, 0.5)
         dndvi_u8 = ((dndvi_clip + 0.5) / 1.0 * 255).astype(np.uint8)
         heatmap_color = cv2.applyColorMap(255 - dndvi_u8, cv2.COLORMAP_JET)
         heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
         heatmap_blend = cv2.addWeighted(after_display, 0.25,
                                         heatmap_color, 0.75, 0)
-        # Overlay zone boundaries on heatmap too
-        any_change = (cat > 0).astype(np.uint8)
-        if np.sum(any_change) > 0:
-            cnts, _ = cv2.findContours(any_change, cv2.RETR_EXTERNAL,
-                                       cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(heatmap_blend, cnts, -1, (255, 255, 255), 3)
+        if pz_contours:
+            cv2.drawContours(heatmap_blend, pz_contours, -1, (0, 0, 0), 8)
+            cv2.drawContours(heatmap_blend, pz_contours, -1, (255, 230, 0), 5)
 
-        # ── Spotlight overlay (dim everything except change zones) ──
+        # ── Spotlight — dim background, highlight change zones ──
         dimmed = (after_display * 0.12).astype(np.uint8)
         spotlight = dimmed.copy()
         if np.sum(any_change) > 0:
@@ -724,61 +769,72 @@ class SpectralChangeDetector:
                     continue
                 cnts, _ = cv2.findContours(mask_c, cv2.RETR_EXTERNAL,
                                            cv2.CHAIN_APPROX_SIMPLE)
-                cv2.drawContours(spotlight, cnts, -1, (255, 255, 255), 4)
+                cv2.drawContours(spotlight, cnts, -1, (255, 255, 255), 3)
                 cv2.drawContours(spotlight, cnts, -1, color, 2)
+        if pz_contours:
+            cv2.drawContours(spotlight, pz_contours, -1, (0, 0, 0), 10)
+            cv2.drawContours(spotlight, pz_contours, -1, (255, 230, 0), 6)
 
         # ── Summary text ───────────────────────────────────
         deforest_ha = category_stats.get(
-            "Deforestation → Construction", {}).get("hectares", 0)
+            "Deforestation \u2192 Construction", {}).get("hectares", 0)
         vegloss_ha = category_stats.get(
             "Vegetation Loss (general)", {}).get("hectares", 0)
         newconst_ha = category_stats.get(
-            "New Construction (bare land)", {}).get("hectares", 0)
+            "New Construction", {}).get("hectares", 0)
         vegrecov_ha = category_stats.get(
             "Vegetation Recovery", {}).get("hectares", 0)
 
+        total_change_ha = round(
+            int(np.sum(primary_zone)) * pixel_area_sqm / 10_000, 2)
+
         explanation = (
             "HOW THIS DETECTION WORKS\n"
-            "─────────────────────────────────\n"
+            "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n"
             "Uses REAL spectral bands from Sentinel-2 satellite:\n\n"
-            "  NDVI = (NIR − Red) / (NIR + Red)\n"
-            "    → Measures vegetation health (trees/grass = 0.4–0.9)\n"
-            "    → Concrete/asphalt/bare soil = 0.0–0.2\n\n"
-            "  NDBI = (SWIR − NIR) / (SWIR + NIR)\n"
-            "    → Detects built-up surfaces (buildings/roads > 0)\n"
-            "    → Vegetation has negative NDBI\n\n"
+            "  NDVI = (NIR \u2212 Red) / (NIR + Red)\n"
+            "    \u2192 Measures vegetation health (trees/grass = 0.4\u20130.9)\n"
+            "    \u2192 Concrete/asphalt/bare soil = 0.0\u20130.2\n\n"
+            "  NDBI = (SWIR \u2212 NIR) / (SWIR + NIR)\n"
+            "    \u2192 Detects built-up surfaces (buildings/roads > 0)\n"
+            "    \u2192 Vegetation has negative NDBI\n\n"
             "CLASSIFICATION LOGIC:\n"
-            "  🔴 NDVI dropped + NDBI rose → Deforestation due to construction\n"
-            "  🟠 NDVI dropped only        → Vegetation loss (fire/clearing)\n"
-            "  🔵 NDBI rose only           → New construction on bare land\n"
-            "  🟢 NDVI increased           → Vegetation recovery\n\n"
+            "  \U0001f534 NDVI dropped + NDBI rose \u2192 Deforestation due to construction\n"
+            "  \U0001f7e0 NDVI dropped only        \u2192 Vegetation loss (fire/clearing)\n"
+            "  \U0001f535 NDBI rose (any land)     \u2192 New construction\n"
+            "  \U0001f7e2 NDVI increased           \u2192 Vegetation recovery\n\n"
+            "YELLOW OUTLINE = Primary change zone\n"
+            "  The bold yellow border encloses the entire area of\n"
+            "  significant change as a single coherent region.\n\n"
             "WHY THIS IS ACCURATE:\n"
-            "  • NDVI is the NASA/ESA gold-standard vegetation index\n"
-            "  • NDBI specifically detects concrete/asphalt/roofs\n"
-            "  • Scene Classification Layer masks clouds/shadows\n"
-            "  • Combining NDVI+NDBI uniquely identifies forest→built-up\n\n"
+            "  \u2022 NDVI is the NASA/ESA gold-standard vegetation index\n"
+            "  \u2022 NDBI specifically detects concrete/asphalt/roofs\n"
+            "  \u2022 Absolute NDBI check catches built-up surfaces directly\n"
+            "  \u2022 Percentile thresholds (p15/p85) adapt to each scene\n"
+            "  \u2022 Scene Classification Layer masks clouds/shadows\n\n"
             f"THIS RUN:\n"
             f"  Vegetation before: {veg_before_pct:.1f}%\n"
             f"  Vegetation after:  {veg_after_pct:.1f}%\n"
             f"  Net vegetation loss: {max(0, veg_before_pct - veg_after_pct):.1f}%\n"
             f"  Clouds masked: {cloud_pct:.1f}%\n"
-            f"\n"
-            f"  🔴 Deforestation → Construction: {deforest_ha} ha\n"
-            f"  🟠 Vegetation loss (general):    {vegloss_ha} ha\n"
-            f"  🔵 New construction (bare land):  {newconst_ha} ha\n"
-            f"  🟢 Vegetation recovery:           {vegrecov_ha} ha\n\n"
+            f"  Primary change zone: {total_change_ha} ha\n\n"
+            f"  \U0001f534 Deforestation \u2192 Construction: {deforest_ha} ha\n"
+            f"  \U0001f7e0 Vegetation loss (general):    {vegloss_ha} ha\n"
+            f"  \U0001f535 New construction:              {newconst_ha} ha\n"
+            f"  \U0001f7e2 Vegetation recovery:           {vegrecov_ha} ha\n\n"
             "FOR BEST RESULTS:\n"
-            "  ✓  Cloud-free images for both dates\n"
-            "  ✓  Same SEASON for both (Jun vs Jun, not Jun vs Dec)\n"
-            "  ✓  3–10 years apart for meaningful change\n"
-            "  ✓  Sentinel-2 at 10 m resolution\n"
-            "  ✗  Avoid monsoon vs dry season (gives false positives)\n"
+            "  \u2713  Cloud-free images for both dates\n"
+            "  \u2713  Same SEASON for both (Jun vs Jun, not Jun vs Dec)\n"
+            "  \u2713  3\u201310 years apart for meaningful change\n"
+            "  \u2713  Sentinel-2 at 10 m resolution\n"
+            "  \u2717  Avoid monsoon vs dry season (gives false positives)\n"
         )
 
         print(f"\n{'='*50}", flush=True)
         print("  RESULTS:", flush=True)
         print(f"  Vegetation before: {veg_before_pct:.1f}%", flush=True)
         print(f"  Vegetation after:  {veg_after_pct:.1f}%", flush=True)
+        print(f"  Primary change zone: {total_change_ha} ha", flush=True)
         for label, info in category_stats.items():
             print(f"  {label}: {info['hectares']} ha "
                   f"({info['percent']}%)", flush=True)
@@ -801,6 +857,7 @@ class SpectralChangeDetector:
             },
             "change": {
                 "total_change_percent": total_pct,
+                "primary_zone_hectares": total_change_ha,
                 "deforestation_hectares": deforest_ha,
                 "vegetation_loss_hectares": vegloss_ha,
                 "new_construction_hectares": newconst_ha,

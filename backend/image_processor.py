@@ -71,8 +71,43 @@ class ImageProcessor:
         'new_vegetation':     (  0, 200,  80),   # green
         'water_change':       ( 30, 120, 255),   # blue
         'demolition':         (180,  60, 220),   # purple
+        'new_route':          (100, 100, 100),   # dark gray (roads/paths)
         'other_change':       (200, 200, 200),   # light gray
     }
+
+    # ----------------------------------------------------------------
+    # Water-detection thresholds (per-pixel classifier)
+    # ----------------------------------------------------------------
+    # Blue channel must exceed red by at least this many DN to be "blue-dominant"
+    WATER_BLUE_OFFSET       = 5
+    # HSV brightness ceiling for dark/moderately-dark water bodies
+    WATER_BRIGHTNESS_MAX    = 110
+    # ExG ceiling: water has near-zero or negative excess green
+    WATER_EXG_MAX           = 10
+    # Very dark pixels (any hue) treated as water/shadow
+    WATER_VERY_DARK_V       = 35
+
+    # ----------------------------------------------------------------
+    # Change-detection thresholds
+    # ----------------------------------------------------------------
+    # Base value used to compute diff_threshold from sensitivity:
+    #   diff_threshold = clip(SENSITIVITY_BASE - sensitivity, MIN_DIFF, MAX_DIFF)
+    SENSITIVITY_BASE        = 70.0
+    MIN_DIFF_THRESHOLD      = 10.0
+    MAX_DIFF_THRESHOLD      = 60.0
+    # Pixel differences above diff_threshold × this factor are flagged even
+    # without a land-cover category transition
+    VERY_HIGH_DIFF_MULT     = 1.4
+    # Connected components smaller than this (pixels) are discarded as noise
+    MIN_CHANGE_REGION_PX    = 300
+
+    # ----------------------------------------------------------------
+    # Road/linear-feature detection thresholds
+    # ----------------------------------------------------------------
+    # Minimum bounding-rectangle aspect ratio to classify as a road
+    MIN_ROAD_ASPECT_RATIO   = 4.0
+    # Minimum contour area (px²) for road candidate regions
+    MIN_ROAD_AREA_PX        = 200
 
     # ----------------------------------------------------------------
     # Per-pixel land cover classifier (TRUE-COLOR Sentinel-2 imagery)
@@ -84,7 +119,8 @@ class ImageProcessor:
 
         Works on TRUE-COLOR RGB imagery using:
           * Excess Green Index (ExG = 2G - R - B)  -> vegetation
-          * HSV brightness (V) and saturation (S)  -> built-up vs water
+          * Blue-channel dominance + low brightness  -> water bodies
+          * HSV brightness (V) and saturation (S)  -> built-up vs bare soil
 
         Returns an int array the same shape as the first two dims of rgb.
         """
@@ -100,20 +136,37 @@ class ImageProcessor:
 
         cat = np.full(rgb.shape[:2], ImageProcessor.CATEGORY_OTHER, dtype=np.uint8)
 
-        # Vegetation: high excess green
-        cat[exg > 10] = ImageProcessor.CATEGORY_VEGETATION
+        # Vegetation: clearly green-dominant pixels
+        # Threshold of 20 is more selective than 10 to reduce false positives
+        # on gray/bright surfaces that marginally pass the lower threshold
+        cat[exg > 20] = ImageProcessor.CATEGORY_VEGETATION
 
-        # Water: very dark + bluish hue
-        cat[(v < 30) | ((v < 55) & (s > 50) & (h > 90) & (h < 130))] = ImageProcessor.CATEGORY_WATER
+        # Water: dark AND blue-dominant OR very dark pixels
+        #   - Blue-dominant: blue channel exceeds red by ≥5 DN, modest brightness
+        #   - Very dark: v < 35 catches deep/shadowed water regardless of hue
+        blue_dominant = (
+            (b >= r + ImageProcessor.WATER_BLUE_OFFSET)
+            & (b >= g - ImageProcessor.WATER_BLUE_OFFSET)
+            & (v < ImageProcessor.WATER_BRIGHTNESS_MAX)
+            & (exg < ImageProcessor.WATER_EXG_MAX)
+        )
+        very_dark = v < ImageProcessor.WATER_VERY_DARK_V
+        water_mask = blue_dominant | very_dark
+        # Water overrides vegetation (aquatic vegetation / algae-covered water)
+        cat[water_mask] = ImageProcessor.CATEGORY_WATER
 
-        # Built-up: non-vegetation, bright, grayish (low saturation)
-        built_mask = (exg <= 10) & (v > 55) & (s < 115) & (v > 20)
+        # Built-up: non-vegetation, moderately bright, low saturation (concrete/roofs)
+        # Explicitly exclude water pixels to prevent misclassification
+        built_mask = (exg <= 20) & (v > 60) & (s < 100) & (~water_mask)
         cat[built_mask] = ImageProcessor.CATEGORY_BUILT_UP
 
-        # Bare soil: non-vegetation, moderate brightness, warmer hue (brownish/tan)
-        bare_mask = (exg <= 10) & (v > 25) & (s >= 60) & (h < 35)
-        # Exclude anything already classified as built-up
-        bare_mask = bare_mask & (cat != ImageProcessor.CATEGORY_BUILT_UP)
+        # Bare soil: non-vegetation, moderate brightness, warmer brownish hue
+        # Exclude water and built-up pixels
+        bare_mask = (
+            (exg <= 20) & (v > 30) & (s >= 50) & (h < 30)
+            & (~water_mask)
+            & (cat != ImageProcessor.CATEGORY_BUILT_UP)
+        )
         cat[bare_mask] = ImageProcessor.CATEGORY_BARE_SOIL
 
         return cat
@@ -136,9 +189,9 @@ class ImageProcessor:
           Orange  - New construction / urbanisation
           Yellow  - Vegetation loss (cleared land)
           Green   - New vegetation / re-greening
-          Blue    - Water body change
+          Blue    - Water body change (dried lake or new water body)
           Purple  - Demolition / urban removal
-          Gray    - Other / unclassified change
+          Gray    - New route / road development (linear patterns)
 
         Returns dict with change metrics, PIL overlay images, category breakdown,
         and base64-encoded overlay images.
@@ -167,14 +220,7 @@ class ImageProcessor:
         # 2a  Per-channel absolute difference (max across R,G,B)
         ch_diff = np.max(np.abs(before - after_norm), axis=2)
 
-        # 2b  Structural (edge) difference
-        bg = cv2.equalizeHist(cv2.cvtColor(before_u8, cv2.COLOR_RGB2GRAY))
-        ag = cv2.equalizeHist(cv2.cvtColor(after_u8,  cv2.COLOR_RGB2GRAY))
-        be = cv2.dilate(cv2.Canny(bg, 50, 150), np.ones((3, 3), np.uint8))
-        ae = cv2.dilate(cv2.Canny(ag, 50, 150), np.ones((3, 3), np.uint8))
-        edge_diff = cv2.absdiff(be, ae).astype(np.float32) / 255.0
-
-        # 2c  Smoothed pixel diff (suppress speckle)
+        # 2b  Smoothed pixel diff (suppress speckle)
         px_diff = gaussian_filter(ch_diff, sigma=2.0)
 
         # ---- 3. Land-cover transition approach ----
@@ -190,21 +236,32 @@ class ImageProcessor:
         # Close small gaps
         lc_clean = cv2.morphologyEx(lc_clean, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
 
-        # Secondary signal: high pixel diff areas even if LC didn't change
-        high_diff = (px_diff > 50).astype(np.uint8) * 255
+        # Secondary signal: pixels with significant per-channel difference.
+        # Map sensitivity (0–100) to a diff threshold: higher sensitivity → lower threshold.
+        # Default sensitivity=30 → diff_threshold=40; sensitivity=60 → threshold=10.
+        diff_threshold = float(np.clip(
+            ImageProcessor.SENSITIVITY_BASE - sensitivity,
+            ImageProcessor.MIN_DIFF_THRESHOLD,
+            ImageProcessor.MAX_DIFF_THRESHOLD,
+        ))
+        high_diff = (px_diff > diff_threshold).astype(np.uint8) * 255
 
-        # Use LC-clean as the change mask base
-        change_mask = np.maximum(lc_clean, high_diff)
+        # Primary change mask: require BOTH LC change AND pixel difference to agree.
+        # This eliminates noise from imperfect per-pixel LC classification alone.
+        change_mask = np.minimum(lc_clean, high_diff)
 
-        # Remove tiny blobs (< 200 px)
+        # Also include very strong pixel differences even without an LC transition
+        # (e.g., large surface-texture changes that don't cross a category boundary)
+        very_high_diff = (px_diff > diff_threshold * ImageProcessor.VERY_HIGH_DIFF_MULT).astype(np.uint8) * 255
+        change_mask = np.maximum(change_mask, very_high_diff)
+
+        # Remove tiny blobs — increases minimum region confidence
         n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(change_mask, 8)
         for i in range(1, n_labels):
-            if stats[i, cv2.CC_STAT_AREA] < 200:
+            if stats[i, cv2.CC_STAT_AREA] < ImageProcessor.MIN_CHANGE_REGION_PX:
                 change_mask[labels == i] = 0
 
         # ---- 4. Classify changed pixels ----
-        # Only meaningful categories shown; "other" is suppressed
-
         V = ImageProcessor.CATEGORY_VEGETATION
         B = ImageProcessor.CATEGORY_BUILT_UP
         S = ImageProcessor.CATEGORY_BARE_SOIL
@@ -220,15 +277,22 @@ class ImageProcessor:
         category_map[changed & (lc_before == V) & (lc_after != V) & (lc_after != B)] = 2
         # New vegetation: non-veg -> vegetation
         category_map[changed & (lc_before != V) & (lc_after == V)] = 3
-        # Water change: gain / loss of water
+        # Water change: gain / loss of water (dried lake OR new water body)
         category_map[changed & ((lc_before == W) != (lc_after == W))] = 4
         # Demolition: built-up -> vegetation / bare
         category_map[changed & (lc_before == B) & (lc_after != B)] = 5
-        # Remaining changed pixels — mark as 'other' for stats but remove from overlay
-        category_map[changed & (category_map == 0)] = 6
+
+        # New route/road: detect linear (elongated) patterns inside new_construction
+        new_const_mask = (category_map == 1).astype(np.uint8)
+        if np.sum(new_const_mask) > 0:
+            road_mask = ImageProcessor._detect_linear_features(new_const_mask)
+            category_map[(road_mask > 0) & (category_map == 1)] = 6
+
+        # Remaining changed pixels — mark as 'other' (will be suppressed)
+        category_map[changed & (category_map == 0)] = 7
 
         # Remove "other" from the change mask — only show clearly classified changes
-        change_mask[category_map == 6] = 0
+        change_mask[category_map == 7] = 0
 
         CAT_LABELS = {
             1: 'new_construction',
@@ -236,13 +300,15 @@ class ImageProcessor:
             3: 'new_vegetation',
             4: 'water_change',
             5: 'demolition',
+            6: 'new_route',
         }
         CAT_DISPLAY = {
             1: 'New Construction',
             2: 'Vegetation Loss',
             3: 'New Vegetation',
-            4: 'Water Change',
+            4: 'Water Body Change',
             5: 'Demolition',
+            6: 'New Route / Road',
         }
 
         # ---- 5. Build colour-coded overlay ----
@@ -346,6 +412,31 @@ class ImageProcessor:
         )
 
         return changes_detected
+
+    @staticmethod
+    def _detect_linear_features(mask: np.ndarray) -> np.ndarray:
+        """
+        Detect elongated (road/route-like) shapes in a binary mask.
+
+        Roads are long and narrow; buildings are compact.
+        A region is classified as a road if its minimum-bounding-rectangle
+        aspect ratio exceeds 4 : 1 and its area exceeds 200 pixels.
+        """
+        road_mask = np.zeros_like(mask)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            if len(cnt) < 4:
+                continue
+            rect = cv2.minAreaRect(cnt)
+            (_, (rw, rh), _) = rect
+            if rw == 0 or rh == 0:
+                continue
+            aspect = max(rw, rh) / min(rw, rh)
+            area   = cv2.contourArea(cnt)
+            if aspect > ImageProcessor.MIN_ROAD_ASPECT_RATIO and area > ImageProcessor.MIN_ROAD_AREA_PX:
+                cv2.drawContours(road_mask, [cnt], -1, 1, -1)
+        return road_mask
 
     @staticmethod
     def calculate_ndvi(image: Image.Image, nir_band: Optional[np.ndarray] = None) -> Optional[np.ndarray]:

@@ -12,6 +12,7 @@ from typing import Optional, List, Dict
 import sys
 import json
 import logging
+import numpy as np
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,7 @@ from backend.ai_analyzer import get_urban_detector
 from backend.feature_detectors import get_building_detector
 from backend.spectral_analyzer import get_spectral_detector
 from backend.ml_change_detector import get_ml_detector
+from backend.unified_change_detector import get_unified_detector
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -788,26 +790,32 @@ async def detect_changes_api(
         before_img = Image.open(str(before_path)).convert("RGB")
         after_img = Image.open(str(after_path)).convert("RGB")
 
-        processor = ImageProcessor()
-        results = processor.detect_changes(
-            before_img, after_img,
-            sensitivity=30.0,
-            pixel_resolution=request.pixel_resolution
+        # Backward-compatible wrapper over unified pipeline.
+        h, w = before_img.height, before_img.width
+        bbox = {"west": 0.0, "south": 0.0, "east": float(w), "north": float(h)}
+        detector = get_unified_detector()
+        unified = detector.analyze_changes(
+            bbox=bbox,
+            before_date="2024-01-01",
+            after_date="2025-01-01",
+            before_rgb=np.array(before_img),
+            after_rgb=np.array(after_img),
+            pixel_resolution=request.pixel_resolution or 10.0,
         )
 
-        # Return JSON-serialisable subset (exclude PIL objects)
+        summary = unified["change_summary"]
         return {
             "status": "success",
-            "total_pixels": results["total_pixels"],
-            "changed_pixels": results["changed_pixels"],
-            "change_percentage": results["change_percentage"],
-            "change_area_hectares": results["change_area_hectares"],
-            "severity": results["severity"],
-            "change_type": results["change_type"],
-            "confidence": results["confidence"],
-            "categories": results["categories"],
-            "before_overlay": results["before_overlay_b64"],
-            "after_overlay": results["after_overlay_b64"],
+            "total_pixels": summary["total_pixels"],
+            "changed_pixels": summary["changed_pixels"],
+            "change_percentage": summary["change_percent"],
+            "change_area_hectares": summary["change_area_hectares"],
+            "severity": "Unified",
+            "change_type": "Multi-temporal",
+            "confidence": "High" if summary["change_percent"] > 2 else "Medium",
+            "categories": unified["classified_changes"],
+            "before_overlay": unified["overlays"]["classified"],
+            "after_overlay": unified["overlays"]["classified"],
         }
 
     except HTTPException:
@@ -847,12 +855,31 @@ def detect_new_buildings(
         before_img = Image.open(str(before_path)).convert("RGB")
         after_img = Image.open(str(after_path)).convert("RGB")
 
-        detector = get_building_detector()
-        results = detector.detect_new_buildings(
-            before_img, after_img, request.pixel_resolution
+        h, w = before_img.height, before_img.width
+        bbox = {"west": 0.0, "south": 0.0, "east": float(w), "north": float(h)}
+        detector = get_unified_detector()
+        results = detector.analyze_changes(
+            bbox=bbox,
+            before_date="2024-01-01",
+            after_date="2025-01-01",
+            before_rgb=np.array(before_img),
+            after_rgb=np.array(after_img),
+            pixel_resolution=request.pixel_resolution or 10.0,
         )
 
-        return results
+        return {
+            "status": "success",
+            "feature": "buildings",
+            "method": results["method"],
+            "change": results["change_summary"],
+            "categories": results["classified_changes"],
+            "overlays": {
+                "new_buildings": results["overlays"]["classified"],
+                "difference": results["overlays"]["classified"],
+                "heatmap": results["overlays"]["change_probability"],
+            },
+            "before": {"overlay_image": results["overlays"]["classified"]},
+        }
 
     except HTTPException:
         raise
@@ -897,31 +924,51 @@ def detect_deforestation(
     print(f"{'='*60}\n", flush=True)
 
     try:
-        detector = get_spectral_detector()
-
-        # Resolve true-color image paths for overlay (optional)
+        before_arr = None
+        after_arr = None
         project_root = Path(__file__).parent.parent
-        before_tc = None
-        after_tc = None
         if request.before_image_path:
             p = project_root / request.before_image_path
             if p.exists():
-                before_tc = str(p)
+                from PIL import Image
+                before_arr = np.array(Image.open(str(p)).convert("RGB"))
         if request.after_image_path:
             p = project_root / request.after_image_path
             if p.exists():
-                after_tc = str(p)
+                from PIL import Image
+                after_arr = np.array(Image.open(str(p)).convert("RGB"))
 
-        results = detector.detect_deforestation(
+        detector = get_unified_detector()
+        results = detector.analyze_changes(
             bbox=request.bbox,
             before_date=request.before_date,
             after_date=request.after_date,
-            before_true_color_url=before_tc,
-            after_true_color_url=after_tc,
+            before_rgb=before_arr,
+            after_rgb=after_arr,
             pixel_resolution=request.pixel_resolution or 10.0,
         )
 
-        return results
+        return {
+            "status": "success",
+            "method": results["method"],
+            "feature": "deforestation",
+            "data_source": "Sentinel-2 multi-temporal indices",
+            "before": {
+                "overlay_image": results["overlays"]["classified"],
+            },
+            "after": {
+                "overlay_image": results["overlays"]["classified"],
+            },
+            "change": results["change_summary"],
+            "categories": results["classified_changes"],
+            "overlays": {
+                "deforestation": results["overlays"]["classified"],
+                "heatmap": results["overlays"]["change_probability"],
+                "spotlight": results["overlays"]["trend"],
+            },
+            "trend_summary": results["trend_summary"],
+            "years_used": results["years_used"],
+        }
 
     except HTTPException:
         raise
@@ -994,15 +1041,14 @@ def analyze_changes_ml(
         before_img = Image.open(str(before_path)).convert("RGB")
         after_img = Image.open(str(after_path)).convert("RGB")
 
-        # Run ML pipeline
-        detector = get_ml_detector()
+        # Run unified temporal pipeline
+        detector = get_unified_detector()
         results = detector.analyze_changes(
-            before_img=before_img,
-            after_img=after_img,
             bbox=request.bbox,
             before_date=request.before_date,
             after_date=request.after_date,
-            detect_types=request.detect_types,
+            before_rgb=np.array(before_img),
+            after_rgb=np.array(after_img),
             pixel_resolution=request.pixel_resolution or 10.0,
         )
 
