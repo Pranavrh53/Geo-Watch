@@ -391,7 +391,8 @@ class UnifiedTemporalChangeDetector:
         min_year = min(before_year, after_year)
         max_year = max(before_year, after_year)
         start_year = max(2016, min_year - 4)
-        return list(range(start_year, max_year + 1))
+        end_year = min(datetime.utcnow().year, max_year + 2)
+        return list(range(start_year, end_year + 1))
 
     def _build_temporal_stack(
         self,
@@ -441,6 +442,95 @@ class UnifiedTemporalChangeDetector:
         return out
 
     @staticmethod
+    def _select_period_indices(
+        years: List[int],
+        before_year: int,
+        after_year: int,
+        min_images: int = 3,
+        max_images: int = 5,
+    ) -> Tuple[List[int], List[int]]:
+        before_pool = [i for i, y in enumerate(years) if y <= before_year]
+        after_pool = [i for i, y in enumerate(years) if y >= after_year]
+
+        before_idx = before_pool[-max_images:]
+        after_idx = after_pool[:max_images]
+
+        # If strict after-period years are too few, use years between before/after
+        # with emphasis on years closest to the after date.
+        if len(after_idx) < min_images:
+            transition_pool = [i for i, y in enumerate(years) if before_year < y <= after_year]
+            if transition_pool:
+                after_idx = transition_pool[-max_images:]
+
+        # If strict before-period years are too few, use years between before/after
+        # with emphasis on years closest to the before date.
+        if len(before_idx) < min_images:
+            transition_pool = [i for i, y in enumerate(years) if before_year <= y < after_year]
+            if transition_pool:
+                before_idx = transition_pool[:max_images]
+
+        if len(before_idx) < min_images:
+            logger.info(
+                "Before period has %s images (target %s-%s)",
+                len(before_idx),
+                min_images,
+                max_images,
+            )
+        if len(after_idx) < min_images:
+            logger.info(
+                "After period has %s images (target %s-%s)",
+                len(after_idx),
+                min_images,
+                max_images,
+            )
+
+        # Fallback to at least one year per side.
+        if not before_idx:
+            before_idx = [0]
+        if not after_idx:
+            after_idx = [len(years) - 1]
+
+        return before_idx, after_idx
+
+    @staticmethod
+    def _period_median(
+        stack: np.ndarray,
+        valid_stack: np.ndarray,
+        indices: List[int],
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        selected = stack[indices]
+        selected_valid = valid_stack[indices]
+
+        composite = np.nanmedian(np.where(selected_valid, selected, np.nan), axis=0)
+        valid_composite = np.sum(selected_valid.astype(np.uint8), axis=0) > 0
+
+        # Fill any all-invalid temporal pixels from global median fallback.
+        if np.any(~valid_composite):
+            global_med = np.nanmedian(np.where(valid_stack, stack, np.nan), axis=0)
+            global_med = np.nan_to_num(global_med, nan=0.0)
+            composite = np.where(valid_composite, composite, global_med)
+
+        composite = np.nan_to_num(composite, nan=0.0)
+        return composite.astype(np.float32), valid_composite
+
+    @staticmethod
+    def _period_change_prior(
+        ndvi_before: np.ndarray,
+        ndbi_before: np.ndarray,
+        ndwi_before: np.ndarray,
+        ndvi_after: np.ndarray,
+        ndbi_after: np.ndarray,
+        ndwi_after: np.ndarray,
+    ) -> np.ndarray:
+        ndvi_delta = np.abs(ndvi_after - ndvi_before)
+        ndbi_delta = np.abs(ndbi_after - ndbi_before)
+        ndwi_delta = np.abs(ndwi_after - ndwi_before)
+
+        delta = 0.50 * ndvi_delta + 0.35 * ndbi_delta + 0.15 * ndwi_delta
+        prior = 1.0 / (1.0 + np.exp(-(delta - 0.10) * 10.0))
+        return np.clip(prior.astype(np.float32), 0.0, 1.0)
+
+    @staticmethod
     def _remove_small(mask: np.ndarray, min_area: int = 80) -> np.ndarray:
         clean = mask.astype(np.uint8).copy()
         n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(clean, connectivity=8)
@@ -448,25 +538,6 @@ class UnifiedTemporalChangeDetector:
             if stats[i, cv2.CC_STAT_AREA] < min_area:
                 clean[labels == i] = 0
         return clean
-
-    @staticmethod
-    def _detect_roads(mask: np.ndarray) -> np.ndarray:
-        road = np.zeros_like(mask, dtype=np.uint8)
-        contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in contours:
-            if len(cnt) < 5:
-                continue
-            area = cv2.contourArea(cnt)
-            if area < 100:
-                continue
-            rect = cv2.minAreaRect(cnt)
-            rw, rh = rect[1]
-            if rw == 0 or rh == 0:
-                continue
-            aspect = max(rw, rh) / (min(rw, rh) + 1e-6)
-            if aspect > 4.0:
-                cv2.drawContours(road, [cnt], -1, 1, -1)
-        return road
 
     def _classify(
         self,
@@ -501,14 +572,11 @@ class UnifiedTemporalChangeDetector:
         water_loss = changed & (ndwi_before > 0.3) & (ndwi_after < 0.1)
         vegetation_growth = changed & (ndvi_delta > 0.2)
 
-        roads = self._detect_roads(urbanization.astype(np.uint8)).astype(bool)
-
         class_map = np.zeros(prob.shape, dtype=np.uint8)
         class_map[deforestation] = 1
         class_map[water_loss] = 2
         class_map[urbanization] = 3
         class_map[vegetation_growth] = 4
-        class_map[roads] = 5
 
         # Merge fragmented nearby construction pixels into coherent blocks.
         construction_mask = (class_map == 3).astype(np.uint8)
@@ -530,7 +598,6 @@ class UnifiedTemporalChangeDetector:
             "water_loss": {"pixels": int(np.sum(class_map == 2)), "color": "rgb(40,120,255)"},
             "construction": {"pixels": int(np.sum(class_map == 3)), "color": "rgb(255,140,0)"},
             "vegetation_growth": {"pixels": int(np.sum(class_map == 4)), "color": "rgb(40,180,70)"},
-            "roads": {"pixels": int(np.sum(class_map == 5)), "color": "rgb(0,0,0)"},
         }
         for key in stats:
             stats[key]["percent"] = round((stats[key]["pixels"] / max(1.0, total)) * 100.0, 3)
@@ -584,7 +651,6 @@ class UnifiedTemporalChangeDetector:
             2: (40, 120, 255),   # blue water loss
             3: (255, 140, 0),    # orange construction
             4: (40, 180, 70),    # green vegetation growth
-            5: (0, 0, 0),        # black roads
         }
         for cid, color in colors.items():
             mask = (class_map == cid).astype(np.uint8)
@@ -592,7 +658,7 @@ class UnifiedTemporalChangeDetector:
                 continue
             fill = overlay.copy()
             fill[mask > 0] = color
-            overlay = cv2.addWeighted(overlay, 0.62, fill, 0.38, 0)
+            overlay = cv2.addWeighted(overlay, 0.35, fill, 0.65, 0)
             cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(overlay, cnts, -1, color, 2)
         return overlay
@@ -632,16 +698,45 @@ class UnifiedTemporalChangeDetector:
 
         before_year = datetime.strptime(before_date, "%Y-%m-%d").year
         after_year = datetime.strptime(after_date, "%Y-%m-%d").year
-        year_to_idx = {y: i for i, y in enumerate(years)}
 
-        ib = year_to_idx.get(before_year, len(years) - 2)
-        ia = year_to_idx.get(after_year, len(years) - 1)
+        before_idx, after_idx = self._select_period_indices(
+            years,
+            before_year=before_year,
+            after_year=after_year,
+            min_images=3,
+            max_images=5,
+        )
+
+        ndvi_before, valid_before = self._period_median(ndvi_stack, valid_stack, before_idx)
+        ndbi_before, _ = self._period_median(ndbi_stack, valid_stack, before_idx)
+        ndwi_before, _ = self._period_median(ndwi_stack, valid_stack, before_idx)
+
+        ndvi_after, valid_after = self._period_median(ndvi_stack, valid_stack, after_idx)
+        ndbi_after, _ = self._period_median(ndbi_stack, valid_stack, after_idx)
+        ndwi_after, _ = self._period_median(ndwi_stack, valid_stack, after_idx)
+
+        period_prior = self._period_change_prior(
+            ndvi_before,
+            ndbi_before,
+            ndwi_before,
+            ndvi_after,
+            ndbi_after,
+            ndwi_after,
+        )
+
+        # Fuse ConvLSTM output with robust period-composite delta prior.
+        final_prob = np.clip(0.55 * prob + 0.45 * period_prior, 0.0, 1.0)
 
         class_map, class_stats = self._classify(
-            prob,
-            ndvi_stack[ib], ndbi_stack[ib], ndwi_stack[ib],
-            ndvi_stack[ia], ndbi_stack[ia], ndwi_stack[ia],
-            valid_stack[ib], valid_stack[ia],
+            final_prob,
+            ndvi_before,
+            ndbi_before,
+            ndwi_before,
+            ndvi_after,
+            ndbi_after,
+            ndwi_after,
+            valid_before,
+            valid_after,
         )
 
         trend_map, trend_stats = self._trend_map(ndvi_stack, ndbi_stack, valid_stack)
@@ -656,11 +751,11 @@ class UnifiedTemporalChangeDetector:
         if after_rgb.shape[:2] != (self.model_size, self.model_size):
             after_rgb = cv2.resize(after_rgb, (self.model_size, self.model_size), interpolation=cv2.INTER_AREA)
 
-        prob_layer = self._build_heatmap(prob, after_rgb)
+        prob_layer = self._build_heatmap(final_prob, after_rgb)
         class_layer = self._build_class_overlay(class_map, after_rgb)
         trend_layer = self._build_trend_overlay(trend_map, after_rgb)
 
-        changed_pixels = int(np.sum(prob > 0.45))
+        changed_pixels = int(np.sum(final_prob > 0.45))
         total_pixels = int(prob.size)
         total_change_pct = round((changed_pixels / max(1, total_pixels)) * 100.0, 2)
         area_hectares = round(changed_pixels * (pixel_resolution ** 2) / 10000.0, 2)
@@ -669,10 +764,17 @@ class UnifiedTemporalChangeDetector:
 
         return {
             "status": "success",
-            "method": "Unified Multi-Temporal CNN+ConvLSTM",
+            "method": "Unified Multi-Temporal CNN+ConvLSTM + Period-Median Smoothing",
             "device": self.device,
             "tile_size": self.tile_size,
             "years_used": years,
+            "temporal_windows": {
+                "before_year": before_year,
+                "after_year": after_year,
+                "before_period_years": [years[i] for i in before_idx],
+                "after_period_years": [years[i] for i in after_idx],
+                "strategy": "period_median_3_to_5_year",
+            },
             "cloud_percent_by_year": yearly_cloud,
             "spectral_indices": {
                 "ndvi_formula": "(B08-B04)/(B08+B04)",
@@ -705,7 +807,6 @@ class UnifiedTemporalChangeDetector:
                         "water_loss": "blue",
                         "construction": "orange",
                         "vegetation_growth": "green",
-                        "roads": "black",
                     },
                 },
                 "temporal_trend_visualization": {

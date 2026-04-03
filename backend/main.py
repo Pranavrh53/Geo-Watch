@@ -31,16 +31,24 @@ from backend.auth import (
     create_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from backend.tile_fetcher import get_tile_fetcher
-from backend.image_processor import ImageProcessor
-from backend.ai_analyzer import get_urban_detector
-from backend.feature_detectors import get_building_detector
-from backend.spectral_analyzer import get_spectral_detector
-from backend.ml_change_detector import get_ml_detector
 from backend.unified_change_detector import get_unified_detector
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def check_image_quality_simple(img_array: np.ndarray) -> Dict[str, object]:
+    std_dev = float(np.std(img_array))
+    mean_intensity = float(np.mean(img_array))
+    is_valid = std_dev >= 1.0
+    return {
+        "is_valid": is_valid,
+        "std_dev": std_dev,
+        "mean_intensity": mean_intensity,
+        "quality": "Good" if std_dev >= 45 else "Acceptable" if std_dev >= 20 else "Poor",
+        "reason": None if is_valid else "Image is nearly uniform/blank",
+    }
 
 # Create FastAPI app
 app = FastAPI(
@@ -196,7 +204,6 @@ async def fetch_tile(
     """
     try:
         fetcher = get_tile_fetcher()
-        processor = ImageProcessor()
         
         # Validate bbox
         bbox = request.bbox
@@ -210,8 +217,8 @@ async def fetch_tile(
         
         # Check image quality
         from PIL import Image
-        img = Image.open(tile_path)
-        quality_check = processor.check_image_quality(img)
+        img = Image.open(tile_path).convert("RGB")
+        quality_check = check_image_quality_simple(np.array(img))
         
         # Return file path as URL with quality info
         return {
@@ -265,30 +272,29 @@ async def detect_changes(
     db: Session = Depends(get_db)
 ):
     """
-    AI-powered change detection between two satellite images
-    Returns detailed analysis with change metrics and overlay
+    Unified multi-temporal change detection.
+    Legacy RGB/ExG rule-based flow has been removed.
     """
     try:
         fetcher = get_tile_fetcher()
-        processor = ImageProcessor()
-        
+
         logger.info(f"Starting change detection: {request.before_date} → {request.after_date}")
-        
+
         # Step 1: Fetch both images
         before_path = fetcher.get_tile(db, request.bbox, request.before_date, (1024, 1024))
         after_path = fetcher.get_tile(db, request.bbox, request.after_date, (1024, 1024))
-        
+
         # Step 2: Load and check quality
         from PIL import Image
-        before_img = Image.open(before_path)
-        after_img = Image.open(after_path)
-        
-        before_quality = processor.check_image_quality(before_img)
-        after_quality = processor.check_image_quality(after_img)
-        
-        logger.info(f"Before image quality: {before_quality['quality']}, Blur score: {before_quality.get('blur_score', 0):.2f}")
-        logger.info(f"After image quality: {after_quality['quality']}, Blur score: {after_quality.get('blur_score', 0):.2f}")
-        
+        before_img = Image.open(before_path).convert("RGB")
+        after_img = Image.open(after_path).convert("RGB")
+
+        before_quality = check_image_quality_simple(np.array(before_img))
+        after_quality = check_image_quality_simple(np.array(after_img))
+
+        logger.info("Before image quality: %s", before_quality["quality"])
+        logger.info("After image quality: %s", after_quality["quality"])
+
         if not before_quality['is_valid'] or not after_quality['is_valid']:
             return {
                 "status": "error",
@@ -297,71 +303,49 @@ async def detect_changes(
                 "after_quality": after_quality,
                 "suggestion": "Try different dates or a different region"
             }
-        
-        # Step 3: Enhance images if requested
-        if request.enhance_images:
-            logger.info("Enhancing images for better analysis...")
-            before_img = processor.enhance_image(before_img, sharpen=True, denoise=True)
-            after_img = processor.enhance_image(after_img, sharpen=True, denoise=True)
-        
-        # Step 4: Detect changes
-        logger.info("Running change detection algorithm...")
-        changes = processor.detect_changes(before_img, after_img, request.sensitivity)
-        
-        # Step 5: Save overlay image
-        overlay_dir = Path(__file__).parent.parent / "data" / "overlays"
-        overlay_dir.mkdir(exist_ok=True)
-        
-        overlay_filename = f"overlay_{request.before_date}_{request.after_date}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
-        overlay_path = overlay_dir / overlay_filename
-        changes['overlay_image'].save(overlay_path)
-        
-        mask_filename = f"mask_{request.before_date}_{request.after_date}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
-        mask_path = overlay_dir / mask_filename
-        changes['change_mask'].save(mask_path)
-        
-        # Step 6: Calculate real-world area (rough estimate based on bbox size)
-        bbox = request.bbox
-        lat_diff = abs(bbox['north'] - bbox['south'])
-        lon_diff = abs(bbox['east'] - bbox['west'])
-        
-        # Approximate area in km² (1 degree ≈ 111 km at equator)
-        area_km2 = lat_diff * lon_diff * 111 * 111
-        area_hectares = area_km2 * 100
-        actual_change_hectares = (changes['change_percentage'] / 100) * area_hectares
-        
-        # Return results
+
+        # Step 3: Run unified temporal detector
+        logger.info("Running unified multi-temporal detector...")
+        detector = get_unified_detector()
+        results = detector.analyze_changes(
+            bbox=request.bbox,
+            before_date=request.before_date,
+            after_date=request.after_date,
+            before_rgb=np.array(before_img),
+            after_rgb=np.array(after_img),
+        )
+
+        summary = results["change_summary"]
+
         return {
             "status": "success",
             "before_date": request.before_date,
             "after_date": request.after_date,
-            "change_detected": changes['change_percentage'] > 1.0,
-            "change_percentage": changes['change_percentage'],
-            "change_area_hectares": round(actual_change_hectares, 4),
-            "change_area_km2": round(actual_change_hectares / 100, 4),
-            "severity": changes['severity'],
-            "change_type": changes.get('change_type', 'Unknown'),
-            "confidence": changes.get('confidence', 'Low'),
-            "overlay_url": f"/api/overlay/image/{overlay_filename}",
-            "mask_url": f"/api/overlay/image/{mask_filename}",
+            "method": results["method"],
+            "change_detected": summary["change_percent"] > 1.0,
+            "change_percentage": summary["change_percent"],
+            "change_area_hectares": summary["change_area_hectares"],
+            "change_area_km2": round(summary["change_area_hectares"] / 100.0, 4),
+            "confidence": "High" if summary["change_percent"] > 2 else "Medium",
+            "overlay": results["overlays"]["classified"],
+            "heatmap": results["overlays"]["change_probability"],
             "image_quality": {
                 "before": {
                     "quality": before_quality['quality'],
-                    "blur_score": round(before_quality.get('blur_score', 0), 2),
-                    "is_blurry": before_quality.get('is_blurry', True)
+                    "std_dev": round(float(before_quality.get('std_dev', 0.0)), 2),
                 },
                 "after": {
                     "quality": after_quality['quality'],
-                    "blur_score": round(after_quality.get('blur_score', 0), 2),
-                    "is_blurry": after_quality.get('is_blurry', True)
+                    "std_dev": round(float(after_quality.get('std_dev', 0.0)), 2),
                 }
             },
             "analysis_details": {
-                "total_pixels": changes['total_pixels'],
-                "changed_pixels": changes['changed_pixels'],
-                "sensitivity_threshold": request.sensitivity,
-                "images_enhanced": request.enhance_images
-            }
+                "total_pixels": summary["total_pixels"],
+                "changed_pixels": summary["changed_pixels"],
+                "years_used": results["years_used"],
+                "temporal_windows": results.get("temporal_windows", {}),
+            },
+            "categories": results["classified_changes"],
         }
     
     except Exception as e:
@@ -686,71 +670,6 @@ async def get_tiles_geojson(city_id: str):
     }
 
 
-# ========== AI Analysis Endpoints ==========
-
-class AIUrbanAnalysisRequest(BaseModel):
-    before_image_path: str
-    after_image_path: str
-    pixel_resolution: Optional[float] = 10.0  # Sentinel-2 default
-
-
-@app.get("/api/ai/test")
-async def test_ai():
-    """Test endpoint to verify AI module is accessible"""
-    print("\n🧪 TEST ENDPOINT CALLED\n", flush=True)
-    return {"status": "ok", "message": "AI module is accessible"}
-
-
-@app.post("/api/ai/urban")
-async def analyze_urban(
-    request: AIUrbanAnalysisRequest,
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    AI-based urban area detection and change analysis
-    Uses brightness-based satellite detection
-    """
-    print(f"\n{'='*60}", flush=True)
-    print(f"🚀 AI URBAN ANALYSIS ENDPOINT CALLED", flush=True)
-    print(f"User: {current_user.username}", flush=True)
-    print(f"Before: {request.before_image_path}", flush=True)
-    print(f"After: {request.after_image_path}", flush=True)
-    print(f"{'='*60}\n", flush=True)
-    
-    try:
-        logger.info(f"Starting AI urban analysis for user {current_user.username}")
-        
-        # Validate image paths - resolve relative to project root
-        project_root = Path(__file__).parent.parent
-        before_path = project_root / request.before_image_path
-        after_path = project_root / request.after_image_path
-        
-        if not before_path.exists():
-            raise HTTPException(status_code=404, detail=f"Before image not found: {before_path}")
-        if not after_path.exists():
-            raise HTTPException(status_code=404, detail=f"After image not found: {after_path}")
-        
-        # Get urban detector
-        detector = get_urban_detector()
-        
-        # Run analysis
-        results = detector.analyze_urban_change(
-            str(before_path),
-            str(after_path),
-            request.pixel_resolution
-        )
-        
-        logger.info(f"✓ Urban analysis complete: {results['change']['percent_change']:+.2f}%")
-        
-        return results
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Urban analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
-
-
 # ---- Feature Detection Endpoints ----
 
 class FeatureDetectionRequest(BaseModel):
@@ -832,7 +751,7 @@ def detect_new_buildings(
 ):
     """
     Detect new buildings / built-up areas between two satellite images.
-    Uses HSV + Excess-Green analysis on Sentinel-2 TRUE-COLOR imagery.
+    Uses the unified multi-temporal detector only.
     """
     print(f"\n{'='*60}", flush=True)
     print(f"🏗️  NEW BUILDING DETECTION ENDPOINT", flush=True)
@@ -980,7 +899,7 @@ def detect_deforestation(
         )
 
 
-# ---- Unified ML Change Detection (ChangeFormer + Spectral) ----
+# ---- Unified Multi-Temporal Change Detection ----
 
 class AnalyzeChangesRequest(BaseModel):
     bbox: Dict[str, float]                     # {west, south, east, north}
@@ -999,17 +918,13 @@ def analyze_changes_ml(
     db: Session = Depends(get_db),
 ):
     """
-    🧠 Full ML Change Detection Pipeline
-
-    Uses ChangeFormer (DL Transformer) for pixel-level change detection
-    + spectral indices (NDVI/NDBI) for change classification.
+        Full unified multi-temporal change detection pipeline.
 
     Categories:
       - Deforestation (forest → built-up)
       - New Construction
       - Water Body Changes
       - Agricultural Changes
-      - Road Development
       - Vegetation Recovery
     """
     print(f"\n{'='*60}", flush=True)

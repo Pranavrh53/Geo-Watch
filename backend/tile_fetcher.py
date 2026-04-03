@@ -17,7 +17,6 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 from config import COPERNICUS_USERNAME, COPERNICUS_PASSWORD, SENTINEL_HUB_INSTANCE_ID
 from backend.database import CachedTile
-from backend.image_processor import ImageProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
