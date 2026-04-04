@@ -751,7 +751,8 @@ def detect_new_buildings(
 ):
     """
     Detect new buildings / built-up areas between two satellite images.
-    Uses the unified multi-temporal detector only.
+    Hybrid approach: semantic building segmentation fused with unified
+    temporal construction priors for better precision and cleaner overlays.
     """
     print(f"\n{'='*60}", flush=True)
     print(f"🏗️  NEW BUILDING DETECTION ENDPOINT", flush=True)
@@ -761,6 +762,11 @@ def detect_new_buildings(
     print(f"{'='*60}\n", flush=True)
 
     try:
+        import base64
+        import io
+        import cv2
+        from backend.building_detector import detect_buildings
+
         project_root = Path(__file__).parent.parent
         before_path = project_root / request.before_image_path
         after_path = project_root / request.after_image_path
@@ -771,33 +777,215 @@ def detect_new_buildings(
             raise HTTPException(status_code=404, detail=f"After image not found: {after_path}")
 
         from PIL import Image
+
+        def to_b64_png(img_arr: np.ndarray) -> str:
+            arr = np.clip(img_arr, 0, 255).astype(np.uint8)
+            buf = io.BytesIO()
+            Image.fromarray(arr).save(buf, format="PNG")
+            payload = base64.b64encode(buf.getvalue()).decode("utf-8")
+            return f"data:image/png;base64,{payload}"
+
+        def clean_mask(mask: np.ndarray, min_area: int = 70) -> np.ndarray:
+            m = (mask > 0).astype(np.uint8)
+            m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((5, 5), dtype=np.uint8))
+            m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8))
+            n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(m, connectivity=8)
+            out = np.zeros_like(m)
+            for i in range(1, n_labels):
+                if stats[i, cv2.CC_STAT_AREA] >= min_area:
+                    out[labels == i] = 1
+            return out
+
+        def component_count(mask: np.ndarray) -> int:
+            n_labels, _, _, _ = cv2.connectedComponentsWithStats(
+                (mask > 0).astype(np.uint8),
+                connectivity=8,
+            )
+            return max(0, n_labels - 1)
+
+        def build_overlay(
+            context_rgb: np.ndarray,
+            primary_mask: np.ndarray,
+            primary_color: tuple,
+            secondary_mask: Optional[np.ndarray] = None,
+            secondary_color: tuple = (70, 150, 255),
+            background_scale: float = 0.38,
+        ) -> np.ndarray:
+            overlay = np.clip(context_rgb.astype(np.float32) * background_scale, 0, 255).astype(np.uint8)
+
+            if secondary_mask is not None and np.any(secondary_mask):
+                overlay[secondary_mask > 0] = secondary_color
+                sec_dil = cv2.dilate(secondary_mask.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=1)
+                sec_border = sec_dil.astype(bool) & ~(secondary_mask.astype(bool))
+                overlay[sec_border] = (255, 255, 255)
+
+            if np.any(primary_mask):
+                overlay[primary_mask > 0] = primary_color
+                dil = cv2.dilate(primary_mask.astype(np.uint8), np.ones((7, 7), np.uint8), iterations=1)
+                border = dil.astype(bool) & ~(primary_mask.astype(bool))
+                overlay[border] = (255, 255, 255)
+
+            return overlay
+
+        def build_spotlight(new_mask: np.ndarray, removed_mask: np.ndarray) -> np.ndarray:
+            out = np.zeros((new_mask.shape[0], new_mask.shape[1], 3), dtype=np.uint8)
+            out[new_mask > 0] = (255, 92, 28)
+            out[removed_mask > 0] = (70, 150, 255)
+            return out
+
         before_img = Image.open(str(before_path)).convert("RGB")
         after_img = Image.open(str(after_path)).convert("RGB")
 
+        before_arr = np.array(before_img)
+        after_arr = np.array(after_img)
+
+        # 1) Semantic building segmentation branch.
+        building = detect_buildings(
+            before_source=before_arr,
+            after_source=after_arr,
+            band_order=(0, 1, 2),
+            target_size=512,
+            threshold=0.46,
+            preferred_backend="segformer",
+            save_dir=None,
+            visualize=False,
+        )
+
+        before_prob = building["before_prob_map"].astype(np.float32)
+        after_prob = building["after_prob_map"].astype(np.float32)
+        before_rgb = building["before_rgb_uint8"]
+        after_rgb = building["after_rgb_uint8"]
+
+        # 2) Unified temporal branch to add construction priors.
         h, w = before_img.height, before_img.width
         bbox = {"west": 0.0, "south": 0.0, "east": float(w), "north": float(h)}
         detector = get_unified_detector()
-        results = detector.analyze_changes(
+        unified = detector.analyze_changes(
             bbox=bbox,
             before_date="2024-01-01",
             after_date="2025-01-01",
-            before_rgb=np.array(before_img),
-            after_rgb=np.array(after_img),
+            before_rgb=before_arr,
+            after_rgb=after_arr,
             pixel_resolution=request.pixel_resolution or 10.0,
+            include_raw=True,
         )
+
+        raw = unified.get("_raw", {})
+        unified_prob = raw.get("change_probability")
+        unified_class = raw.get("class_map")
+
+        if unified_prob is None:
+            unified_prob = np.zeros_like(after_prob, dtype=np.float32)
+        if unified_class is None:
+            unified_class = np.zeros_like(after_prob, dtype=np.uint8)
+
+        if unified_prob.shape != after_prob.shape:
+            unified_prob = cv2.resize(
+                unified_prob.astype(np.float32),
+                (after_prob.shape[1], after_prob.shape[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
+        if unified_class.shape != after_prob.shape:
+            unified_class = cv2.resize(
+                unified_class.astype(np.uint8),
+                (after_prob.shape[1], after_prob.shape[0]),
+                interpolation=cv2.INTER_NEAREST,
+            )
+
+        # 3) Fuse both signals to isolate true built-up expansion.
+        building_delta = np.clip(after_prob - before_prob, 0.0, 1.0)
+        construction_hint = (unified_class == 3).astype(np.float32)
+        roads_hint = (unified_class == 5).astype(np.float32)
+        fused_prob = np.clip(
+            0.62 * building_delta
+            + 0.28 * unified_prob.astype(np.float32)
+            + 0.10 * np.maximum(construction_hint, 0.5 * roads_hint),
+            0.0,
+            1.0,
+        )
+
+        candidate_new = (fused_prob > 0.52) & (
+            (building_delta > 0.24) | (construction_hint > 0) | (roads_hint > 0)
+        )
+        new_mask = clean_mask(candidate_new, min_area=70)
+        if int(new_mask.sum()) == 0:
+            new_mask = clean_mask(building["new_buildings_mask"] > 0, min_area=50)
+
+        removed_prob = np.clip(before_prob - after_prob, 0.0, 1.0)
+        removed_mask = clean_mask(removed_prob > 0.58, min_area=70)
+        before_mask = clean_mask(building["before_building_mask"] > 0, min_area=70)
+
+        # 4) Build highlight overlays for UI.
+        before_overlay = build_overlay(
+            before_rgb,
+            before_mask,
+            primary_color=(60, 200, 75),
+            secondary_mask=None,
+            background_scale=0.45,
+        )
+        new_overlay = build_overlay(
+            after_rgb,
+            new_mask,
+            primary_color=(255, 92, 28),
+            secondary_mask=removed_mask,
+            secondary_color=(70, 150, 255),
+            background_scale=0.35,
+        )
+        difference_overlay = build_spotlight(new_mask, removed_mask)
+
+        heat = cv2.applyColorMap((fused_prob * 255).astype(np.uint8), cv2.COLORMAP_JET)
+        heat = cv2.cvtColor(heat, cv2.COLOR_BGR2RGB)
+        heat_overlay = cv2.addWeighted(after_rgb, 0.35, heat, 0.65, 0)
+
+        pixel_resolution = request.pixel_resolution or 10.0
+        total_pixels = int(new_mask.size)
+        new_pixels = int(new_mask.sum())
+        removed_pixels = int(removed_mask.sum())
+        percent_change = round((new_pixels / max(1, total_pixels)) * 100.0, 2)
+        removed_percent = round((removed_pixels / max(1, total_pixels)) * 100.0, 2)
+        new_hectares = round(new_pixels * (pixel_resolution ** 2) / 10000.0, 2)
+        removed_hectares = round(removed_pixels * (pixel_resolution ** 2) / 10000.0, 2)
+        new_acres = round(new_hectares * 2.47105, 2)
+        new_clusters = component_count(new_mask)
 
         return {
             "status": "success",
             "feature": "buildings",
-            "method": results["method"],
-            "change": results["change_summary"],
-            "categories": results["classified_changes"],
-            "overlays": {
-                "new_buildings": results["overlays"]["classified"],
-                "difference": results["overlays"]["classified"],
-                "heatmap": results["overlays"]["change_probability"],
+            "method": "Hybrid Building Fusion (SegFormer/DeepLab + Unified Temporal Prior)",
+            "change": {
+                "new_pixels": new_pixels,
+                "removed_pixels": removed_pixels,
+                "total_pixels": total_pixels,
+                "percent_change": percent_change,
+                "new_buildup_hectares": new_hectares,
+                "new_buildup_acres": new_acres,
+                "new_clusters": new_clusters,
+                "removed_buildup_hectares": removed_hectares,
             },
-            "before": {"overlay_image": results["overlays"]["classified"]},
+            "categories": {
+                "new_buildings": {
+                    "pixels": new_pixels,
+                    "percent": percent_change,
+                    "color": "rgb(255,92,28)",
+                },
+                "removed_buildings": {
+                    "pixels": removed_pixels,
+                    "percent": removed_percent,
+                    "color": "rgb(70,150,255)",
+                },
+            },
+            "overlays": {
+                "new_buildings": to_b64_png(new_overlay),
+                "difference": to_b64_png(difference_overlay),
+                "heatmap": to_b64_png(heat_overlay),
+            },
+            "before": {"overlay_image": to_b64_png(before_overlay)},
+            "model_backend": building["stats"].get("model_backend"),
+            "explanation": (
+                "This result fuses semantic building segmentation with unified temporal "
+                "construction priors. Orange highlights probable new built-up zones, "
+                "blue highlights probable removals, and the heatmap shows fused confidence."
+            ),
         }
 
     except HTTPException:
