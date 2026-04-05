@@ -446,43 +446,26 @@ class UnifiedTemporalChangeDetector:
         years: List[int],
         before_year: int,
         after_year: int,
-        min_images: int = 3,
-        max_images: int = 5,
+        min_images: int = 1,
+        max_images: int = 2,
     ) -> Tuple[List[int], List[int]]:
         before_pool = [i for i, y in enumerate(years) if y <= before_year]
         after_pool = [i for i, y in enumerate(years) if y >= after_year]
 
+        # Take only the last max_images (closest to the boundary year).
         before_idx = before_pool[-max_images:]
         after_idx = after_pool[:max_images]
 
-        # If strict after-period years are too few, use years between before/after
-        # with emphasis on years closest to the after date.
+        # Fallback: use transition years if strict pools are empty.
         if len(after_idx) < min_images:
             transition_pool = [i for i, y in enumerate(years) if before_year < y <= after_year]
             if transition_pool:
                 after_idx = transition_pool[-max_images:]
 
-        # If strict before-period years are too few, use years between before/after
-        # with emphasis on years closest to the before date.
         if len(before_idx) < min_images:
             transition_pool = [i for i, y in enumerate(years) if before_year <= y < after_year]
             if transition_pool:
                 before_idx = transition_pool[:max_images]
-
-        if len(before_idx) < min_images:
-            logger.info(
-                "Before period has %s images (target %s-%s)",
-                len(before_idx),
-                min_images,
-                max_images,
-            )
-        if len(after_idx) < min_images:
-            logger.info(
-                "After period has %s images (target %s-%s)",
-                len(after_idx),
-                min_images,
-                max_images,
-            )
 
         # Fallback to at least one year per side.
         if not before_idx:
@@ -565,119 +548,73 @@ class UnifiedTemporalChangeDetector:
         valid_before: np.ndarray,
         valid_after: np.ndarray,
     ) -> Tuple[np.ndarray, Dict[str, Dict[str, float]]]:
-        # Require stronger confidence to reduce false positives.
-        changed = prob > 0.58
         valid = valid_before & valid_after
-        changed = changed & valid
 
         ndvi_delta = ndvi_after - ndvi_before
         ndbi_delta = ndbi_after - ndbi_before
 
-        # Deforestation: clear vegetation drop with strong confidence.
-        deforestation = (
-            changed
-            & (prob > 0.62)
-            & (ndvi_before > 0.52)
-            & (ndvi_delta < -0.30)
-            & (ndvi_after < 0.18)
-            & valid
-        )
+        # ── Construction classification: two-tier approach ──
+        # KEY INSIGHT: Agricultural land has seasonal changes that look
+        # like construction (harvest = bare soil → NDBI up, NDVI down).
+        # FIX: Require the AFTER image to actually look like BUILT-UP
+        # land (high NDBI, very low NDVI) — not just "something changed."
 
-        # Construction: strong built-up signature + vegetation drop + high confidence.
-        urban_delta = ndbi_delta > 0.18
-        urban_abs = (ndbi_after > 0.22) & (ndbi_before < -0.03)
-        low_veg = ndvi_after < 0.22
-        ndvi_drop = ndvi_delta < -0.10
-        non_water = ndwi_after < 0.22
-        urbanization = (
-            changed
-            & (prob > 0.62)
-            & (urban_delta | urban_abs)
-            & low_veg
-            & ndvi_drop
+        # Common filters: must look like construction NOW, not just changed.
+        looks_built_up = ndbi_after > 0.15   # after image has built-up signature
+        no_vegetation = ndvi_after < 0.25     # no vegetation in after image
+        non_water = ndwi_after < 0.25
+
+        # Tier 1: High confidence — model is confident + looks built-up.
+        high_conf = (
+            (prob > 0.70) & valid
+            & looks_built_up
+            & no_vegetation
             & non_water
-            & valid
+            & (ndbi_delta > 0.05)          # some urban increase
         )
 
-        # Water loss.
-        water_loss = changed & (prob > 0.60) & (ndwi_before > 0.35) & (ndwi_after < 0.05)
+        # Tier 2: Medium confidence — clear spectral change + built-up after.
+        med_conf = (
+            (prob > 0.55) & valid
+            & (ndbi_after > 0.10)           # moderately built-up after
+            & (ndvi_after < 0.25)           # no vegetation after
+            & (ndbi_delta > 0.12)           # built-up index went up
+            & (ndvi_delta < -0.10)          # vegetation clearly dropped
+            & non_water
+        )
 
-        # Vegetation growth.
-        vegetation_growth = changed & (prob > 0.58) & (ndvi_delta > 0.34)
+        urbanization = high_conf | med_conf
 
-        roads = self._detect_roads(urbanization.astype(np.uint8)).astype(bool)
-
+        # Build class map with ONLY construction (class 3).
         class_map = np.zeros(prob.shape, dtype=np.uint8)
-        class_map[deforestation] = 1
-        class_map[water_loss] = 2
         class_map[urbanization] = 3
-        class_map[vegetation_growth] = 4
-        class_map[roads] = 5
 
-        # Merge nearby detections while keeping construction conservative.
-        close_kernel = {1: 17, 2: 17, 3: 23, 4: 17}
-        min_keep = {1: 900, 2: 800, 3: 1600, 4: 1000}
-        for cid in [1, 2, 3, 4]:
-            mask = (class_map == cid).astype(np.uint8)
-            if np.sum(mask) == 0:
-                continue
-
-            closed = cv2.morphologyEx(
-                mask,
-                cv2.MORPH_CLOSE,
-                np.ones((close_kernel[cid], close_kernel[cid]), dtype=np.uint8)
-            )
-
-            n, labels, stats, _ = cv2.connectedComponentsWithStats(closed, 8)
-            for i in range(1, n):
-                if stats[i, cv2.CC_STAT_AREA] < min_keep[cid]:
-                    closed[labels == i] = 0
-            class_map[class_map == cid] = 0
-            class_map[closed > 0] = cid
+        # ── REGION SMOOTHING: gentle — remove pixel jaggedness without losing detections ──
+        mask = (class_map == 3).astype(np.uint8)
+        if np.sum(mask) > 0:
+            # Small close to fill 1-2 pixel gaps within each detection.
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+            # Gaussian blur softens jagged pixel edges.
+            mask = cv2.GaussianBlur(mask.astype(np.float32), (5, 5), 0)
+            mask = (mask > 0.4).astype(np.uint8)
+            # Remove only truly tiny noise (<50 pixels).
+            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+            clean_mask = np.zeros_like(mask)
+            for i in range(1, num_labels):
+                if stats[i, cv2.CC_STAT_AREA] > 50:
+                    clean_mask[labels == i] = 1
+            class_map[:] = 0
+            class_map[clean_mask > 0] = 3
 
         total = float(prob.size)
         stats_out = {
-            "deforestation": {"pixels": int(np.sum(class_map == 1)), "color": "rgb(220,40,40)"},
-            "water_loss": {"pixels": int(np.sum(class_map == 2)), "color": "rgb(30,100,255)"},
             "construction": {"pixels": int(np.sum(class_map == 3)), "color": "rgb(255,140,0)"},
-            "vegetation_growth": {"pixels": int(np.sum(class_map == 4)), "color": "rgb(34,180,60)"},
-            "roads": {"pixels": int(np.sum(class_map == 5)), "color": "rgb(60,60,60)"},
         }
         for key in stats_out:
             stats_out[key]["percent"] = round(
                 (stats_out[key]["pixels"] / max(1.0, total)) * 100.0, 3
             )
         return class_map, stats_out
-
-        # Merge fragmented nearby construction pixels into coherent blocks.
-        construction_mask = (class_map == 3).astype(np.uint8)
-        if np.sum(construction_mask) > 0:
-            construction_mask = cv2.morphologyEx(
-                construction_mask,
-                cv2.MORPH_OPEN,
-                np.ones((3, 3), dtype=np.uint8),
-            )
-            construction_mask = cv2.morphologyEx(
-                construction_mask,
-                cv2.MORPH_CLOSE,
-                np.ones((3, 3), dtype=np.uint8),
-            )
-            construction_mask = self._remove_small(construction_mask > 0, min_area=45).astype(np.uint8)
-            class_map[class_map == 3] = 0
-            class_map[construction_mask > 0] = 3
-
-        # Keep smaller zones so emerging construction is not dropped.
-        class_map = self._remove_small(class_map > 0, min_area=20).astype(np.uint8) * class_map
-
-        total = float(prob.size)
-        stats = {
-            "deforestation": {"pixels": int(np.sum(class_map == 1)), "color": "rgb(220,30,30)"},
-            "construction": {"pixels": int(np.sum(class_map == 3)), "color": "rgb(255,140,0)"},
-        }
-        for key in stats:
-            stats[key]["percent"] = round((stats[key]["pixels"] / max(1.0, total)) * 100.0, 3)
-
-        return class_map, stats
 
     @staticmethod
     def _slope_over_time(values: np.ndarray, valid: np.ndarray) -> np.ndarray:
@@ -758,39 +695,72 @@ class UnifiedTemporalChangeDetector:
     def _build_class_overlay(class_map: np.ndarray,
                               _context_rgb: np.ndarray) -> np.ndarray:
         """
-        Build an RGBA overlay where unchanged pixels are fully transparent.
-        This removes the green/yellow satellite background so class regions
-        are easier to read.
+        Build an RGBA overlay with smooth polygon edges.
+        Uses approxPolyDP for clean non-pixelated outlines.
         """
         h, w = class_map.shape
         overlay = np.zeros((h, w, 4), dtype=np.uint8)
 
-        # Category definitions: class_id -> (fill_colour, border_colour)
-        # Use deeper tones so highlighted change regions look stronger on map tiles.
-        CATEGORIES = {
-            1: ((165, 20, 20), (255, 255, 255)),  # deforestation  - deep red
-            2: ((20, 75, 210), (255, 255, 255)),  # water loss     - deep blue
-            3: ((185, 95, 5), (255, 255, 255)),  # construction   - deep orange
-            4: ((20, 120, 40), (255, 255, 255)),  # veg growth     - deep green
-            5: ((35, 35, 35), (255, 220, 0)),  # roads          - charcoal/yellow
-        }
+        mask = (class_map == 3).astype(np.uint8)
+        if np.sum(mask) == 0:
+            return overlay
 
-        for cid, (fill_rgb, border_rgb) in CATEGORIES.items():
-            mask = (class_map == cid).astype(np.uint8)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        fill_color = (185, 95, 5)      # deep orange
+        border_color = (255, 255, 255)  # white outline
+
+        for cnt in contours:
+            if cv2.contourArea(cnt) > 50:
+                # Polygon approximation for clean edges (no convex hull).
+                epsilon = 0.008 * cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, epsilon, True)
+                # Semi-transparent fill.
+                cv2.drawContours(overlay, [approx], -1, (*fill_color, 140), thickness=cv2.FILLED)
+                # Bold white border.
+                cv2.drawContours(overlay, [approx], -1, (*border_color, 255), thickness=2)
+
+        return overlay
+
+    @staticmethod
+    def _build_changes_panel_image(
+        trend_map: np.ndarray,
+        context_rgb: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Build an opaque RGB image for the Detected Changes side-by-side panel.
+
+        Renders the temporal trend overlay (same as Unified Map) on top of
+        the satellite imagery for the selected region.
+        - Red:    gradual vegetation loss (NDVI slope < -0.02)
+        - Orange: urban expansion trend  (NDBI slope > 0.015)
+        """
+        h, w = trend_map.shape
+        ctx = context_rgb.copy()
+        if ctx.shape[:2] != (h, w):
+            ctx = cv2.resize(ctx, (w, h), interpolation=cv2.INTER_AREA)
+
+        # Slightly darken satellite base so trend colors pop.
+        base = np.clip(ctx.astype(np.float32) * 0.65, 0, 255).astype(np.uint8)
+
+        # Trend colors matching the Unified Map overlay.
+        trend_colors = {1: (200, 20, 20), 2: (245, 140, 20)}  # red, orange
+
+        for tid, color in trend_colors.items():
+            mask = (trend_map == tid).astype(np.uint8)
             if np.sum(mask) == 0:
                 continue
 
-            # Opaque solid fill on changed class pixels.
-            overlay[mask > 0, :3] = fill_rgb
-            overlay[mask > 0, 3] = 255
+            # Blend the trend color onto the satellite base.
+            color_layer = base.copy()
+            color_layer[mask > 0] = color
+            cv2.addWeighted(color_layer, 0.55, base, 0.45, 0, base)
 
-            # Thin white border outside each zone.
-            dilated = cv2.dilate(mask, np.ones((4, 4), np.uint8), iterations=1)
-            border = dilated.astype(bool) & ~mask.astype(bool)
-            overlay[border, :3] = border_rgb
-            overlay[border, 3] = 255
+            # White outline around each trend region.
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(base, contours, -1, (255, 255, 255), thickness=1)
 
-        return overlay
+        return base
 
     @staticmethod
     def _build_trend_overlay(trend_map: np.ndarray, _context_rgb: np.ndarray) -> np.ndarray:
@@ -839,8 +809,8 @@ class UnifiedTemporalChangeDetector:
             years,
             before_year=before_year,
             after_year=after_year,
-            min_images=3,
-            max_images=5,
+            min_images=1,
+            max_images=2,
         )
 
         ndvi_before, valid_before = self._period_median(ndvi_stack, valid_stack, before_idx)
@@ -890,6 +860,7 @@ class UnifiedTemporalChangeDetector:
         prob_layer = self._build_heatmap(final_prob, after_rgb)
         class_layer = self._build_class_overlay(class_map, after_rgb)
         trend_layer = self._build_trend_overlay(trend_map, after_rgb)
+        changes_panel = self._build_changes_panel_image(trend_map, after_rgb)
 
         changed_pixels = int(np.sum(final_prob > 0.45))
         total_pixels = int(prob.size)
@@ -909,7 +880,7 @@ class UnifiedTemporalChangeDetector:
                 "after_year": after_year,
                 "before_period_years": [years[i] for i in before_idx],
                 "after_period_years": [years[i] for i in after_idx],
-                "strategy": "period_median_3_to_5_year",
+                "strategy": "period_median_2_year",
             },
             "cloud_percent_by_year": yearly_cloud,
             "spectral_indices": {
@@ -939,11 +910,7 @@ class UnifiedTemporalChangeDetector:
                     "image": _to_b64(class_layer),
                     "bbox": bbox,
                     "legend": {
-                        "deforestation": "red",
-                        "water_loss": "blue",
                         "construction": "orange",
-                        "vegetation_growth": "green",
-                        "roads": "dark_gray",
                     },
                 },
                 "temporal_trend_visualization": {
@@ -953,6 +920,7 @@ class UnifiedTemporalChangeDetector:
                     "bbox": bbox,
                 },
             },
+            "changes_panel_image": _to_b64(changes_panel),
             "overlays": {
                 "change_probability": _to_b64(prob_layer),
                 "classified": _to_b64(class_layer),
@@ -977,49 +945,3 @@ def get_unified_detector() -> UnifiedTemporalChangeDetector:
     if _unified_detector is None:
         _unified_detector = UnifiedTemporalChangeDetector()
     return _unified_detector
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Step-2 bridge: building detection via semantic segmentation
-# ─────────────────────────────────────────────────────────────────────────────
-
-def run_building_detection(
-    before_source,
-    after_source,
-    save_dir=None,
-    backend: str = "segformer",
-    threshold: float = 0.50,
-    visualize: bool = True,
-) -> Dict:
-    """
-    Convenience wrapper that runs Step-2 building detection and returns
-    masks compatible with the rest of the Geo-Watch pipeline.
-
-    Parameters
-    ----------
-    before_source : str | Path | np.ndarray
-        Before-period Sentinel-2 image (GeoTIFF, .npy, or array).
-    after_source  : str | Path | np.ndarray
-        After-period Sentinel-2 image.
-    save_dir      : str | Path | None
-        If set, masks and PNG visualisation are saved here.
-    backend       : "segformer" (default) or "deeplab"
-    threshold     : building probability cut-off (default 0.50)
-    visualize     : generate matplotlib overview figure
-
-    Returns
-    -------
-    dict — see building_detector.detect_buildings() for full key listing.
-    """
-    from building_detector import detect_buildings  # local import to avoid circular deps
-
-    return detect_buildings(
-        before_source=before_source,
-        after_source=after_source,
-        band_order=(2, 1, 0),           # B04=R, B03=G, B02=B
-        target_size=512,
-        threshold=threshold,
-        preferred_backend=backend,
-        save_dir=save_dir,
-        visualize=visualize,
-    )

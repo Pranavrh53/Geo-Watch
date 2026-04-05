@@ -17,10 +17,6 @@ function authHeaders() {
 // ── Legend config (single source of truth) ───────────────────────────────────
 const LEGEND = [
   { key: 'construction',       label: 'New Construction',     emoji: '🏗️',  color: '#FF8C00' },
-  { key: 'deforestation',      label: 'Deforestation',        emoji: '🌲',  color: '#DC1E1E' },
-  { key: 'vegetation_growth',  label: 'Vegetation Growth',    emoji: '🌱',  color: '#28B446' },
-  { key: 'water_loss',         label: 'Water Body Shrinking', emoji: '💧',  color: '#2878FF' },
-  { key: 'roads',              label: 'New Roads',            emoji: '🛣️',  color: '#444444' },
 ];
 
 // ── Global state ─────────────────────────────────────────────────────────────
@@ -168,10 +164,10 @@ function renderResults(data, bbox) {
   const classifiedLayer = layers.classified_change_map;
 
   if (classifiedLayer?.image) {
-    drawImageOverlay(classifiedLayer.image, bbox, classifiedLayer.opacity ?? 0.82);
+    drawImageOverlay(classifiedLayer.image, bbox, classifiedLayer.opacity ?? 0.9);
     // Store all three images for the toggle buttons
     window._overlayImages = {
-      classified: { src: classifiedLayer.image,                                         opacity: 0.82 },
+      classified: { src: classifiedLayer.image,                                         opacity: classifiedLayer.opacity ?? 0.9 },
       heatmap:    { src: layers.change_probability_heatmap?.image,                      opacity: 0.75 },
       trend:      { src: layers.temporal_trend_visualization?.image,                    opacity: 0.75 },
     };
