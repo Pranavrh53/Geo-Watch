@@ -862,10 +862,29 @@ class UnifiedTemporalChangeDetector:
         trend_layer = self._build_trend_overlay(trend_map, after_rgb)
         changes_panel = self._build_changes_panel_image(trend_map, after_rgb)
 
-        changed_pixels = int(np.sum(final_prob > 0.45))
+        # Count changed pixels as the union of classified + trend detections.
+        # This matches what is actually shown in the visual output.
+        # (Previously used `final_prob > 0.45` which was far too permissive,
+        #  catching seasonal/agricultural noise and inflating area stats.)
+        detected_mask = (class_map != 0) | (trend_map != 0)
+        changed_pixels = int(np.sum(detected_mask))
         total_pixels = int(prob.size)
         total_change_pct = round((changed_pixels / max(1, total_pixels)) * 100.0, 2)
-        area_hectares = round(changed_pixels * (pixel_resolution ** 2) / 10000.0, 2)
+
+        # Calculate actual ground area from bbox (NOT pixel_resolution).
+        # The 512×512 grid covers the entire bbox, so each pixel represents
+        # total_ground_area / total_pixels of real ground.
+        import math
+        lat_extent_m = (bbox['north'] - bbox['south']) * 111_000.0
+        avg_lat_rad = math.radians((bbox['north'] + bbox['south']) / 2.0)
+        lon_extent_m = (bbox['east'] - bbox['west']) * 111_000.0 * math.cos(avg_lat_rad)
+        total_ground_area_m2 = lat_extent_m * lon_extent_m
+        pixel_area_m2 = total_ground_area_m2 / max(1, total_pixels)
+
+        area_hectares = round(changed_pixels * pixel_area_m2 / 10000.0, 2)
+        total_area_hectares = round(total_ground_area_m2 / 10000.0, 2)
+        # Sanity cap: change can never exceed total study area
+        area_hectares = min(area_hectares, total_area_hectares)
 
         yearly_cloud = {str(x.year): round(x.cloud_percent, 2) for x in yearly}
 
@@ -894,6 +913,8 @@ class UnifiedTemporalChangeDetector:
                 "total_pixels": total_pixels,
                 "change_percent": total_change_pct,
                 "change_area_hectares": area_hectares,
+                "total_area_hectares": total_area_hectares,
+                "pixel_area_m2": round(pixel_area_m2, 4),
             },
             "classified_changes": class_stats,
             "trend_summary": trend_stats,
@@ -935,6 +956,139 @@ class UnifiedTemporalChangeDetector:
             }
 
         return result
+
+    def generate_animation_frames(
+        self,
+        bbox: Dict[str, float],
+        before_date: str,
+        after_date: str,
+        tile_fetcher=None,
+        db=None,
+    ) -> Dict:
+        """
+        Generate per-year animation frames with spectral metrics.
+
+        Returns a dict with ordered frames, each containing:
+          - year, image (base64), ndvi_mean, ndbi_mean,
+            vegetation_pct, urban_pct, change_area_ha, cumulative_change_ha
+        """
+        import math
+
+        years = self._year_sequence(before_date, after_date)
+        logger.info("Animation: generating frames for years %s", years)
+
+        # Fetch or load cached spectral data for each year
+        yearly: List[YearlyData] = [
+            self._fetch_year_data(bbox, y, self.model_size) for y in years
+        ]
+
+        # Ground area calculations
+        lat_extent_m = (bbox["north"] - bbox["south"]) * 111_000.0
+        avg_lat_rad = math.radians((bbox["north"] + bbox["south"]) / 2.0)
+        lon_extent_m = (
+            (bbox["east"] - bbox["west"]) * 111_000.0 * math.cos(avg_lat_rad)
+        )
+        total_ground_area_m2 = lat_extent_m * lon_extent_m
+        total_pixels = self.model_size * self.model_size
+        pixel_area_m2 = total_ground_area_m2 / max(1, total_pixels)
+        total_area_ha = round(total_ground_area_m2 / 10000.0, 2)
+
+        # Use the first year as baseline for cumulative change
+        base_ndvi = yearly[0].ndvi.copy()
+        base_ndbi = yearly[0].ndbi.copy()
+
+        frames = []
+
+        for i, yd in enumerate(yearly):
+            valid = yd.valid_mask
+            ndvi = yd.ndvi
+            ndbi = yd.ndbi
+            ndwi = yd.ndwi
+
+            # ── Per-year spectral metrics ──
+            ndvi_valid = ndvi[valid] if np.any(valid) else ndvi.ravel()
+            ndbi_valid = ndbi[valid] if np.any(valid) else ndbi.ravel()
+
+            ndvi_mean = round(float(np.mean(ndvi_valid)), 4)
+            ndbi_mean = round(float(np.mean(ndbi_valid)), 4)
+
+            # Vegetation: NDVI > 0.3 and not water
+            veg_mask = (ndvi > 0.3) & (ndwi < 0.2) & valid
+            veg_pct = round(float(np.sum(veg_mask) / max(1, np.sum(valid))) * 100, 1)
+
+            # Urban: NDBI > 0.05 and low vegetation
+            urban_mask = (ndbi > 0.05) & (ndvi < 0.25) & (ndwi < 0.2) & valid
+            urban_pct = round(
+                float(np.sum(urban_mask) / max(1, np.sum(valid))) * 100, 1
+            )
+
+            # Change from baseline (cumulative)
+            ndvi_delta = np.abs(ndvi - base_ndvi)
+            ndbi_delta = np.abs(ndbi - base_ndbi)
+            change_score = 0.6 * ndvi_delta + 0.4 * ndbi_delta
+            changed_mask = (change_score > 0.12) & valid
+            change_pixels = int(np.sum(changed_mask))
+            change_ha = round(
+                min(change_pixels * pixel_area_m2 / 10000.0, total_area_ha), 2
+            )
+
+            # ── Build false-color RGB visualization ──
+            # NDVI → green, NDBI → red, NDWI → blue
+            r = np.clip(((ndbi + 1.0) / 2.0 * 200 + 30), 0, 255).astype(np.uint8)
+            g = np.clip(((ndvi + 1.0) / 2.0 * 220 + 20), 0, 255).astype(np.uint8)
+            b = np.clip(((ndwi + 1.0) / 2.0 * 180 + 30), 0, 255).astype(np.uint8)
+
+            # Darken invalid/cloud pixels
+            r[~valid] = (r[~valid] * 0.3).astype(np.uint8)
+            g[~valid] = (g[~valid] * 0.3).astype(np.uint8)
+            b[~valid] = (b[~valid] * 0.3).astype(np.uint8)
+
+            rgb = np.stack([r, g, b], axis=-1)
+
+            # Try to fetch real satellite tile if fetcher available
+            real_tile_b64 = None
+            if tile_fetcher and db:
+                try:
+                    tile_path = tile_fetcher.get_tile(
+                        db, bbox, f"{yd.year}-06-15", (512, 512)
+                    )
+                    from PIL import Image as PILImage
+                    tile_img = PILImage.open(tile_path).convert("RGB")
+                    tile_arr = np.array(tile_img)
+                    # Check quality
+                    if float(np.std(tile_arr)) > 15:
+                        if tile_arr.shape[:2] != (self.model_size, self.model_size):
+                            tile_arr = cv2.resize(
+                                tile_arr,
+                                (self.model_size, self.model_size),
+                                interpolation=cv2.INTER_AREA,
+                            )
+                        real_tile_b64 = _to_b64(tile_arr, "JPEG")
+                except Exception as exc:
+                    logger.debug("No real tile for %s: %s", yd.year, exc)
+
+            frame = {
+                "year": yd.year,
+                "image": real_tile_b64 or _to_b64(rgb, "JPEG"),
+                "is_real_tile": real_tile_b64 is not None,
+                "ndvi_mean": ndvi_mean,
+                "ndbi_mean": ndbi_mean,
+                "vegetation_pct": veg_pct,
+                "urban_pct": urban_pct,
+                "cloud_pct": round(yd.cloud_percent, 1),
+                "change_area_ha": change_ha,
+            }
+            frames.append(frame)
+
+        return {
+            "status": "success",
+            "bbox": bbox,
+            "total_area_ha": total_area_ha,
+            "pixel_area_m2": round(pixel_area_m2, 4),
+            "years": years,
+            "frame_count": len(frames),
+            "frames": frames,
+        }
 
 
 _unified_detector: Optional[UnifiedTemporalChangeDetector] = None

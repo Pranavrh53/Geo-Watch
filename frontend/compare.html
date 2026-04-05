@@ -168,16 +168,23 @@
         /* Side by side view */
         .side-by-side {
             flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 16px;
-            padding: 20px 24px;
             display: none;
-            overflow: hidden;
+            flex-direction: column;
+            padding: 16px 24px;
+            overflow-y: auto;
+            gap: 16px;
         }
 
         .side-by-side.active {
+            display: flex;
+        }
+
+        .side-by-side-images {
             display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            min-height: 380px;
+            flex-shrink: 0;
         }
 
         .image-panel {
@@ -219,7 +226,7 @@
         }
 
         .image-panel:nth-child(3) .image-date {
-            color: rgba(255,255,255,0.85);
+            color: rgba(255, 255, 255, 0.85);
         }
 
         .image-header {
@@ -279,8 +286,17 @@
         }
 
         @keyframes pulse-icon {
-            0%, 100% { transform: scale(1); opacity: 0.9; }
-            50% { transform: scale(1.15); opacity: 1; }
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+
+            50% {
+                transform: scale(1.15);
+                opacity: 1;
+            }
         }
 
         .changes-placeholder p {
@@ -294,7 +310,7 @@
             font-family: 'Press Start 2P', cursive;
             font-size: 0.5em;
             color: #5555FF;
-            background: rgba(85,85,255,0.08);
+            background: rgba(85, 85, 255, 0.08);
             border: 2px dashed #5555FF;
             padding: 10px 14px;
             cursor: pointer;
@@ -320,14 +336,14 @@
             position: absolute;
             bottom: 6px;
             left: 6px;
-            background: rgba(0,0,0,0.72);
+            background: rgba(0, 0, 0, 0.72);
             color: white;
             padding: 7px 10px;
             font-family: 'Space Mono', monospace;
             font-size: 0.6em;
             line-height: 1.8;
             pointer-events: none;
-            border: 2px solid rgba(255,255,255,0.15);
+            border: 2px solid rgba(255, 255, 255, 0.15);
         }
 
         .legend-dot {
@@ -573,6 +589,374 @@
                 margin-top: 10px;
             }
         }
+
+        /* ── Analysis Insights Panel ── */
+        .insights-panel {
+            display: none;
+            background: #1a1a2e;
+            border: 4px solid #00B8A9;
+            box-shadow: 8px 8px 0 rgba(0, 184, 169, 0.2);
+            padding: 24px;
+            color: #e0e0e0;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .insights-panel.show {
+            display: block;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .insights-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid rgba(0, 184, 169, 0.3);
+        }
+
+        .insights-header h3 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7em;
+            color: #00B8A9;
+        }
+
+        .insights-header .time-range {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            color: #FF7070;
+            background: rgba(255, 112, 112, 0.1);
+            padding: 6px 12px;
+            border: 2px solid rgba(255, 112, 112, 0.3);
+        }
+
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 184, 169, 0.2);
+            padding: 14px;
+            text-align: center;
+        }
+
+        .stat-card .stat-value {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.1em;
+            color: #00B8A9;
+            margin-bottom: 6px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.7em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .findings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .finding-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 4px solid #00B8A9;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+
+        .finding-item.urban {
+            border-left-color: #f58c14;
+        }
+
+        .finding-item.vegetation {
+            border-left-color: #c81414;
+        }
+
+        .finding-item.key {
+            border-left-color: #B2E600;
+            background: rgba(178, 230, 0, 0.06);
+        }
+
+        .cloud-footer {
+            font-size: 0.72em;
+            color: #666;
+            padding-top: 12px;
+            border-top: 2px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* ── Animation View ── */
+        .animate-view {
+            display: none;
+            height: 100%;
+        }
+
+        .animate-view.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .anim-layout {
+            display: flex;
+            flex: 1;
+            gap: 0;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .anim-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            position: relative;
+            min-width: 0;
+        }
+
+        .anim-canvas-wrap {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 450px;
+            background: #0a0a0a;
+        }
+
+        .anim-canvas-wrap canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .anim-canvas-wrap #anim-canvas-next {
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out;
+        }
+
+        .anim-canvas-wrap #anim-canvas-next.fade-in {
+            opacity: 1;
+        }
+
+        .anim-hud {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.82);
+            color: #0f0;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.95em;
+            padding: 14px 20px;
+            border: 2px solid rgba(0, 255, 100, 0.4);
+            border-radius: 6px;
+            pointer-events: none;
+            line-height: 1.8;
+            z-index: 10;
+            text-shadow: 0 0 6px rgba(0,255,100,0.3);
+        }
+
+        .anim-hud strong {
+            font-size: 1.3em;
+            color: #00ffaa;
+        }
+
+        .anim-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #1a1a1a;
+            border-top: 2px solid #00B8A9;
+        }
+
+        .anim-controls button {
+            background: #333;
+            border: 2px solid #555;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 1em;
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+
+        .anim-controls button:hover {
+            background: #00B8A9;
+            border-color: #00B8A9;
+        }
+
+        .anim-controls button.active {
+            background: #00B8A9;
+            border-color: #00B8A9;
+        }
+
+        .anim-speed {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            color: #aaa;
+            font-size: 0.8em;
+        }
+
+        .anim-speed input[type=range] {
+            width: 80px;
+            accent-color: #00B8A9;
+        }
+
+        .anim-timeline {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: 8px 16px;
+            background: #222;
+        }
+
+        .anim-year-tick {
+            flex: 1;
+            text-align: center;
+            padding: 5px 2px;
+            font-size: 0.65em;
+            color: #666;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .anim-year-tick:hover {
+            background: #333;
+            color: #fff;
+        }
+
+        .anim-year-tick.active {
+            background: #00B8A9;
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(0, 184, 169, 0.5);
+        }
+
+        .anim-year-tick.visited {
+            color: #00B8A9;
+        }
+
+        .anim-sidebar {
+            width: 320px;
+            background: #1a1a1a;
+            border-left: 3px solid #00B8A9;
+            overflow-y: auto;
+            padding: 16px;
+            color: #ccc;
+            flex-shrink: 0;
+        }
+
+        .anim-sidebar h3 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.6em;
+            color: #00B8A9;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .anim-metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.82em;
+        }
+
+        .anim-metric .label {
+            color: #888;
+        }
+
+        .anim-metric .value {
+            font-weight: bold;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .anim-metric .value.green {
+            color: #4CAF50;
+        }
+
+        .anim-metric .value.orange {
+            color: #FF9800;
+        }
+
+        .anim-metric .value.red {
+            color: #f44336;
+        }
+
+        .anim-chart-wrap {
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 10px;
+        }
+
+        .anim-chart-wrap canvas {
+            width: 100%;
+            height: 160px;
+        }
+
+        .anim-chart-title {
+            font-size: 0.68em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .anim-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 16px;
+            color: #00B8A9;
+        }
+
+        .anim-loading .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 184, 169, 0.2);
+            border-top-color: #00B8A9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -594,46 +978,61 @@
         <button class="tab-btn active" onclick="switchView('side-by-side')">📸 Before / After / Changes</button>
         <button class="tab-btn" onclick="switchView('slider')">⟷ Slider Compare</button>
         <button class="tab-btn" onclick="switchView('map')">🗺️ Unified Map</button>
+        <button class="tab-btn" onclick="switchView('animate')">🎬 Temporal Animation</button>
     </div>
 
     <div class="comparison-container">
         <!-- Side by Side View: BEFORE | AFTER | DETECTED CHANGES -->
         <div class="side-by-side active" id="side-by-side-view">
-            <!-- BEFORE -->
-            <div class="image-panel">
-                <div class="image-header">
-                    <span>📅 BEFORE</span>
-                    <span class="image-date" id="before-date-display">Loading...</span>
-                </div>
-                <div class="image-content">
-                    <img id="before-image" src="" alt="Before">
-                </div>
-            </div>
-
-            <!-- AFTER -->
-            <div class="image-panel">
-                <div class="image-header">
-                    <span>📅 AFTER</span>
-                    <span class="image-date" id="after-date-display">Loading...</span>
-                </div>
-                <div class="image-content">
-                    <img id="after-image" src="" alt="After">
-                </div>
-            </div>
-
-            <!-- DETECTED CHANGES -->
-            <div class="image-panel" id="changes-panel">
-                <div class="image-header">
-                    <span>🔍 DETECTED CHANGES</span>
-                    <span class="image-date" id="changes-date-display">Run analysis →</span>
-                </div>
-                <div class="image-content" id="changes-content">
-                    <div class="changes-placeholder" id="changes-placeholder">
-                        <span class="pulse-icon">🛰️</span>
-                        <p>No change map loaded yet.<br>Run the unified analysis to see detected changes overlaid here.</p>
-                        <div class="run-hint" onclick="triggerUnifiedAndSwitch()">▶ Run Unified Analysis</div>
+            <div class="side-by-side-images">
+                <!-- BEFORE -->
+                <div class="image-panel">
+                    <div class="image-header">
+                        <span>📅 BEFORE</span>
+                        <span class="image-date" id="before-date-display">Loading...</span>
+                    </div>
+                    <div class="image-content">
+                        <img id="before-image" src="" alt="Before">
                     </div>
                 </div>
+
+                <!-- AFTER -->
+                <div class="image-panel">
+                    <div class="image-header">
+                        <span>📅 AFTER</span>
+                        <span class="image-date" id="after-date-display">Loading...</span>
+                    </div>
+                    <div class="image-content">
+                        <img id="after-image" src="" alt="After">
+                    </div>
+                </div>
+
+                <!-- DETECTED CHANGES -->
+                <div class="image-panel" id="changes-panel">
+                    <div class="image-header">
+                        <span>🔍 DETECTED CHANGES</span>
+                        <span class="image-date" id="changes-date-display">Run analysis →</span>
+                    </div>
+                    <div class="image-content" id="changes-content">
+                        <div class="changes-placeholder" id="changes-placeholder">
+                            <span class="pulse-icon">🛰️</span>
+                            <p>No change map loaded yet.<br>Run the unified analysis to see detected changes overlaid
+                                here.</p>
+                            <div class="run-hint" onclick="triggerUnifiedAndSwitch()">▶ Run Unified Analysis</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Insights Panel -->
+            <div class="insights-panel" id="insights-panel">
+                <div class="insights-header">
+                    <h3>📊 Analysis Insights</h3>
+                    <span class="time-range" id="insights-time-range"></span>
+                </div>
+                <div class="stat-cards" id="insights-stat-cards"></div>
+                <div class="findings-list" id="insights-findings"></div>
+                <div class="cloud-footer" id="insights-cloud"></div>
             </div>
         </div>
 
@@ -675,6 +1074,38 @@
                 Unified map view is ready. Click "Run Unified Map Analysis" to load overlays.
             </div>
             <div id="unified-map"></div>
+        </div>
+
+        <!-- Animation View -->
+        <div class="animate-view" id="animate-view">
+            <div class="anim-layout">
+                <div class="anim-stage">
+                    <div class="anim-canvas-wrap">
+                        <canvas id="anim-canvas"></canvas>
+                        <canvas id="anim-canvas-next"></canvas>
+                        <div class="anim-hud" id="anim-hud"></div>
+                    </div>
+                    <div class="anim-controls">
+                        <button id="anim-prev" title="Previous frame">⏮</button>
+                        <button id="anim-play" title="Play/Pause">▶</button>
+                        <button id="anim-next" title="Next frame">⏭</button>
+                        <div class="anim-speed">
+                            <span>🐢</span>
+                            <input type="range" id="anim-speed" min="1" max="10" value="4" title="Animation speed">
+                            <span>🐇</span>
+                        </div>
+                    </div>
+                    <div class="anim-timeline" id="anim-timeline"></div>
+                </div>
+                <div class="anim-sidebar">
+                    <h3>📊 Live Metrics</h3>
+                    <div id="anim-metrics"></div>
+                    <div class="anim-chart-wrap">
+                        <div class="anim-chart-title">Change Over Time</div>
+                        <canvas id="anim-chart" width="560" height="320"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -810,10 +1241,14 @@
             document.getElementById('slider-view').classList.remove('active');
             document.getElementById('map-view').classList.remove('active');
 
+            document.getElementById('animate-view')?.classList.remove('active');
             if (view === 'side-by-side') {
                 document.getElementById('side-by-side-view').classList.add('active');
             } else if (view === 'slider') {
                 document.getElementById('slider-view').classList.add('active');
+            } else if (view === 'animate') {
+                document.getElementById('animate-view').classList.add('active');
+                if (!window._animFrames) loadAnimationFrames();
             } else {
                 document.getElementById('map-view').classList.add('active');
                 if (unifiedMap) {
@@ -1212,6 +1647,129 @@
             window._latestChangesImgSrc = imgSrc;
         }
 
+        // ============================================================
+        // ANALYSIS INSIGHTS PANEL
+        // ============================================================
+        function populateInsightsPanel(results) {
+            const panel = document.getElementById('insights-panel');
+            if (!panel) return;
+
+            const summary = results.change_summary || {};
+            const trend = results.trend_summary || {};
+            const classified = results.classified_changes || {};
+            const temporal = results.temporal_windows || {};
+            const clouds = results.cloud_percent_by_year || {};
+            const yearsUsed = results.years_used || [];
+
+            // Time range
+            const timeRange = document.getElementById('insights-time-range');
+            timeRange.textContent = `${temporal.before_year || beforeDate?.split('-')[0] || '?'} → ${temporal.after_year || afterDate?.split('-')[0] || '?'}`;
+
+            // Stat cards
+            const cardsEl = document.getElementById('insights-stat-cards');
+            const changePct = summary.change_percent ?? 0;
+            const areaHa = summary.change_area_hectares ?? 0;
+            const totalAreaHa = summary.total_area_hectares ?? 0;
+            const pixelAreaM2 = summary.pixel_area_m2 ?? 100;
+            const urbanPx = trend.urban_expansion_pixels ?? 0;
+            const urbanHaRaw = ((urbanPx * pixelAreaM2) / 1e4).toFixed(1);
+            const urbanHa = totalAreaHa > 0 ? Math.min(parseFloat(urbanHaRaw), totalAreaHa).toFixed(1) : urbanHaRaw;
+
+            cardsEl.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${changePct}%</div>
+                    <div class="stat-label">Total Changed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${areaHa} ha</div>
+                    <div class="stat-label">Changed Area</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${urbanHa} ha</div>
+                    <div class="stat-label">Urban Expansion</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalAreaHa > 0 ? totalAreaHa + ' ha' : yearsUsed.length}</div>
+                    <div class="stat-label">${totalAreaHa > 0 ? 'Study Area' : 'Years Analyzed'}</div>
+                </div>
+            `;
+
+            // Findings
+            const findingsEl = document.getElementById('insights-findings');
+            const findings = [];
+
+            // Construction finding
+            const consPx = classified.construction?.pixels ?? 0;
+            if (consPx > 0) {
+                const consHaRaw = ((consPx * pixelAreaM2) / 1e4).toFixed(1);
+                const consHa = totalAreaHa > 0 ? Math.min(parseFloat(consHaRaw), totalAreaHa).toFixed(1) : consHaRaw;
+                const consPct = classified.construction?.percent ?? 0;
+                findings.push(`<div class="finding-item urban">
+                    <span>🏗️</span>
+                    <span><strong>New construction detected:</strong> ${consHa} hectares (${consPct}% of area). CNN+ConvLSTM identified change zones, then classified as built-up via spectral verification (NDBI > 0.15, NDVI < 0.25).</span>
+                </div>`);
+            }
+
+            // Urban expansion trend
+            if (urbanPx > 0) {
+                findings.push(`<div class="finding-item urban">
+                    <span>🏙️</span>
+                    <span><strong>Urban expansion trend:</strong> ${urbanHa} hectares (${urbanPx.toLocaleString()} pixels) show consistent year-over-year increase in built-up index. Detected by ConvLSTM temporal regression over ${yearsUsed.length} years of Sentinel-2 data (NDBI slope > 0.015/year).</span>
+                </div>`);
+            }
+
+            // Vegetation loss trend
+            const vegPx = trend.gradual_deforestation_pixels ?? 0;
+            if (vegPx > 0) {
+                const vegHaRaw = ((vegPx * pixelAreaM2) / 1e4).toFixed(1);
+                const vegHa = totalAreaHa > 0 ? Math.min(parseFloat(vegHaRaw), totalAreaHa).toFixed(1) : vegHaRaw;
+                findings.push(`<div class="finding-item vegetation">
+                    <span>🌳</span>
+                    <span><strong>Vegetation declining:</strong> ${vegHa} hectares show gradual loss over ${yearsUsed.length} years. ConvLSTM temporal analysis found persistent NDVI decline (slope < -0.02/year). Possible causes: land clearing, construction prep.</span>
+                </div>`);
+            }
+
+            // Key finding summary
+            if (changePct > 0) {
+                const beforeYr = temporal.before_year || '?';
+                const afterYr = temporal.after_year || '?';
+                let keyMsg = '';
+                if (changePct > 15) {
+                    keyMsg = `Major land use changes detected. ${areaHa} hectares (${changePct}%) of the ${totalAreaHa > 0 ? totalAreaHa + ' ha ' : ''}study area transformed between ${beforeYr} and ${afterYr}. Multi-temporal CNN+ConvLSTM analysis over ${yearsUsed.length} years confirms significant development activity.`;
+                } else if (changePct > 5) {
+                    keyMsg = `Moderate development activity detected. ${areaHa} hectares (${changePct}%) changed between ${beforeYr} and ${afterYr}. CNN+ConvLSTM temporal analysis identified construction and infrastructure development across multiple zones.`;
+                } else if (changePct > 0) {
+                    keyMsg = `Minor changes detected covering ${areaHa} hectares (${changePct}%) between ${beforeYr} and ${afterYr}. CNN+ConvLSTM flagged small-scale construction or land modifications.`;
+                }
+                if (keyMsg) {
+                    findings.push(`<div class="finding-item key">
+                        <span>💡</span>
+                        <span><strong>Key Finding:</strong> ${keyMsg}</span>
+                    </div>`);
+                }
+            }
+
+            if (findings.length === 0) {
+                findings.push(`<div class="finding-item">
+                    <span>✅</span>
+                    <span>No significant construction or urban changes detected in this region during the study period.</span>
+                </div>`);
+            }
+
+            findingsEl.innerHTML = findings.join('');
+
+            // Cloud info
+            const cloudEl = document.getElementById('insights-cloud');
+            const cloudEntries = Object.entries(clouds);
+            if (cloudEntries.length > 0) {
+                const cloudStr = cloudEntries.map(([y, c]) => `${y}: ${c}%`).join(' · ');
+                cloudEl.innerHTML = `☁️ Cloud cover by year — ${cloudStr}<br>
+                    📡 Method: ${results.method || 'CNN + ConvLSTM'} · Data: Sentinel-2 (10m) · Bands: B02, B03, B04, B08, B11 + SCL`;
+            }
+
+            panel.classList.add('show');
+        }
+
         // Shortcut: run analysis and stay on side-by-side tab
         async function triggerUnifiedAndSwitch() {
             await runUnifiedAnalysisOnMap(true); // pass flag to skip map switch
@@ -1265,8 +1823,9 @@
                     [bbox.north, bbox.east]
                 );
 
-                // ── Populate changes panel (side-by-side) ──
+                // ── Populate changes panel + insights (side-by-side) ──
                 populateChangesPanel(results);
+                populateInsightsPanel(results);
 
                 clearUnifiedOverlays();
 
@@ -1357,6 +1916,387 @@
         async function runAllChangesDetection() {
             await runUnifiedAnalysisOnMap();
         }
+        // ============================================================
+        // TEMPORAL ANIMATION ENGINE
+        // ============================================================
+
+        window._animFrames = null;
+        window._animState = {
+            idx: 0,
+            playing: false,
+            timer: null,
+            images: [],       // preloaded Image objects
+            totalAreaHa: 0,
+        };
+
+        async function loadAnimationFrames() {
+            if (!bbox || !beforeDate || !afterDate) {
+                alert('Missing bbox or date parameters.');
+                return;
+            }
+
+            // Show loading
+            const stage = document.querySelector('.anim-stage');
+            const sidebar = document.querySelector('.anim-sidebar');
+            stage.insertAdjacentHTML('afterbegin',
+                '<div class="anim-loading" id="anim-loading-overlay"><div class="spinner"></div><span style="font-family:\'Press Start 2P\',cursive;font-size:0.5em;">Loading satellite frames...</span></div>'
+            );
+
+            try {
+                const res = await fetch(`${API_URL}/api/ai/animation-frames`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        bbox,
+                        before_date: beforeDate,
+                        after_date: afterDate
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Failed to load frames');
+                }
+
+                const data = await res.json();
+                window._animFrames = data.frames;
+                window._animState.totalAreaHa = data.total_area_ha;
+
+                // Preload all images
+                const images = await Promise.all(data.frames.map(f => {
+                    return new Promise((resolve) => {
+                        const img = new window.Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = () => resolve(null);
+                        img.src = f.image;
+                    });
+                }));
+                window._animState.images = images;
+
+                // Build timeline
+                buildTimeline(data.frames);
+
+                // Wire controls
+                wireAnimControls();
+
+                // Show first frame
+                showAnimFrame(0, true);
+                drawChart(0);
+
+            } catch (err) {
+                console.error('Animation load failed:', err);
+                alert(`Animation failed: ${err.message}`);
+            } finally {
+                document.getElementById('anim-loading-overlay')?.remove();
+            }
+        }
+
+        function buildTimeline(frames) {
+            const tl = document.getElementById('anim-timeline');
+            tl.innerHTML = '';
+            frames.forEach((f, i) => {
+                const tick = document.createElement('div');
+                tick.className = 'anim-year-tick' + (i === 0 ? ' active' : '');
+                tick.textContent = f.year;
+                tick.dataset.idx = i;
+                tick.addEventListener('click', () => {
+                    stopAnim();
+                    showAnimFrame(i);
+                    drawChart(i);
+                });
+                tl.appendChild(tick);
+            });
+        }
+
+        function wireAnimControls() {
+            document.getElementById('anim-play').addEventListener('click', togglePlay);
+            document.getElementById('anim-prev').addEventListener('click', () => {
+                stopAnim();
+                stepAnim(-1);
+            });
+            document.getElementById('anim-next').addEventListener('click', () => {
+                stopAnim();
+                stepAnim(1);
+            });
+        }
+
+        function getSpeedMs() {
+            const val = parseInt(document.getElementById('anim-speed').value);
+            // val 1=slow (3500ms), 10=fast (800ms)
+            // Must be >= 650ms to allow crossfade to complete
+            return Math.max(800, 3800 - val * 300);
+        }
+
+        function togglePlay() {
+            const st = window._animState;
+            if (st.playing) {
+                stopAnim();
+            } else {
+                st.playing = true;
+                document.getElementById('anim-play').textContent = '⏸';
+                document.getElementById('anim-play').classList.add('active');
+                playNext();
+            }
+        }
+
+        function playNext() {
+            const st = window._animState;
+            if (!st.playing) return;
+            stepAnim(1);
+            st.timer = setTimeout(playNext, getSpeedMs());
+        }
+
+        function stopAnim() {
+            const st = window._animState;
+            st.playing = false;
+            if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+            document.getElementById('anim-play').textContent = '▶';
+            document.getElementById('anim-play').classList.remove('active');
+        }
+
+        function stepAnim(dir) {
+            const frames = window._animFrames;
+            if (!frames) return;
+            const st = window._animState;
+            st.idx = (st.idx + dir + frames.length) % frames.length;
+            showAnimFrame(st.idx);
+            drawChart(st.idx);
+        }
+
+        function showAnimFrame(idx, skipCrossfade = false) {
+            const frames = window._animFrames;
+            const st = window._animState;
+            if (!frames || !frames[idx]) return;
+
+            const prevIdx = st.idx;
+            st.idx = idx;
+
+            const wrap = document.querySelector('.anim-canvas-wrap');
+            const canvasCurr = document.getElementById('anim-canvas');
+            const canvasNext = document.getElementById('anim-canvas-next');
+            const ctxCurr = canvasCurr.getContext('2d');
+            const ctxNext = canvasNext.getContext('2d');
+            const img = st.images[idx];
+
+            const W = wrap.offsetWidth;
+            const H = wrap.offsetHeight;
+
+            // Helper to draw image fitted/centered on a canvas
+            function drawFitted(canvas, ctx, image) {
+                canvas.width = W;
+                canvas.height = H;
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, W, H);
+                if (!image) return;
+                const scale = Math.min(W / image.width, H / image.height);
+                const w = image.width * scale;
+                const h = image.height * scale;
+                const x = (W - w) / 2;
+                const y = (H - h) / 2;
+                ctx.drawImage(image, x, y, w, h);
+            }
+
+            if (skipCrossfade || prevIdx === idx) {
+                // No crossfade — just draw directly on front canvas
+                drawFitted(canvasCurr, ctxCurr, img);
+                canvasNext.classList.remove('fade-in');
+            } else {
+                // Crossfade: draw new frame on the next-canvas, fade it in
+                // First ensure current canvas shows the previous frame
+                const prevImg = st.images[prevIdx];
+                drawFitted(canvasCurr, ctxCurr, prevImg);
+
+                // Draw new frame on the hidden next-canvas
+                canvasNext.classList.remove('fade-in');
+                drawFitted(canvasNext, ctxNext, img);
+
+                // Force reflow then trigger CSS transition
+                void canvasNext.offsetWidth;
+                canvasNext.classList.add('fade-in');
+
+                // After transition completes, swap: copy next→current, hide next
+                setTimeout(() => {
+                    drawFitted(canvasCurr, ctxCurr, img);
+                    canvasNext.classList.remove('fade-in');
+                }, 650);
+            }
+
+            const f = frames[idx];
+
+            // Update HUD overlay
+            document.getElementById('anim-hud').innerHTML = `
+                <strong>${f.year}</strong> &nbsp;|&nbsp;
+                NDVI: ${f.ndvi_mean.toFixed(3)} &nbsp;|&nbsp;
+                Veg: ${f.vegetation_pct}% &nbsp;|&nbsp;
+                Urban: ${f.urban_pct}%<br>
+                Changed: ${f.change_area_ha} ha &nbsp;|&nbsp;
+                Cloud: ${f.cloud_pct}%
+            `;
+
+            // Update timeline
+            document.querySelectorAll('.anim-year-tick').forEach((el, i) => {
+                el.classList.toggle('active', i === idx);
+                if (i <= idx) el.classList.add('visited');
+                else el.classList.remove('visited');
+            });
+
+            // Update metrics sidebar
+            updateAnimMetrics(f);
+        }
+
+        function updateAnimMetrics(f) {
+            const totalHa = window._animState.totalAreaHa;
+            const changePct = totalHa > 0 ? (f.change_area_ha / totalHa * 100).toFixed(1) : '0';
+
+            const vegClass = f.vegetation_pct > 40 ? 'green' : f.vegetation_pct > 20 ? 'orange' : 'red';
+            const urbanClass = f.urban_pct > 30 ? 'red' : f.urban_pct > 15 ? 'orange' : 'green';
+
+            document.getElementById('anim-metrics').innerHTML = `
+                <div class="anim-metric">
+                    <span class="label">📅 Year</span>
+                    <span class="value">${f.year}</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">🌿 NDVI (Mean)</span>
+                    <span class="value ${f.ndvi_mean > 0.3 ? 'green' : 'orange'}">${f.ndvi_mean.toFixed(4)}</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">🌳 Vegetation Cover</span>
+                    <span class="value ${vegClass}">${f.vegetation_pct}%</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">🏙️ Urban Cover</span>
+                    <span class="value ${urbanClass}">${f.urban_pct}%</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">📐 Changed Area</span>
+                    <span class="value orange">${f.change_area_ha} ha</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">📊 Change Ratio</span>
+                    <span class="value">${changePct}%</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">☁️ Cloud Cover</span>
+                    <span class="value" style="color:${f.cloud_pct > 20 ? '#f44' : '#aaa'}">${f.cloud_pct}%</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">📏 Study Area</span>
+                    <span class="value">${window._animState.totalAreaHa} ha</span>
+                </div>
+            `;
+        }
+
+        function drawChart(upToIdx) {
+            const frames = window._animFrames;
+            if (!frames) return;
+
+            const canvas = document.getElementById('anim-chart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width;
+            const H = canvas.height;
+
+            ctx.clearRect(0, 0, W, H);
+
+            const n = frames.length;
+            const pad = { top: 10, right: 10, bottom: 24, left: 36 };
+            const chartW = W - pad.left - pad.right;
+            const chartH = H - pad.top - pad.bottom;
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (chartH / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(W - pad.right, y);
+                ctx.stroke();
+            }
+
+            // Y-axis labels
+            ctx.fillStyle = '#666';
+            ctx.font = '9px "Space Mono"';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (chartH / 4) * i;
+                ctx.fillText((100 - i * 25) + '%', pad.left - 4, y + 3);
+            }
+
+            // X-axis year labels
+            ctx.textAlign = 'center';
+            frames.forEach((f, i) => {
+                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                ctx.fillStyle = i <= upToIdx ? '#00B8A9' : '#444';
+                ctx.fillText(f.year, x, H - 4);
+            });
+
+            // Draw series (only up to current frame for animation effect)
+            const series = [
+                { key: 'vegetation_pct', color: '#4CAF50', label: 'Veg%' },
+                { key: 'urban_pct', color: '#FF9800', label: 'Urban%' },
+            ];
+
+            const drawN = Math.min(upToIdx + 1, n);
+
+            series.forEach(({ key, color }) => {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                for (let i = 0; i < drawN; i++) {
+                    const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                    const val = frames[i][key];
+                    const y = pad.top + chartH - (val / 100) * chartH;
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                // Draw dots
+                ctx.fillStyle = color;
+                for (let i = 0; i < drawN; i++) {
+                    const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                    const val = frames[i][key];
+                    const y = pad.top + chartH - (val / 100) * chartH;
+                    ctx.beginPath();
+                    ctx.arc(x, y, i === upToIdx ? 4 : 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // Draw change area as bar (normalized to total area)
+            const totalHa = window._animState.totalAreaHa || 1;
+            ctx.fillStyle = 'rgba(244,67,54,0.35)';
+            for (let i = 0; i < drawN; i++) {
+                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                const pct = (frames[i].change_area_ha / totalHa) * 100;
+                const barH = (pct / 100) * chartH;
+                ctx.fillRect(x - 3, pad.top + chartH - barH, 6, barH);
+            }
+
+            // Legend
+            ctx.font = '9px "Space Mono"';
+            const legendItems = [
+                { color: '#4CAF50', label: 'Vegetation' },
+                { color: '#FF9800', label: 'Urban' },
+                { color: 'rgba(244,67,54,0.6)', label: 'Change' },
+            ];
+            let lx = pad.left;
+            legendItems.forEach(({ color, label }) => {
+                ctx.fillStyle = color;
+                ctx.fillRect(lx, 2, 8, 8);
+                ctx.fillStyle = '#888';
+                ctx.textAlign = 'left';
+                ctx.fillText(label, lx + 11, 9);
+                lx += ctx.measureText(label).width + 22;
+            });
+        }
+
     </script>
 </body>
 

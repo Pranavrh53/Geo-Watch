@@ -295,7 +295,8 @@ function fillStatsPanel(data, bbox) {
     .filter(({ key }) => (changes[key]?.pixels ?? 0) > 0)
     .map(({ key, label, emoji, color }) => {
       const info       = changes[key];
-      const hectares   = ((info.pixels * 100) / 1e4).toFixed(1);   // 10m pixel → 100 m²
+      const pixelAreaM2 = data.change_summary?.pixel_area_m2 ?? 100;
+      const hectares   = ((info.pixels * pixelAreaM2) / 1e4).toFixed(1);
       return `
         <tr>
           <td>

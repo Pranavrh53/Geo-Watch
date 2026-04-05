@@ -836,6 +836,43 @@ def detect_deforestation(
         )
 
 
+
+# ---- Animation Frames Endpoint ----
+
+class AnimationFramesRequest(BaseModel):
+    bbox: Dict[str, float]
+    before_date: str
+    after_date: str
+
+
+@app.post("/api/ai/animation-frames")
+def get_animation_frames(
+    request: AnimationFramesRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate per-year animation frames with spectral metrics.
+    Returns ordered satellite tile images + NDVI/NDBI/vegetation/urban stats.
+    """
+    try:
+        detector = get_unified_detector()
+        fetcher = get_tile_fetcher()
+
+        results = detector.generate_animation_frames(
+            bbox=request.bbox,
+            before_date=request.before_date,
+            after_date=request.after_date,
+            tile_fetcher=fetcher,
+            db=db,
+        )
+        return results
+
+    except Exception as e:
+        logger.error(f"Animation frames failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ---- Unified Multi-Temporal Change Detection ----
 
 class AnalyzeChangesRequest(BaseModel):
