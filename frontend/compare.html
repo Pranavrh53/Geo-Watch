@@ -716,6 +716,10 @@
         .animate-view.active {
             display: flex;
             flex-direction: column;
+            position: fixed;
+            inset: 0;
+            z-index: 2500;
+            background: radial-gradient(circle at 20% 20%, #0e2230 0%, #090d14 45%, #05060a 100%);
         }
 
         .anim-layout {
@@ -724,6 +728,39 @@
             gap: 0;
             min-height: 0;
             overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* ── Synthetic data warning banner ── */
+        .anim-data-banner {
+            position: relative;
+            z-index: 20;
+            padding: 10px 18px;
+            font-size: 0.72em;
+            font-family: 'Space Mono', monospace;
+            line-height: 1.5;
+            border-bottom: 2px solid;
+        }
+        .anim-data-banner.banner-warn {
+            background: rgba(255, 152, 0, 0.12);
+            border-color: #FF9800;
+            color: #FFB74D;
+        }
+        .anim-data-banner.banner-ok {
+            background: rgba(76, 175, 80, 0.10);
+            border-color: #4CAF50;
+            color: #81C784;
+        }
+        .anim-data-banner .banner-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .anim-data-banner .banner-errors {
+            margin: 4px 0 0 10px;
+            list-style: disc;
+            padding-left: 14px;
+            opacity: 0.85;
         }
 
         .anim-stage {
@@ -739,7 +776,7 @@
             flex: 1;
             position: relative;
             overflow: hidden;
-            min-height: 450px;
+            min-height: calc(100vh - 130px);
             background: #0a0a0a;
         }
 
@@ -754,33 +791,56 @@
 
         .anim-canvas-wrap #anim-canvas-next {
             opacity: 0;
-            transition: opacity 0.6s ease-in-out;
+            transform: scale(1.025);
+            filter: brightness(1.06) saturate(1.08);
+            transition: opacity 0.95s ease, transform 0.95s ease, filter 0.95s ease;
         }
 
         .anim-canvas-wrap #anim-canvas-next.fade-in {
             opacity: 1;
+            transform: scale(1);
+            filter: brightness(1) saturate(1);
         }
 
         .anim-hud {
             position: absolute;
             top: 16px;
             left: 16px;
-            background: rgba(0, 0, 0, 0.82);
-            color: #0f0;
+            background: rgba(5, 12, 16, 0.9);
+            color: #f2fff8;
             font-family: 'Space Mono', monospace;
-            font-size: 0.95em;
-            padding: 14px 20px;
-            border: 2px solid rgba(0, 255, 100, 0.4);
-            border-radius: 6px;
+            font-size: 1em;
+            padding: 14px 18px;
+            border: 2px solid rgba(0, 255, 170, 0.55);
+            border-radius: 8px;
             pointer-events: none;
-            line-height: 1.8;
+            line-height: 1.65;
             z-index: 10;
-            text-shadow: 0 0 6px rgba(0,255,100,0.3);
+            text-shadow: 0 0 8px rgba(0, 255, 170, 0.22);
+            min-width: 340px;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
         }
 
         .anim-hud strong {
-            font-size: 1.3em;
+            font-size: 1.25em;
             color: #00ffaa;
+        }
+
+        .anim-hud .hud-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .anim-hud .hud-chip {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid rgba(0, 255, 170, 0.4);
+            border-radius: 12px;
+            color: #bbffe8;
+            background: rgba(0, 255, 170, 0.1);
+            font-size: 0.78em;
         }
 
         .anim-controls {
@@ -788,7 +848,7 @@
             align-items: center;
             gap: 8px;
             padding: 10px 16px;
-            background: #1a1a1a;
+            background: rgba(18, 20, 24, 0.92);
             border-top: 2px solid #00B8A9;
         }
 
@@ -865,13 +925,29 @@
         }
 
         .anim-sidebar {
-            width: 320px;
-            background: #1a1a1a;
-            border-left: 3px solid #00B8A9;
+            width: 360px;
+            background: rgba(18, 20, 24, 0.94);
+            border-left: 3px solid rgba(0, 184, 169, 0.8);
             overflow-y: auto;
             padding: 16px;
             color: #ccc;
-            flex-shrink: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 15;
+            backdrop-filter: blur(4px);
+            transition: transform 0.28s ease;
+        }
+
+        .anim-sidebar.collapsed {
+            transform: translateX(calc(100% - 46px));
+        }
+
+        .anim-toggle {
+            margin-left: 10px;
+            background: #222 !important;
+            border-color: #00B8A9 !important;
         }
 
         .anim-sidebar h3 {
@@ -885,13 +961,13 @@
         .anim-metric {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 10px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            font-size: 0.82em;
+            font-size: 0.9em;
         }
 
         .anim-metric .label {
-            color: #888;
+            color: #b5bcc4;
         }
 
         .anim-metric .value {
@@ -910,6 +986,36 @@
 
         .anim-metric .value.red {
             color: #f44336;
+        }
+
+        .anim-summary-card {
+            background: rgba(0, 184, 169, 0.12);
+            border: 1px solid rgba(0, 184, 169, 0.4);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+        }
+
+        .anim-summary-title {
+            color: #9fece5;
+            font-size: 0.76em;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .anim-summary-main {
+            color: #ecfff9;
+            font-weight: bold;
+            font-size: 0.92em;
+            line-height: 1.45;
+            margin-bottom: 4px;
+        }
+
+        .anim-summary-sub {
+            color: #c6d3d6;
+            font-size: 0.8em;
+            line-height: 1.45;
         }
 
         .anim-chart-wrap {
@@ -955,6 +1061,30 @@
         @keyframes spin {
             to {
                 transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .anim-sidebar {
+                width: min(86vw, 350px);
+            }
+
+            .anim-controls {
+                gap: 6px;
+                padding: 8px 10px;
+            }
+
+            .anim-controls button {
+                padding: 6px 9px;
+            }
+
+            .anim-hud {
+                top: 10px;
+                left: 10px;
+                font-size: 0.82em;
+                padding: 10px 12px;
+                line-height: 1.55;
+                max-width: calc(100vw - 24px);
             }
         }
     </style>
@@ -1078,6 +1208,8 @@
 
         <!-- Animation View -->
         <div class="animate-view" id="animate-view">
+            <!-- Synthetic data warning banner -->
+            <div id="anim-data-banner" class="anim-data-banner" style="display:none;"></div>
             <div class="anim-layout">
                 <div class="anim-stage">
                     <div class="anim-canvas-wrap">
@@ -1086,9 +1218,11 @@
                         <div class="anim-hud" id="anim-hud"></div>
                     </div>
                     <div class="anim-controls">
+                        <button id="anim-exit" title="Exit animation">✕</button>
                         <button id="anim-prev" title="Previous frame">⏮</button>
                         <button id="anim-play" title="Play/Pause">▶</button>
                         <button id="anim-next" title="Next frame">⏭</button>
+                        <button id="anim-toggle-metrics" class="anim-toggle" title="Toggle metrics panel">📊 Metrics</button>
                         <div class="anim-speed">
                             <span>🐢</span>
                             <input type="range" id="anim-speed" min="1" max="10" value="4" title="Animation speed">
@@ -1101,7 +1235,7 @@
                     <h3>📊 Live Metrics</h3>
                     <div id="anim-metrics"></div>
                     <div class="anim-chart-wrap">
-                        <div class="anim-chart-title">Change Over Time</div>
+                        <div class="anim-chart-title">NDVI & NDBI Over Time</div>
                         <canvas id="anim-chart" width="560" height="320"></canvas>
                     </div>
                 </div>
@@ -1925,8 +2059,17 @@
             idx: 0,
             playing: false,
             timer: null,
+            rafId: null,
+            segmentFrom: 0,
+            segmentTo: 1,
+            segmentStartTs: 0,
+            segmentProgress: 0,
+            lastTextUpdateTs: 0,
+            textUpdateIntervalMs: 320,
             images: [],       // preloaded Image objects
             totalAreaHa: 0,
+            controlsWired: false,
+            sidebarOpen: true,
         };
 
         async function loadAnimationFrames() {
@@ -1964,6 +2107,36 @@
                 const data = await res.json();
                 window._animFrames = data.frames;
                 window._animState.totalAreaHa = data.total_area_ha;
+
+                // ── Show real vs synthetic data banner ──
+                const banner = document.getElementById('anim-data-banner');
+                if (banner) {
+                    const errors = data.fetch_errors || [];
+                    const synth = data.synthetic_frames ?? 0;
+                    const real  = data.real_frames   ?? (data.frame_count - synth);
+                    if (errors.length > 0) {
+                        banner.className = 'anim-data-banner banner-warn';
+                        const errItems = errors
+                            .map(e => `<li>${e}</li>`)
+                            .join('');
+                        banner.innerHTML = `
+                            <div class="banner-title">
+                                ⚠️ ${synth} of ${data.frame_count} years could not retrieve real Sentinel-2 data
+                                — those frames show <strong>synthetic NDVI estimates</strong>, not actual satellite measurements.
+                            </div>
+                            <ul class="banner-errors">${errItems}</ul>
+                            <div style="margin-top:6px;opacity:0.7;">
+                                Fix: check Copernicus credentials in <code>.env</code> and restart the server.
+                                Real years: ${real} &nbsp;|&nbsp; Synthetic years: ${synth}
+                            </div>`;
+                        banner.style.display = 'block';
+                    } else {
+                        banner.className = 'anim-data-banner banner-ok';
+                        banner.innerHTML = `✅ All ${data.frame_count} years loaded with real Sentinel-2 spectral data
+                            &nbsp;|&nbsp; NDVI values are computed from B08 (NIR) and B04 (Red) bands.`;
+                        banner.style.display = 'block';
+                    }
+                }
 
                 // Preload all images
                 const images = await Promise.all(data.frames.map(f => {
@@ -2012,6 +2185,9 @@
         }
 
         function wireAnimControls() {
+            if (window._animState.controlsWired) return;
+            window._animState.controlsWired = true;
+
             document.getElementById('anim-play').addEventListener('click', togglePlay);
             document.getElementById('anim-prev').addEventListener('click', () => {
                 stopAnim();
@@ -2021,13 +2197,86 @@
                 stopAnim();
                 stepAnim(1);
             });
+            document.getElementById('anim-toggle-metrics').addEventListener('click', toggleMetricsSidebar);
+            document.getElementById('anim-exit').addEventListener('click', () => {
+                stopAnim();
+                const sideBtn = document.querySelector(".tab-btn[onclick=\"switchView('side-by-side')\"]");
+                if (sideBtn) sideBtn.click();
+            });
+
+            window.addEventListener('resize', () => {
+                showAnimFrame(window._animState.idx, true);
+                drawChart(window._animState.idx);
+            });
+        }
+
+        function toggleMetricsSidebar() {
+            const sidebar = document.querySelector('.anim-sidebar');
+            if (!sidebar) return;
+            window._animState.sidebarOpen = !window._animState.sidebarOpen;
+            sidebar.classList.toggle('collapsed', !window._animState.sidebarOpen);
         }
 
         function getSpeedMs() {
             const val = parseInt(document.getElementById('anim-speed').value);
-            // val 1=slow (3500ms), 10=fast (800ms)
-            // Must be >= 650ms to allow crossfade to complete
-            return Math.max(800, 3800 - val * 300);
+            // val 1=slow, 10=fast (duration per year-to-year segment)
+            return Math.max(650, 2720 - val * 190);
+        }
+
+        function easeInOutCubic(t) {
+            if (t < 0.5) return 4 * t * t * t;
+            return 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function formatSigned(value, digits = 3) {
+            const n = Number(value || 0);
+            const sign = n > 0 ? '+' : '';
+            return `${sign}${n.toFixed(digits)}`;
+        }
+
+        function buildChangeSummary(current, previous) {
+            if (!previous) {
+                return {
+                    headline: 'Baseline frame loaded. Use Play to see year-to-year change.',
+                    detail: 'NDVI tracks vegetation health, NDBI tracks built-up intensity.'
+                };
+            }
+
+            const ndviDelta = current.ndvi_mean - previous.ndvi_mean;
+            const ndbiDelta = current.ndbi_mean - previous.ndbi_mean;
+            const changeDelta = (current.change_area_ha || 0) - (previous.change_area_ha || 0);
+
+            let vegetationMsg = 'Vegetation stable';
+            if (ndviDelta <= -0.02) vegetationMsg = 'Vegetation is decreasing';
+            else if (ndviDelta >= 0.02) vegetationMsg = 'Vegetation is increasing';
+
+            let builtUpMsg = 'Built-up signal stable';
+            if (ndbiDelta >= 0.02) builtUpMsg = 'Built-up signal increasing';
+            else if (ndbiDelta <= -0.02) builtUpMsg = 'Built-up signal decreasing';
+
+            let activityMsg = 'Change intensity is steady';
+            if (changeDelta >= 1.0) activityMsg = 'Change intensity is increasing';
+            else if (changeDelta <= -1.0) activityMsg = 'Change intensity is decreasing';
+
+            return {
+                headline: `${vegetationMsg}. ${builtUpMsg}.`,
+                detail: `${activityMsg}. ΔNDVI ${formatSigned(ndviDelta, 3)}, ΔNDBI ${formatSigned(ndbiDelta, 3)}, ΔArea ${formatSigned(changeDelta, 2)} ha.`
+            };
+        }
+
+        function renderAnimHud(frame, previousFrame, segmentText = '') {
+            const summary = buildChangeSummary(frame, previousFrame);
+            const progressBadge = segmentText ? `<span class="hud-chip">${segmentText}</span>` : '';
+            document.getElementById('anim-hud').innerHTML = `
+                <div><strong>${frame.year}</strong> ${progressBadge}</div>
+                <div class="hud-row">NDVI: <strong>${frame.ndvi_mean.toFixed(2)}</strong> | NDBI: <strong>${frame.ndbi_mean.toFixed(2)}</strong></div>
+                <div class="hud-row">Changed Area: <strong>${(frame.change_area_ha || 0).toFixed(2)} ha</strong> | Cloud: <strong>${(frame.cloud_pct || 0).toFixed(1)}%</strong></div>
+                <div class="hud-row" style="font-size:0.82em;color:#c4f5e8;">${summary.headline}</div>
+            `;
         }
 
         function togglePlay() {
@@ -2036,23 +2285,65 @@
                 stopAnim();
             } else {
                 st.playing = true;
+                st.segmentFrom = st.idx;
+                st.segmentTo = (st.idx + 1) % window._animFrames.length;
+                st.segmentStartTs = performance.now();
+                st.segmentProgress = 0;
+                st.lastTextUpdateTs = 0;
                 document.getElementById('anim-play').textContent = '⏸';
                 document.getElementById('anim-play').classList.add('active');
-                playNext();
+                if (st.rafId) cancelAnimationFrame(st.rafId);
+                st.rafId = requestAnimationFrame(playNext);
             }
         }
 
-        function playNext() {
+        function playNext(ts) {
             const st = window._animState;
             if (!st.playing) return;
-            stepAnim(1);
-            st.timer = setTimeout(playNext, getSpeedMs());
+
+            const frames = window._animFrames;
+            if (!frames || frames.length < 2) {
+                stopAnim();
+                return;
+            }
+
+            const segDuration = getSpeedMs();
+            if (!st.segmentStartTs) st.segmentStartTs = ts;
+
+            let elapsed = ts - st.segmentStartTs;
+
+            while (elapsed >= segDuration) {
+                st.segmentFrom = st.segmentTo;
+                st.segmentTo = (st.segmentTo + 1) % frames.length;
+                st.segmentStartTs += segDuration;
+                elapsed = ts - st.segmentStartTs;
+            }
+
+            const rawT = Math.max(0, Math.min(1, elapsed / segDuration));
+            st.segmentProgress = rawT;
+            const easedT = easeInOutCubic(rawT);
+
+            showAnimInterpolatedFrame(st.segmentFrom, st.segmentTo, easedT, rawT, ts);
+
+            st.rafId = requestAnimationFrame(playNext);
         }
 
         function stopAnim() {
             const st = window._animState;
             st.playing = false;
             if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+            if (st.rafId) { cancelAnimationFrame(st.rafId); st.rafId = null; }
+
+            // Snap to nearest real year frame when pausing.
+            if (window._animFrames && window._animFrames.length > 0) {
+                const snapIdx = st.segmentProgress >= 0.5 ? st.segmentTo : st.segmentFrom;
+                if (Number.isInteger(snapIdx)) {
+                    st.idx = snapIdx;
+                    showAnimFrame(st.idx, true);
+                    drawChart(st.idx);
+                }
+            }
+
             document.getElementById('anim-play').textContent = '▶';
             document.getElementById('anim-play').classList.remove('active');
         }
@@ -2066,75 +2357,119 @@
             drawChart(st.idx);
         }
 
+        function drawFitted(canvas, ctx, image, alpha = 1) {
+            const W = canvas.width;
+            const H = canvas.height;
+            if (!image) return;
+            const scale = Math.min(W / image.width, H / image.height);
+            const w = image.width * scale;
+            const h = image.height * scale;
+            const x = (W - w) / 2;
+            const y = (H - h) / 2;
+            const prevAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+            ctx.drawImage(image, x, y, w, h);
+            ctx.globalAlpha = prevAlpha;
+        }
+
+        function showAnimInterpolatedFrame(fromIdx, toIdx, easedT, rawT, ts) {
+            const frames = window._animFrames;
+            const st = window._animState;
+            if (!frames || !frames[fromIdx] || !frames[toIdx]) return;
+
+            const wrap = document.querySelector('.anim-canvas-wrap');
+            const canvasCurr = document.getElementById('anim-canvas');
+            const canvasNext = document.getElementById('anim-canvas-next');
+            const ctxCurr = canvasCurr.getContext('2d');
+
+            const W = wrap.offsetWidth;
+            const H = wrap.offsetHeight;
+            canvasCurr.width = W;
+            canvasCurr.height = H;
+
+            // Keep next canvas hidden; blending is done directly on the primary canvas.
+            canvasNext.classList.remove('fade-in');
+            canvasNext.width = W;
+            canvasNext.height = H;
+
+            ctxCurr.fillStyle = '#0a0a0a';
+            ctxCurr.fillRect(0, 0, W, H);
+
+            const imgA = st.images[fromIdx];
+            const imgB = st.images[toIdx];
+            drawFitted(canvasCurr, ctxCurr, imgA, 1 - easedT);
+            drawFitted(canvasCurr, ctxCurr, imgB, easedT);
+
+            const a = frames[fromIdx];
+            const b = frames[toIdx];
+            const yearValue = lerp(a.year, b.year, rawT);
+            const blended = {
+                year: yearValue,
+                ndvi_mean: lerp(a.ndvi_mean, b.ndvi_mean, easedT),
+                ndbi_mean: lerp(a.ndbi_mean, b.ndbi_mean, easedT),
+                ndvi_min: lerp(a.ndvi_min ?? a.ndvi_mean, b.ndvi_min ?? b.ndvi_mean, easedT),
+                ndvi_max: lerp(a.ndvi_max ?? a.ndvi_mean, b.ndvi_max ?? b.ndvi_mean, easedT),
+                ndvi_std: lerp(a.ndvi_std ?? 0, b.ndvi_std ?? 0, easedT),
+                cloud_pct: lerp(a.cloud_pct ?? 0, b.cloud_pct ?? 0, easedT),
+                change_area_ha: lerp(a.change_area_ha ?? 0, b.change_area_ha ?? 0, easedT),
+                source: `${a.source || 'spectral'}→${b.source || 'spectral'}`,
+            };
+
+            // Keep image motion fluid, but update numbers at a human-readable cadence.
+            const reachedBoundary = rawT <= 0.03 || rawT >= 0.97;
+            const shouldRefreshText = reachedBoundary || (ts - st.lastTextUpdateTs >= st.textUpdateIntervalMs);
+            if (shouldRefreshText) {
+                st.lastTextUpdateTs = ts;
+                const progressStep = Math.round(rawT * 4) * 25;
+                renderAnimHud(
+                    blended,
+                    a,
+                    `${a.year}→${b.year} ${progressStep}%`
+                );
+                updateAnimMetrics(blended, true, a, `${a.year} → ${b.year}`);
+                drawChart(rawT < 0.5 ? fromIdx : toIdx);
+            }
+
+            const activeIdx = rawT < 0.5 ? fromIdx : toIdx;
+            st.idx = activeIdx;
+            document.querySelectorAll('.anim-year-tick').forEach((el, i) => {
+                el.classList.toggle('active', i === activeIdx);
+                if (i <= activeIdx) el.classList.add('visited');
+                else el.classList.remove('visited');
+            });
+
+        }
+
         function showAnimFrame(idx, skipCrossfade = false) {
             const frames = window._animFrames;
             const st = window._animState;
             if (!frames || !frames[idx]) return;
 
-            const prevIdx = st.idx;
             st.idx = idx;
 
             const wrap = document.querySelector('.anim-canvas-wrap');
             const canvasCurr = document.getElementById('anim-canvas');
             const canvasNext = document.getElementById('anim-canvas-next');
             const ctxCurr = canvasCurr.getContext('2d');
-            const ctxNext = canvasNext.getContext('2d');
             const img = st.images[idx];
 
             const W = wrap.offsetWidth;
             const H = wrap.offsetHeight;
+            canvasCurr.width = W;
+            canvasCurr.height = H;
+            ctxCurr.fillStyle = '#0a0a0a';
+            ctxCurr.fillRect(0, 0, W, H);
+            drawFitted(canvasCurr, ctxCurr, img, 1);
 
-            // Helper to draw image fitted/centered on a canvas
-            function drawFitted(canvas, ctx, image) {
-                canvas.width = W;
-                canvas.height = H;
-                ctx.fillStyle = '#0a0a0a';
-                ctx.fillRect(0, 0, W, H);
-                if (!image) return;
-                const scale = Math.min(W / image.width, H / image.height);
-                const w = image.width * scale;
-                const h = image.height * scale;
-                const x = (W - w) / 2;
-                const y = (H - h) / 2;
-                ctx.drawImage(image, x, y, w, h);
-            }
-
-            if (skipCrossfade || prevIdx === idx) {
-                // No crossfade — just draw directly on front canvas
-                drawFitted(canvasCurr, ctxCurr, img);
-                canvasNext.classList.remove('fade-in');
-            } else {
-                // Crossfade: draw new frame on the next-canvas, fade it in
-                // First ensure current canvas shows the previous frame
-                const prevImg = st.images[prevIdx];
-                drawFitted(canvasCurr, ctxCurr, prevImg);
-
-                // Draw new frame on the hidden next-canvas
-                canvasNext.classList.remove('fade-in');
-                drawFitted(canvasNext, ctxNext, img);
-
-                // Force reflow then trigger CSS transition
-                void canvasNext.offsetWidth;
-                canvasNext.classList.add('fade-in');
-
-                // After transition completes, swap: copy next→current, hide next
-                setTimeout(() => {
-                    drawFitted(canvasCurr, ctxCurr, img);
-                    canvasNext.classList.remove('fade-in');
-                }, 650);
-            }
+            // Keep next-canvas hidden to avoid visual artifacts.
+            canvasNext.classList.remove('fade-in');
+            canvasNext.width = W;
+            canvasNext.height = H;
 
             const f = frames[idx];
+            const previousFrame = idx > 0 ? frames[idx - 1] : null;
 
-            // Update HUD overlay
-            document.getElementById('anim-hud').innerHTML = `
-                <strong>${f.year}</strong> &nbsp;|&nbsp;
-                NDVI: ${f.ndvi_mean.toFixed(3)} &nbsp;|&nbsp;
-                Veg: ${f.vegetation_pct}% &nbsp;|&nbsp;
-                Urban: ${f.urban_pct}%<br>
-                Changed: ${f.change_area_ha} ha &nbsp;|&nbsp;
-                Cloud: ${f.cloud_pct}%
-            `;
+            renderAnimHud(f, previousFrame);
 
             // Update timeline
             document.querySelectorAll('.anim-year-tick').forEach((el, i) => {
@@ -2144,36 +2479,48 @@
             });
 
             // Update metrics sidebar
-            updateAnimMetrics(f);
+            updateAnimMetrics(f, false, previousFrame);
         }
 
-        function updateAnimMetrics(f) {
+        function updateAnimMetrics(f, isInterpolated = false, previousFrame = null, interpLabel = '') {
             const totalHa = window._animState.totalAreaHa;
-            const changePct = totalHa > 0 ? (f.change_area_ha / totalHa * 100).toFixed(1) : '0';
+            const rawChangePct = totalHa > 0 ? (f.change_area_ha / totalHa * 100) : 0;
+            const changePct = Math.min(100, Math.max(0, rawChangePct)).toFixed(1);
 
-            const vegClass = f.vegetation_pct > 40 ? 'green' : f.vegetation_pct > 20 ? 'orange' : 'red';
-            const urbanClass = f.urban_pct > 30 ? 'red' : f.urban_pct > 15 ? 'orange' : 'green';
+            const ndviClass = f.ndvi_mean > 0.3 ? 'green' : f.ndvi_mean > 0.15 ? 'orange' : 'red';
+            const yearLabel = isInterpolated ? `${interpLabel || 'Between years'} (live)` : `${f.year}`;
+            const sourceLabel = isInterpolated ? 'blended' : (f.source || 'spectral');
+            const summary = buildChangeSummary(f, previousFrame);
 
             document.getElementById('anim-metrics').innerHTML = `
+                <div class="anim-summary-card">
+                    <div class="anim-summary-title">What changed vs previous year</div>
+                    <div class="anim-summary-main">${summary.headline}</div>
+                    <div class="anim-summary-sub">${summary.detail}</div>
+                </div>
                 <div class="anim-metric">
                     <span class="label">📅 Year</span>
-                    <span class="value">${f.year}</span>
+                    <span class="value">${yearLabel}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">🌿 NDVI (Mean)</span>
-                    <span class="value ${f.ndvi_mean > 0.3 ? 'green' : 'orange'}">${f.ndvi_mean.toFixed(4)}</span>
+                    <span class="value ${ndviClass}">${f.ndvi_mean.toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
-                    <span class="label">🌳 Vegetation Cover</span>
-                    <span class="value ${vegClass}">${f.vegetation_pct}%</span>
+                    <span class="label">📉 NDVI Range</span>
+                    <span class="value">${(f.ndvi_min ?? 0).toFixed(3)} — ${(f.ndvi_max ?? 0).toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
-                    <span class="label">🏙️ Urban Cover</span>
-                    <span class="value ${urbanClass}">${f.urban_pct}%</span>
+                    <span class="label">📊 NDVI Std Dev</span>
+                    <span class="value">${(f.ndvi_std ?? 0).toFixed(3)}</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">🏗️ NDBI (Mean)</span>
+                    <span class="value" style="color:${f.ndbi_mean > 0.1 ? '#FF9800' : '#aaa'}">${f.ndbi_mean.toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📐 Changed Area</span>
-                    <span class="value orange">${f.change_area_ha} ha</span>
+                    <span class="value orange">${(f.change_area_ha ?? 0).toFixed(2)} ha</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📊 Change Ratio</span>
@@ -2181,11 +2528,15 @@
                 </div>
                 <div class="anim-metric">
                     <span class="label">☁️ Cloud Cover</span>
-                    <span class="value" style="color:${f.cloud_pct > 20 ? '#f44' : '#aaa'}">${f.cloud_pct}%</span>
+                    <span class="value" style="color:${f.cloud_pct > 20 ? '#f44' : '#aaa'}">${f.cloud_pct.toFixed(1)}%</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📏 Study Area</span>
                     <span class="value">${window._animState.totalAreaHa} ha</span>
+                </div>
+                <div class="anim-metric">
+                    <span class="label">🧪 Data Source</span>
+                    <span class="value" style="color:${sourceLabel === 'synthetic' ? '#f44336' : '#8BC34A'}">${sourceLabel}</span>
                 </div>
             `;
         }
@@ -2217,13 +2568,14 @@
                 ctx.stroke();
             }
 
-            // Y-axis labels
+            // Y-axis labels (NDVI scale: -0.2 to 0.8)
             ctx.fillStyle = '#666';
             ctx.font = '9px "Space Mono"';
             ctx.textAlign = 'right';
-            for (let i = 0; i <= 4; i++) {
+            const ndviLabels = [0.8, 0.6, 0.4, 0.2, 0.0];
+            for (let i = 0; i < ndviLabels.length; i++) {
                 const y = pad.top + (chartH / 4) * i;
-                ctx.fillText((100 - i * 25) + '%', pad.left - 4, y + 3);
+                ctx.fillText(ndviLabels[i].toFixed(1), pad.left - 4, y + 3);
             }
 
             // X-axis year labels
@@ -2234,40 +2586,70 @@
                 ctx.fillText(f.year, x, H - 4);
             });
 
-            // Draw series (only up to current frame for animation effect)
-            const series = [
-                { key: 'vegetation_pct', color: '#4CAF50', label: 'Veg%' },
-                { key: 'urban_pct', color: '#FF9800', label: 'Urban%' },
-            ];
-
             const drawN = Math.min(upToIdx + 1, n);
 
-            series.forEach(({ key, color }) => {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
+            // Helper to map NDVI value (range -0.2 to 0.8) to Y coordinate
+            function ndviToY(val) {
+                const clamped = Math.max(-0.2, Math.min(0.8, val));
+                return pad.top + chartH - ((clamped + 0.2) / 1.0) * chartH;
+            }
 
+            // Draw NDVI Mean line
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let i = 0; i < drawN; i++) {
+                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                const y = ndviToY(frames[i].ndvi_mean);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw NDVI range band (min-max) as shaded area
+            if (drawN > 0) {
+                ctx.fillStyle = 'rgba(76, 175, 80, 0.12)';
+                ctx.beginPath();
+                // Top edge (max values)
                 for (let i = 0; i < drawN; i++) {
                     const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                    const val = frames[i][key];
-                    const y = pad.top + chartH - (val / 100) * chartH;
-
+                    const y = ndviToY(frames[i].ndvi_max ?? frames[i].ndvi_mean);
                     if (i === 0) ctx.moveTo(x, y);
                     else ctx.lineTo(x, y);
                 }
-                ctx.stroke();
-
-                // Draw dots
-                ctx.fillStyle = color;
-                for (let i = 0; i < drawN; i++) {
+                // Bottom edge (min values, reversed)
+                for (let i = drawN - 1; i >= 0; i--) {
                     const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                    const val = frames[i][key];
-                    const y = pad.top + chartH - (val / 100) * chartH;
-                    ctx.beginPath();
-                    ctx.arc(x, y, i === upToIdx ? 4 : 2.5, 0, Math.PI * 2);
-                    ctx.fill();
+                    const y = ndviToY(frames[i].ndvi_min ?? frames[i].ndvi_mean);
+                    ctx.lineTo(x, y);
                 }
-            });
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Draw NDVI Mean dots
+            ctx.fillStyle = '#4CAF50';
+            for (let i = 0; i < drawN; i++) {
+                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                const y = ndviToY(frames[i].ndvi_mean);
+                ctx.beginPath();
+                ctx.arc(x, y, i === upToIdx ? 4.5 : 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw NDBI Mean line
+            ctx.strokeStyle = '#FF9800';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            for (let i = 0; i < drawN; i++) {
+                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
+                const y = ndviToY(frames[i].ndbi_mean);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
 
             // Draw change area as bar (normalized to total area)
             const totalHa = window._animState.totalAreaHa || 1;
@@ -2282,8 +2664,8 @@
             // Legend
             ctx.font = '9px "Space Mono"';
             const legendItems = [
-                { color: '#4CAF50', label: 'Vegetation' },
-                { color: '#FF9800', label: 'Urban' },
+                { color: '#4CAF50', label: 'NDVI' },
+                { color: '#FF9800', label: 'NDBI' },
                 { color: 'rgba(244,67,54,0.6)', label: 'Change' },
             ];
             let lx = pad.left;

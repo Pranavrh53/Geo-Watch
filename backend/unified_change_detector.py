@@ -154,6 +154,7 @@ class YearlyData:
     ndwi: np.ndarray
     valid_mask: np.ndarray
     cloud_percent: float
+    is_synthetic: bool = False
 
 
 class UnifiedTemporalChangeDetector:
@@ -178,8 +179,13 @@ class UnifiedTemporalChangeDetector:
         if https_proxy:
             self.proxies["https"] = https_proxy
 
-    def _get_access_token(self) -> Optional[str]:
-        if self.access_token and self.token_expiry and datetime.utcnow() < self.token_expiry:
+    def _get_access_token(self, force_refresh: bool = False) -> Optional[str]:
+        if (
+            not force_refresh
+            and self.access_token
+            and self.token_expiry
+            and datetime.utcnow() < self.token_expiry
+        ):
             return self.access_token
 
         if self.demo_mode:
@@ -193,14 +199,22 @@ class UnifiedTemporalChangeDetector:
         }
         try:
             response = requests.post(TOKEN_URL, data=payload, timeout=60, proxies=self.proxies)
-            response.raise_for_status()
+            if not response.ok:
+                body = response.text[:500]
+                logger.error(
+                    "Copernicus token request failed %s: %s", response.status_code, body
+                )
+                response.raise_for_status()
             token_data = response.json()
             self.access_token = token_data.get("access_token")
             expires_in = int(token_data.get("expires_in", 600))
             self.token_expiry = datetime.utcnow() + timedelta(seconds=expires_in - 60)
+            logger.info("Copernicus token refreshed (expires in %ds)", expires_in)
             return self.access_token
         except Exception as exc:
             logger.error("Failed to get Copernicus token: %s", exc)
+            self.access_token = None
+            self.token_expiry = None
             return None
 
     @staticmethod
@@ -218,15 +232,38 @@ class UnifiedTemporalChangeDetector:
             return None
         try:
             arr = np.load(path)
+
+            # Backward/forward-compatible scalar extraction for cached metadata.
+            # Some cache versions store scalar fields as 0-D arrays, others as (1,).
+            def _first_scalar(value: np.ndarray, default: float = 0.0) -> float:
+                flat = np.asarray(value).reshape(-1)
+                if flat.size == 0:
+                    return default
+                return float(flat[0])
+
+            is_synthetic = (
+                bool(_first_scalar(arr["is_synthetic"]))
+                if "is_synthetic" in arr
+                else False
+            )
+            # Never return stale synthetic cache — always re-fetch real data.
+            if is_synthetic:
+                logger.info("Discarding stale synthetic cache for year %s; will re-fetch.", year)
+                path.unlink(missing_ok=True)
+                return None
             return YearlyData(
                 year=year,
                 ndvi=arr["ndvi"],
                 ndbi=arr["ndbi"],
                 ndwi=arr["ndwi"],
                 valid_mask=arr["valid_mask"].astype(bool),
-                cloud_percent=float(arr["cloud_percent"]),
+                cloud_percent=(
+                    _first_scalar(arr["cloud_percent"]) if "cloud_percent" in arr else 0.0
+                ),
+                is_synthetic=False,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Cache load failed for year %s: %s", year, exc)
             return None
 
     def _save_cached_year(self, bbox: Dict[str, float], year: int, size: int, data: YearlyData) -> None:
@@ -238,136 +275,184 @@ class UnifiedTemporalChangeDetector:
             ndwi=data.ndwi,
             valid_mask=data.valid_mask.astype(np.uint8),
             cloud_percent=np.array([data.cloud_percent], dtype=np.float32),
+            is_synthetic=np.array([1 if data.is_synthetic else 0], dtype=np.uint8),
         )
 
-    def _fetch_year_data(self, bbox: Dict[str, float], year: int, size: int) -> YearlyData:
+    def _fetch_year_data(
+        self,
+        bbox: Dict[str, float],
+        year: int,
+        size: int,
+        fetch_errors: Optional[List[str]] = None,
+    ) -> YearlyData:
+        """
+        Fetch real Sentinel-2 spectral indices for `year`.
+
+        Returns a YearlyData with is_synthetic=False on success.
+        On failure, logs the error, appends to `fetch_errors` if provided,
+        and returns synthetic fallback data (NOT cached, so the next call
+        will always retry the real API).
+        """
         cached = self._load_cached_year(bbox, year, size)
         if cached is not None:
+            logger.info("Year %s loaded from spectral cache.", year)
             return cached
 
         if self.demo_mode:
-            demo = self._generate_demo_year(year, size)
-            self._save_cached_year(bbox, year, size, demo)
-            return demo
+            msg = f"{year}: running in demo mode (no Copernicus credentials configured)"
+            logger.warning(msg)
+            if fetch_errors is not None:
+                fetch_errors.append(msg)
+            return self._generate_demo_year(year, size)
 
-        token = self._get_access_token()
-        if not token:
-            demo = self._generate_demo_year(year, size)
-            self._save_cached_year(bbox, year, size, demo)
-            return demo
+        # ── Attempt API fetch (retry once on 401 with forced token refresh) ──
+        for attempt in range(2):
+            token = self._get_access_token(force_refresh=(attempt > 0))
+            if not token:
+                break
 
-        body = {
-            "input": {
-                "bounds": {
-                    "bbox": [bbox["west"], bbox["south"], bbox["east"], bbox["north"]],
-                    "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
-                },
-                "data": [{
-                    "type": "sentinel-2-l2a",
-                    "dataFilter": {
-                        "timeRange": {
-                            "from": f"{year}-01-01T00:00:00Z",
-                            "to": f"{year}-12-31T23:59:59Z",
-                        },
-                        "maxCloudCoverage": 95,
-                        "mosaickingOrder": "leastCC",
+            body = {
+                "input": {
+                    "bounds": {
+                        "bbox": [bbox["west"], bbox["south"], bbox["east"], bbox["north"]],
+                        "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
                     },
-                }],
-            },
-            "output": {
-                "width": size,
-                "height": size,
-                "responses": [{"identifier": "default", "format": {"type": "image/png"}}],
-            },
-            "evalscript": YEARLY_INDICES_EVALSCRIPT,
-        }
+                    "data": [{
+                        "type": "sentinel-2-l2a",
+                        "dataFilter": {
+                            "timeRange": {
+                                "from": f"{year}-01-01T00:00:00Z",
+                                "to": f"{year}-12-31T23:59:59Z",
+                            },
+                            "maxCloudCoverage": 95,
+                            "mosaickingOrder": "leastCC",
+                        },
+                    }],
+                },
+                "output": {
+                    "width": size,
+                    "height": size,
+                    "responses": [{"identifier": "default", "format": {"type": "image/png"}}],
+                },
+                "evalscript": YEARLY_INDICES_EVALSCRIPT,
+            }
 
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "image/png",
-        }
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "image/png",
+            }
 
-        try:
-            logger.info("Fetching yearly spectral data for %s", year)
-            response = requests.post(
-                PROCESS_API_URL,
-                json=body,
-                headers=headers,
-                timeout=90,
-                proxies=self.proxies,
-            )
-            response.raise_for_status()
-
-            content_type = response.headers.get("Content-Type", "")
-            if "image" not in content_type:
-                logger.warning(
-                    "Unexpected Process API content-type for %s: %s",
-                    year,
-                    content_type,
-                )
-                raise ValueError(f"Process API non-image response: {content_type}")
-
-            arr = None
-            payload = response.content
-
-            # First try PIL decode (works for PNG/JPEG in most environments).
             try:
-                image = Image.open(io.BytesIO(payload)).convert("RGBA")
-                arr = np.array(image)
-            except Exception as pil_exc:
-                logger.info(
-                    "PIL decode failed for %s (%s). Trying rasterio fallback.",
-                    year,
-                    pil_exc,
+                logger.info("Fetching Sentinel-2 spectral data for %s (attempt %d)", year, attempt + 1)
+                response = requests.post(
+                    PROCESS_API_URL,
+                    json=body,
+                    headers=headers,
+                    timeout=120,
+                    proxies=self.proxies,
                 )
 
-                # Fallback for TIFF/GeoTIFF payloads that Pillow cannot decode.
-                from rasterio.io import MemoryFile
+                # On 401 force a token refresh and retry once
+                if response.status_code == 401 and attempt == 0:
+                    logger.warning("Got 401 for year %s — forcing token refresh", year)
+                    self.access_token = None
+                    self.token_expiry = None
+                    continue
 
-                with MemoryFile(payload) as mem:
-                    with mem.open() as ds:
-                        bands = ds.read()  # [B, H, W]
-                        if bands.shape[0] < 4:
-                            raise ValueError(
-                                f"Raster payload has insufficient bands: {bands.shape}"
+                if not response.ok:
+                    body_snippet = response.text[:600]
+                    raise ValueError(
+                        f"Process API HTTP {response.status_code}: {body_snippet}"
+                    )
+
+                content_type = response.headers.get("Content-Type", "")
+                if "image" not in content_type:
+                    raise ValueError(f"Process API returned non-image content-type: {content_type}")
+
+                raw_payload = response.content
+
+                # Decode PNG/JPEG with PIL first (fastest)
+                arr = None
+                try:
+                    image = Image.open(io.BytesIO(raw_payload)).convert("RGBA")
+                    arr = np.array(image)
+                except Exception as pil_exc:
+                    logger.info("PIL decode failed for %s (%s); trying rasterio.", year, pil_exc)
+                    from rasterio.io import MemoryFile
+                    with MemoryFile(raw_payload) as mem:
+                        with mem.open() as ds:
+                            bands = ds.read()  # shape: [C, H, W]
+                            if bands.shape[0] < 4:
+                                raise ValueError(
+                                    f"Rasterio: only {bands.shape[0]} bands returned"
+                                )
+                            arr = np.stack(
+                                [bands[0], bands[1], bands[2], bands[3]], axis=-1
                             )
-                        arr = np.stack(
-                            [bands[0], bands[1], bands[2], bands[3]], axis=-1
-                        )
 
-            if arr.ndim == 2:
-                arr = np.expand_dims(arr, axis=-1)
-            if arr.shape[-1] < 4:
-                raise ValueError(f"Decoded image has insufficient channels: {arr.shape}")
+                if arr.ndim == 2:
+                    arr = np.expand_dims(arr, axis=-1)
+                if arr.shape[-1] < 4:
+                    raise ValueError(f"Decoded array has only {arr.shape[-1]} channels (need 4)")
 
-            ndvi = (arr[:, :, 0].astype(np.float32) / 127.5) - 1.0
-            ndbi = (arr[:, :, 1].astype(np.float32) / 127.5) - 1.0
-            ndwi = (arr[:, :, 2].astype(np.float32) / 127.5) - 1.0
-            scl = arr[:, :, 3].astype(np.uint8)
-            valid = np.isin(scl, list(GOOD_SCL))
-            cloud_percent = float((1.0 - np.mean(valid)) * 100.0)
+                # ── Decode packed UINT8 indices back to float [-1, 1] ──
+                # Evalscript encodes: u8 = round((index + 1.0) * 127.5)
+                # Inverse:            index = u8 / 127.5 - 1.0
+                ndvi = (arr[:, :, 0].astype(np.float32) / 127.5) - 1.0  # (B08-B04)/(B08+B04)
+                ndbi = (arr[:, :, 1].astype(np.float32) / 127.5) - 1.0  # (B11-B08)/(B11+B08)
+                ndwi = (arr[:, :, 2].astype(np.float32) / 127.5) - 1.0  # (B03-B08)/(B03+B08)
+                scl  = arr[:, :, 3].astype(np.uint8)                     # Scene Classification Layer
 
-            yearly = YearlyData(
-                year=year,
-                ndvi=ndvi,
-                ndbi=ndbi,
-                ndwi=ndwi,
-                valid_mask=valid,
-                cloud_percent=cloud_percent,
-            )
-            logger.info(
-                "Year %s loaded successfully (cloud %.1f%%)",
-                year,
-                cloud_percent,
-            )
-            self._save_cached_year(bbox, year, size, yearly)
-            return yearly
-        except Exception as exc:
-            logger.warning("Year fetch failed for %s: %s; using synthetic fallback", year, exc)
-            demo = self._generate_demo_year(year, size)
-            self._save_cached_year(bbox, year, size, demo)
-            return demo
+                # SCL cloud masking: only keep vegetation/soil/bare/snow pixels
+                valid = np.isin(scl, list(GOOD_SCL))  # GOOD_SCL = {2,4,5,6,7,11}
+                cloud_percent = float((1.0 - np.mean(valid)) * 100.0)
+
+                # Sanity check: if >99% pixels are identical something went wrong
+                if np.std(ndvi) < 0.001:
+                    raise ValueError(
+                        f"NDVI std={np.std(ndvi):.5f} — image appears uniform/blank for {year}"
+                    )
+
+                yearly = YearlyData(
+                    year=year,
+                    ndvi=ndvi,
+                    ndbi=ndbi,
+                    ndwi=ndwi,
+                    valid_mask=valid,
+                    cloud_percent=cloud_percent,
+                    is_synthetic=False,
+                )
+                logger.info(
+                    "Year %s: real spectral data loaded OK — "
+                    "NDVI mean=%.3f std=%.3f cloud=%.1f%%",
+                    year,
+                    float(np.mean(ndvi[valid])) if np.any(valid) else float(np.mean(ndvi)),
+                    float(np.std(ndvi[valid])) if np.any(valid) else float(np.std(ndvi)),
+                    cloud_percent,
+                )
+                # Only cache real (non-synthetic) results
+                self._save_cached_year(bbox, year, size, yearly)
+                return yearly
+
+            except Exception as exc:
+                logger.warning(
+                    "Sentinel-2 fetch attempt %d failed for %s: %s", attempt + 1, year, exc
+                )
+                if attempt == 0:
+                    continue  # will retry with fresh token
+                # Both attempts failed — fall through to synthetic
+                break
+
+        # ── All attempts failed: return synthetic WITHOUT caching ──
+        err_msg = (
+            f"{year}: Sentinel-2 API fetch failed — using synthetic fallback. "
+            f"Check Copernicus credentials and network connectivity."
+        )
+        logger.warning(err_msg)
+        if fetch_errors is not None:
+            fetch_errors.append(err_msg)
+        return self._generate_demo_year(year, size)
 
     def _generate_demo_year(self, year: int, size: int) -> YearlyData:
         rng = np.random.RandomState(year)
@@ -382,7 +467,102 @@ class UnifiedTemporalChangeDetector:
 
         valid = rng.random((h, w)) > 0.05
         cloud_percent = float((1.0 - np.mean(valid)) * 100.0)
-        return YearlyData(year, ndvi, ndbi, ndwi, valid, cloud_percent)
+        return YearlyData(year, ndvi, ndbi, ndwi, valid, cloud_percent, is_synthetic=True)
+
+    @staticmethod
+    def _estimate_cloud_percent_from_rgb(tile_arr: np.ndarray) -> float:
+        """
+        Estimate visible cloud cover from true-color imagery.
+        Uses bright + low-saturation pixels as a conservative cloud proxy.
+        """
+        cloud_mask = UnifiedTemporalChangeDetector._estimate_cloud_mask_from_rgb(tile_arr)
+        cloud_pct = float(np.mean(cloud_mask) * 100.0)
+        return float(np.clip(cloud_pct, 0.0, 100.0))
+
+    @staticmethod
+    def _estimate_cloud_mask_from_rgb(tile_arr: np.ndarray) -> np.ndarray:
+        """
+        Pixel-level cloud mask from RGB imagery.
+        Combines HSV and channel-whiteness tests to catch visibly cloudy regions.
+        """
+        if tile_arr.ndim != 3 or tile_arr.shape[2] < 3:
+            return np.zeros(tile_arr.shape[:2], dtype=bool)
+
+        rgb = tile_arr[:, :, :3].astype(np.uint8)
+        hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+        h = hsv[:, :, 0].astype(np.float32)
+        s = hsv[:, :, 1].astype(np.float32)
+        v = hsv[:, :, 2].astype(np.float32)
+
+        rf = rgb[:, :, 0].astype(np.float32)
+        gf = rgb[:, :, 1].astype(np.float32)
+        bf = rgb[:, :, 2].astype(np.float32)
+
+        # Near-white clouds: bright + low saturation + channels close together.
+        whiteness = np.maximum.reduce([np.abs(rf - gf), np.abs(rf - bf), np.abs(gf - bf)])
+        white_cloud = (v > 190.0) & (s < 70.0) & (whiteness < 28.0)
+
+        # Hazy cloud decks: very bright, even when not fully white.
+        haze_cloud = (v > 215.0) & (s < 95.0)
+
+        # Bright cyan-ish thin cloud edges often seen over land/water boundaries.
+        cyan_cloud = (h > 70.0) & (h < 120.0) & (v > 185.0) & (s < 105.0)
+
+        cloud_like = white_cloud | haze_cloud | cyan_cloud
+
+        # Morphological cleanup for stable cloud masks.
+        kernel = np.ones((3, 3), np.uint8)
+        cloud_like = cv2.morphologyEx(cloud_like.astype(np.uint8), cv2.MORPH_OPEN, kernel)
+        cloud_like = cv2.morphologyEx(cloud_like, cv2.MORPH_CLOSE, kernel)
+        return cloud_like.astype(bool)
+
+    @staticmethod
+    def _change_area_from_rgb_pair(
+        prev_rgb: np.ndarray,
+        curr_rgb: np.ndarray,
+        valid_mask: np.ndarray,
+        pixel_area_m2: float,
+        total_area_ha: float,
+    ) -> float:
+        """
+        Estimate changed area from consecutive displayed RGB frames.
+        This aligns metrics with what users visually inspect in animation.
+        """
+        if prev_rgb.shape[:2] != curr_rgb.shape[:2]:
+            return 0.0
+        if valid_mask.shape != prev_rgb.shape[:2]:
+            return 0.0
+
+        prev_blur = cv2.GaussianBlur(prev_rgb, (3, 3), 0)
+        curr_blur = cv2.GaussianBlur(curr_rgb, (3, 3), 0)
+
+        # Spectral-neutral image difference score.
+        diff_rgb = np.mean(np.abs(curr_blur.astype(np.float32) - prev_blur.astype(np.float32)), axis=2) / 255.0
+        prev_gray = cv2.cvtColor(prev_blur, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+        curr_gray = cv2.cvtColor(curr_blur, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+        diff_gray = np.abs(curr_gray - prev_gray)
+
+        score = 0.65 * diff_rgb + 0.35 * diff_gray
+
+        valid_scores = score[valid_mask] if np.any(valid_mask) else np.array([], dtype=np.float32)
+        if valid_scores.size == 0:
+            return 0.0
+
+        # Robust threshold: absolute floor + distribution-sensitive threshold.
+        mean_s = float(np.mean(valid_scores))
+        std_s = float(np.std(valid_scores))
+        stat_thr = mean_s + 1.25 * std_s
+        thr = float(np.clip(max(0.08, stat_thr), 0.08, 0.35))
+
+        changed = (score > thr) & valid_mask
+        changed_u8 = changed.astype(np.uint8)
+        changed_u8 = cv2.morphologyEx(changed_u8, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        changed_u8 = cv2.morphologyEx(changed_u8, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        changed_u8 = UnifiedTemporalChangeDetector._remove_small(changed_u8, min_area=40)
+
+        changed_pixels = int(np.sum(changed_u8 > 0))
+        valid_ha = (int(np.sum(valid_mask)) * pixel_area_m2) / 10000.0
+        return round(min(changed_pixels * pixel_area_m2 / 10000.0, valid_ha, total_area_ha), 2)
 
     @staticmethod
     def _year_sequence(before_date: str, after_date: str) -> List[int]:
@@ -971,15 +1151,21 @@ class UnifiedTemporalChangeDetector:
         Returns a dict with ordered frames, each containing:
           - year, image (base64), ndvi_mean, ndbi_mean,
             vegetation_pct, urban_pct, change_area_ha, cumulative_change_ha
+        Also returns `fetch_errors` — a list of any years that fell back to
+        synthetic data, so the frontend can surface a clear warning.
         """
         import math
 
         years = self._year_sequence(before_date, after_date)
         logger.info("Animation: generating frames for years %s", years)
 
+        # Collect fetch errors per year so the frontend can warn the user
+        fetch_errors: List[str] = []
+
         # Fetch or load cached spectral data for each year
         yearly: List[YearlyData] = [
-            self._fetch_year_data(bbox, y, self.model_size) for y in years
+            self._fetch_year_data(bbox, y, self.model_size, fetch_errors=fetch_errors)
+            for y in years
         ]
 
         # Ground area calculations
@@ -993,9 +1179,14 @@ class UnifiedTemporalChangeDetector:
         pixel_area_m2 = total_ground_area_m2 / max(1, total_pixels)
         total_area_ha = round(total_ground_area_m2 / 10000.0, 2)
 
-        # Use the first year as baseline for cumulative change
-        base_ndvi = yearly[0].ndvi.copy()
-        base_ndbi = yearly[0].ndbi.copy()
+        # Use year-to-year deltas instead of first-year baseline so values
+        # reflect incremental change and do not drift unrealistically.
+        prev_ndvi: Optional[np.ndarray] = None
+        prev_ndbi: Optional[np.ndarray] = None
+        prev_ndwi: Optional[np.ndarray] = None
+        prev_valid: Optional[np.ndarray] = None
+        prev_display_rgb: Optional[np.ndarray] = None
+        prev_display_valid: Optional[np.ndarray] = None
 
         frames = []
 
@@ -1005,32 +1196,34 @@ class UnifiedTemporalChangeDetector:
             ndbi = yd.ndbi
             ndwi = yd.ndwi
 
-            # ── Per-year spectral metrics ──
+            # ── Per-year spectral metrics (NDVI-focused) ──
             ndvi_valid = ndvi[valid] if np.any(valid) else ndvi.ravel()
             ndbi_valid = ndbi[valid] if np.any(valid) else ndbi.ravel()
 
             ndvi_mean = round(float(np.mean(ndvi_valid)), 4)
+            ndvi_min = round(float(np.min(ndvi_valid)), 4) if ndvi_valid.size > 0 else 0.0
+            ndvi_max = round(float(np.max(ndvi_valid)), 4) if ndvi_valid.size > 0 else 0.0
+            ndvi_std = round(float(np.std(ndvi_valid)), 4) if ndvi_valid.size > 0 else 0.0
             ndbi_mean = round(float(np.mean(ndbi_valid)), 4)
 
-            # Vegetation: NDVI > 0.3 and not water
-            veg_mask = (ndvi > 0.3) & (ndwi < 0.2) & valid
-            veg_pct = round(float(np.sum(veg_mask) / max(1, np.sum(valid))) * 100, 1)
+            # Year-to-year spectral fallback change area.
+            if prev_ndvi is not None and prev_ndbi is not None and prev_ndwi is not None and prev_valid is not None:
+                common_valid = valid & prev_valid
+                ndvi_delta = np.abs(ndvi - prev_ndvi)
+                ndbi_delta = np.abs(ndbi - prev_ndbi)
+                ndwi_delta = np.abs(ndwi - prev_ndwi)
 
-            # Urban: NDBI > 0.05 and low vegetation
-            urban_mask = (ndbi > 0.05) & (ndvi < 0.25) & (ndwi < 0.2) & valid
-            urban_pct = round(
-                float(np.sum(urban_mask) / max(1, np.sum(valid))) * 100, 1
-            )
+                change_score = 0.55 * ndvi_delta + 0.35 * ndbi_delta + 0.10 * ndwi_delta
 
-            # Change from baseline (cumulative)
-            ndvi_delta = np.abs(ndvi - base_ndvi)
-            ndbi_delta = np.abs(ndbi - base_ndbi)
-            change_score = 0.6 * ndvi_delta + 0.4 * ndbi_delta
-            changed_mask = (change_score > 0.12) & valid
-            change_pixels = int(np.sum(changed_mask))
-            change_ha = round(
-                min(change_pixels * pixel_area_m2 / 10000.0, total_area_ha), 2
-            )
+                # Fixed absolute threshold avoids quantile-locking to near-constant area.
+                changed_mask = (change_score > 0.14) & common_valid
+                change_pixels = int(np.sum(changed_mask))
+
+                # Change cannot exceed area that is valid in both years.
+                common_valid_ha = (int(np.sum(common_valid)) * pixel_area_m2) / 10000.0
+                spectral_change_ha = round(min(change_pixels * pixel_area_m2 / 10000.0, common_valid_ha, total_area_ha), 2)
+            else:
+                spectral_change_ha = 0.0
 
             # ── Build false-color RGB visualization ──
             # NDVI → green, NDBI → red, NDWI → blue
@@ -1047,6 +1240,9 @@ class UnifiedTemporalChangeDetector:
 
             # Try to fetch real satellite tile if fetcher available
             real_tile_b64 = None
+            visual_cloud_pct = 0.0
+            display_rgb = rgb
+            display_valid = valid.copy()
             if tile_fetcher and db:
                 try:
                     tile_path = tile_fetcher.get_tile(
@@ -1063,22 +1259,57 @@ class UnifiedTemporalChangeDetector:
                                 (self.model_size, self.model_size),
                                 interpolation=cv2.INTER_AREA,
                             )
+                        visual_cloud_pct = self._estimate_cloud_percent_from_rgb(tile_arr)
+                        cloud_mask = self._estimate_cloud_mask_from_rgb(tile_arr)
+                        display_rgb = tile_arr
+                        display_valid = ~cloud_mask
                         real_tile_b64 = _to_b64(tile_arr, "JPEG")
                 except Exception as exc:
                     logger.debug("No real tile for %s: %s", yd.year, exc)
+
+            # Prefer RGB-frame change when consecutive display frames are available.
+            if prev_display_rgb is not None and prev_display_valid is not None:
+                common_display_valid = display_valid & prev_display_valid
+                image_change_ha = self._change_area_from_rgb_pair(
+                    prev_display_rgb,
+                    display_rgb,
+                    common_display_valid,
+                    pixel_area_m2,
+                    total_area_ha,
+                )
+            else:
+                image_change_ha = 0.0
+
+            # Keep cloud metric conservative: never underreport visible clouds.
+            cloud_pct = round(float(max(yd.cloud_percent, visual_cloud_pct)), 1)
+
+            # Use image-based change when available because it tracks what is shown.
+            change_ha = image_change_ha if image_change_ha > 0 else spectral_change_ha
 
             frame = {
                 "year": yd.year,
                 "image": real_tile_b64 or _to_b64(rgb, "JPEG"),
                 "is_real_tile": real_tile_b64 is not None,
                 "ndvi_mean": ndvi_mean,
+                "ndvi_min": ndvi_min,
+                "ndvi_max": ndvi_max,
+                "ndvi_std": ndvi_std,
                 "ndbi_mean": ndbi_mean,
-                "vegetation_pct": veg_pct,
-                "urban_pct": urban_pct,
-                "cloud_pct": round(yd.cloud_percent, 1),
+                "cloud_pct": cloud_pct,
                 "change_area_ha": change_ha,
+                "source": "synthetic" if yd.is_synthetic else "spectral",
             }
             frames.append(frame)
+
+            prev_ndvi = ndvi
+            prev_ndbi = ndbi
+            prev_ndwi = ndwi
+            prev_valid = valid
+            prev_display_rgb = display_rgb
+            prev_display_valid = display_valid
+
+        synthetic_count = sum(1 for f in frames if f.get("source") == "synthetic")
+        real_count = len(frames) - synthetic_count
 
         return {
             "status": "success",
@@ -1087,6 +1318,9 @@ class UnifiedTemporalChangeDetector:
             "pixel_area_m2": round(pixel_area_m2, 4),
             "years": years,
             "frame_count": len(frames),
+            "real_frames": real_count,
+            "synthetic_frames": synthetic_count,
+            "fetch_errors": fetch_errors,
             "frames": frames,
         }
 

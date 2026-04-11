@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional, List, Dict
+from contextlib import asynccontextmanager
 import sys
 import json
 import logging
@@ -50,11 +51,26 @@ def check_image_quality_simple(img_array: np.ndarray) -> Dict[str, object]:
         "reason": None if is_valid else "Image is nearly uniform/blank",
     }
 
+# In-memory task status storage (use Redis in production)
+task_status = {}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown lifecycle handler."""
+    # --- startup ---
+    init_db()
+    logger.info("\u2713 Database initialized")
+    yield
+    # --- shutdown (add cleanup here if needed) ---
+
+
 # Create FastAPI app
 app = FastAPI(
     title="Satellite Change Detection API",
     description="AI-based geospatial change detection system",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -103,15 +119,6 @@ class AnalysisResult(BaseModel):
     total_change_hectares: float
 
 
-# In-memory task status storage (use Redis in production)
-task_status = {}
-
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    init_db()
-    logger.info("✓ Database initialized")
 
 
 # API Endpoints
