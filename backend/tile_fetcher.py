@@ -366,6 +366,215 @@ class TileFetcher:
         
         return cache_path
     
+    # ── Evalscript for multi-band fetch (B01, B02, B03, B04, B05, B07, B08, B11) ──
+    MULTIBAND_EVALSCRIPT = """//VERSION=3
+function setup() {
+  return {
+    input: [{ bands: ["B01", "B02", "B03", "B04", "B05", "B07", "B08", "B11"], units: "DN" }],
+    output: { bands: 8, sampleType: "UINT16" }
+  };
+}
+function evaluatePixel(sample) {
+  return [sample.B01, sample.B02, sample.B03, sample.B04,
+          sample.B05, sample.B07, sample.B08, sample.B11];
+}
+"""
+
+    PROCESS_API_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
+
+    # Band index mapping in the 8-channel output
+    BAND_INDEX = {
+        "B01": 0, "B02": 1, "B03": 2, "B04": 3,
+        "B05": 4, "B07": 5, "B08": 6, "B11": 7,
+    }
+
+    def fetch_multiband_tile(
+        self,
+        bbox: Dict[str, float],
+        date: str,
+        size: Tuple[int, int] = (512, 512),
+    ) -> Optional[np.ndarray]:
+        """
+        Fetch raw multi-spectral Sentinel-2 bands via the Process API.
+
+        Returns an ndarray of shape (H, W, 8) as float32 reflectances [0-1],
+        with bands [B01, B02, B03, B04, B05, B07, B08, B11].
+        Returns None on failure (caller should fall back to RGB-based approximation).
+        """
+        # Check multiband cache first
+        mb_hash = hashlib.md5(
+            f"{bbox['west']:.6f}_{bbox['south']:.6f}_{bbox['east']:.6f}_{bbox['north']:.6f}_{date}_mb".encode()
+        ).hexdigest()
+        mb_cache_path = CACHE_DIR / f"{mb_hash}_multiband.npy"
+        if mb_cache_path.exists():
+            try:
+                arr = np.load(mb_cache_path)
+                if arr.ndim == 3 and arr.shape[2] == 8:
+                    logger.info(f"✓ Multiband cache hit for {date}")
+                    return arr
+            except Exception:
+                pass
+
+        if self.demo_mode:
+            return self._generate_demo_multiband(bbox, date, size)
+
+        token = self._get_access_token()
+        if not token:
+            logger.warning("No access token for multiband fetch, using demo bands")
+            return self._generate_demo_multiband(bbox, date, size)
+
+        req_date = datetime.strptime(date, "%Y-%m-%d")
+        start_date = (req_date - timedelta(days=60)).strftime("%Y-%m-%d")
+        end_date = (req_date + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        body = {
+            "input": {
+                "bounds": {
+                    "bbox": [bbox["west"], bbox["south"], bbox["east"], bbox["north"]],
+                    "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
+                },
+                "data": [{
+                    "type": "sentinel-2-l2a",
+                    "dataFilter": {
+                        "timeRange": {
+                            "from": f"{start_date}T00:00:00Z",
+                            "to": f"{end_date}T23:59:59Z",
+                        },
+                        "maxCloudCoverage": 50,
+                        "mosaickingOrder": "leastCC",
+                    },
+                }],
+            },
+            "output": {
+                "width": size[0],
+                "height": size[1],
+                "responses": [{"identifier": "default", "format": {"type": "image/tiff"}}],
+            },
+            "evalscript": self.MULTIBAND_EVALSCRIPT,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "image/tiff",
+        }
+
+        try:
+            logger.info(f"Fetching multiband tile for {date} via Process API")
+            from requests.adapters import HTTPAdapter
+            from requests.packages.urllib3.util.retry import Retry
+
+            session = requests.Session()
+            retry_strategy = Retry(total=2, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            session.mount("https://", adapter)
+
+            response = session.post(
+                self.PROCESS_API_URL,
+                json=body,
+                headers=headers,
+                timeout=90,
+                proxies=self.proxies,
+            )
+
+            if response.status_code == 401:
+                # Force token refresh and retry once
+                self.access_token = None
+                self.token_expires_at = None
+                token = self._get_access_token()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                    response = session.post(
+                        self.PROCESS_API_URL,
+                        json=body,
+                        headers=headers,
+                        timeout=90,
+                        proxies=self.proxies,
+                    )
+
+            if not response.ok:
+                logger.warning(f"Multiband fetch failed HTTP {response.status_code}: {response.text[:300]}")
+                return self._generate_demo_multiband(bbox, date, size)
+
+            content_type = response.headers.get("Content-Type", "")
+            raw = response.content
+
+            # Try to decode as TIFF first, then fall back to PIL
+            arr = None
+            try:
+                import rasterio
+                from rasterio.io import MemoryFile
+                with MemoryFile(raw) as mem:
+                    with mem.open() as ds:
+                        bands = ds.read()  # [C, H, W]
+                        if bands.shape[0] >= 8:
+                            arr = np.moveaxis(bands[:8], 0, -1)  # [H, W, 8]
+            except Exception as rio_exc:
+                logger.info(f"Rasterio decode failed ({rio_exc}), trying PIL")
+                try:
+                    img = Image.open(io.BytesIO(raw))
+                    arr = np.array(img)
+                except Exception as pil_exc:
+                    logger.warning(f"PIL decode also failed: {pil_exc}")
+
+            if arr is None or arr.ndim < 3 or arr.shape[2] < 8:
+                logger.warning("Multiband fetch returned insufficient bands, using demo")
+                return self._generate_demo_multiband(bbox, date, size)
+
+            # Convert DN to reflectance [0-1]
+            arr = arr.astype(np.float32) / 10000.0
+            arr = np.clip(arr, 0.0, 1.0)
+
+            # Sanity check: if too uniform, it's likely blank
+            if float(np.std(arr)) < 0.001:
+                logger.warning("Multiband tile appears blank, using demo")
+                return self._generate_demo_multiband(bbox, date, size)
+
+            # Cache the result
+            np.save(mb_cache_path, arr)
+            logger.info(f"✓ Multiband tile fetched and cached for {date} ({arr.shape})")
+            return arr
+
+        except Exception as e:
+            logger.warning(f"Multiband fetch error: {e}")
+            return self._generate_demo_multiband(bbox, date, size)
+
+    def _generate_demo_multiband(
+        self,
+        bbox: Dict[str, float],
+        date: str,
+        size: Tuple[int, int] = (512, 512),
+    ) -> np.ndarray:
+        """
+        Generate synthetic multi-spectral band data for demo mode.
+        Returns (H, W, 8) float32 array simulating [B01, B02, B03, B04, B05, B07, B08, B11].
+        """
+        height, width = size
+        rng = np.random.RandomState(
+            abs(hash(f"{bbox['west']:.4f}_{bbox['south']:.4f}_{date}")) % (2**31)
+        )
+
+        yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
+
+        # Base terrain patterns
+        veg_pattern = np.clip(0.5 + 0.3 * np.sin(xx / 60.0) * np.cos(yy / 45.0), 0, 1)
+        water_pattern = np.clip(0.3 * np.sin((xx + yy) / 100.0), 0, 1)
+        urban_pattern = np.clip(0.4 + 0.2 * np.sin(xx / 30.0) * np.sin(yy / 30.0), 0, 1)
+
+        # Simulate realistic band reflectances
+        b01_coastal = np.clip(0.04 + 0.02 * water_pattern + rng.normal(0, 0.005, (height, width)), 0, 0.3)
+        b02_blue = np.clip(0.06 + 0.03 * water_pattern + 0.02 * urban_pattern + rng.normal(0, 0.005, (height, width)), 0, 0.3)
+        b03_green = np.clip(0.07 + 0.05 * veg_pattern + 0.02 * water_pattern + rng.normal(0, 0.005, (height, width)), 0, 0.3)
+        b04_red = np.clip(0.05 + 0.03 * urban_pattern - 0.02 * veg_pattern + rng.normal(0, 0.005, (height, width)), 0, 0.3)
+        b05_rededge = np.clip(0.10 + 0.08 * veg_pattern + rng.normal(0, 0.005, (height, width)), 0, 0.5)
+        b07_rededge2 = np.clip(0.20 + 0.15 * veg_pattern + rng.normal(0, 0.008, (height, width)), 0, 0.6)
+        b08_nir = np.clip(0.25 + 0.25 * veg_pattern - 0.10 * water_pattern + rng.normal(0, 0.01, (height, width)), 0, 0.7)
+        b11_swir = np.clip(0.15 + 0.10 * urban_pattern - 0.05 * veg_pattern - 0.08 * water_pattern + rng.normal(0, 0.008, (height, width)), 0, 0.5)
+
+        bands = np.stack([b01_coastal, b02_blue, b03_green, b04_red,
+                          b05_rededge, b07_rededge2, b08_nir, b11_swir], axis=-1)
+        return bands.astype(np.float32)
+
     def cleanup_expired_cache(self, db: Session):
         """Remove expired cache entries"""
         expired = db.query(CachedTile).filter(

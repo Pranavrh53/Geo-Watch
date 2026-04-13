@@ -181,9 +181,9 @@
 
         .side-by-side-images {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 0.9fr 0.9fr 1.4fr;
             gap: 16px;
-            min-height: 380px;
+            min-height: 500px;
             flex-shrink: 0;
         }
 
@@ -275,6 +275,21 @@
             align-items: center;
             justify-content: center;
             gap: 16px;
+
+        .changes-knot-loader {
+            background: #0f1820;
+            border: 3px solid #00B8A9;
+            box-shadow: 5px 5px 0 rgba(0, 184, 169, 0.22);
+            padding: 8px;
+            width: min(92%, 360px);
+            margin-bottom: 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 6px;
+            line-height: 1;
+            white-space: pre;
+            text-align: center;
+            overflow: hidden;
+        }
             height: 100%;
             padding: 24px;
             text-align: center;
@@ -330,20 +345,51 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        #changes-panel .image-content {
+            padding: 0;
+            background: transparent;
+        }
+
+        .changes-base-img,
+        .changes-overlay-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            max-height: none;
+            object-fit: cover;
+            border: none !important;
+            box-shadow: none !important;
+            image-rendering: auto;
+        }
+
+        .changes-base-img {
+            filter: saturate(1.05) contrast(1.02);
+        }
+
+        .changes-overlay-img {
+            z-index: 2;
+            pointer-events: none;
         }
 
         .changes-legend {
             position: absolute;
-            bottom: 6px;
-            left: 6px;
-            background: rgba(0, 0, 0, 0.72);
-            color: white;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1c2430;
             padding: 7px 10px;
             font-family: 'Space Mono', monospace;
-            font-size: 0.6em;
-            line-height: 1.8;
+            font-size: 0.68em;
+            line-height: 1.7;
             pointer-events: none;
-            border: 2px solid rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(0, 184, 169, 0.35);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
         }
 
         .legend-dot {
@@ -730,6 +776,7 @@
             overflow: hidden;
             width: 100vw;
             height: 100vh;
+            position: relative;
         }
 
         /* ── Synthetic data warning banner ── */
@@ -770,13 +817,20 @@
             background: #111;
             position: relative;
             min-width: 0;
+            /* Reserve right-side space so controls are never hidden under metrics panel */
+            padding-right: 360px;
+            transition: padding-right 0.28s ease;
+        }
+
+        .anim-layout.anim-metrics-collapsed .anim-stage {
+            padding-right: 46px;
         }
 
         .anim-canvas-wrap {
             flex: 1;
             position: relative;
             overflow: hidden;
-            min-height: calc(100vh - 130px);
+            min-height: 0;
             background: #0a0a0a;
         }
 
@@ -850,6 +904,8 @@
             padding: 10px 16px;
             background: rgba(18, 20, 24, 0.92);
             border-top: 2px solid #00B8A9;
+            flex-wrap: wrap;
+            row-gap: 8px;
         }
 
         .anim-controls button {
@@ -881,10 +937,14 @@
             margin-left: auto;
             color: #aaa;
             font-size: 0.8em;
+            background: rgba(0, 184, 169, 0.08);
+            border: 1px solid rgba(0, 184, 169, 0.35);
+            padding: 5px 8px;
+            border-radius: 6px;
         }
 
         .anim-speed input[type=range] {
-            width: 80px;
+            width: 120px;
             accent-color: #00B8A9;
         }
 
@@ -894,10 +954,13 @@
             gap: 2px;
             padding: 8px 16px;
             background: #222;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
         }
 
         .anim-year-tick {
-            flex: 1;
+            flex: 1 0 46px;
             text-align: center;
             padding: 5px 2px;
             font-size: 0.65em;
@@ -1023,17 +1086,18 @@
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 6px;
-            padding: 10px;
+            padding: 12px;
         }
 
         .anim-chart-wrap canvas {
             width: 100%;
-            height: 160px;
+            height: 240px;
+            cursor: crosshair;
         }
 
         .anim-chart-title {
-            font-size: 0.68em;
-            color: #888;
+            font-size: 0.74em;
+            color: #9fb1bc;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             margin-bottom: 8px;
@@ -1069,6 +1133,14 @@
                 width: min(86vw, 350px);
             }
 
+            .anim-stage {
+                padding-right: min(86vw, 350px);
+            }
+
+            .anim-layout.anim-metrics-collapsed .anim-stage {
+                padding-right: 46px;
+            }
+
             .anim-controls {
                 gap: 6px;
                 padding: 8px 10px;
@@ -1085,6 +1157,16 @@
                 padding: 10px 12px;
                 line-height: 1.55;
                 max-width: calc(100vw - 24px);
+            }
+
+            .anim-speed {
+                margin-left: 0;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .anim-speed input[type=range] {
+                width: min(220px, 60vw);
             }
         }
     </style>
@@ -1195,6 +1277,10 @@
                         <span class="info-label">Time Span</span>
                         <span id="timespan-info">0 days</span>
                     </div>
+                    <div class="info-row">
+                        <span class="info-label">Analysis Mode</span>
+                        <span id="analysis-mode-info">Natural Color</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1252,11 +1338,151 @@
         let afterDate = '';
         let bbox = null;
         let currentSource = 'sentinel';
+        let currentRenderMode = 'natural_color';
+        let currentRenderLabel = 'Natural Color';
         let unifiedMap = null;
         let mapLayerControl = null;
         let bboxLayer = null;
         let unifiedLayerRefs = {};
+        let changesKnotTimer = null;
+        let changesKnotA = 0;
+        let changesKnotB = 0;
         const accessToken = localStorage.getItem('access_token');
+
+        function knotNorm(v) {
+            const mag = Math.sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z)) || 1;
+            return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
+        }
+
+        function knotDot(a, b) {
+            return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+        }
+
+        function knotCross(a, b) {
+            return {
+                x: (a.y * b.z) - (a.z * b.y),
+                y: (a.z * b.x) - (a.x * b.z),
+                z: (a.x * b.y) - (a.y * b.x)
+            };
+        }
+
+        function startChangesKnotLoader(target) {
+            if (!target || changesKnotTimer) return;
+
+            const W = 44;
+            const H = 18;
+            const RAMP = '.,-~:;=!*#$@';
+            const COLORS = ['#00B8A9', '#5555FF', '#B2E600', '#FF7070', '#00A192', '#3333CC'];
+
+            const renderFrame = () => {
+                const screen = new Array(W * H).fill(' ');
+                const colorIdx = new Array(W * H).fill(-1);
+                const zbuf = new Array(W * H).fill(0);
+
+                const light = knotNorm({ x: -1, y: 1, z: -1 });
+                const cA = Math.cos(changesKnotA);
+                const sA = Math.sin(changesKnotA);
+                const cB = Math.cos(changesKnotB);
+                const sB = Math.sin(changesKnotB);
+
+                let tubeIdx = 0;
+                for (let u = 0; u < 2 * Math.PI; u += 0.08, tubeIdx++) {
+                    const c2 = 2 * u;
+                    const c3 = 3 * u;
+                    const center = {
+                        x: Math.sin(u) + 2 * Math.sin(c2),
+                        y: Math.cos(u) - 2 * Math.cos(c2),
+                        z: -Math.sin(c3)
+                    };
+
+                    const tangent = knotNorm({
+                        x: Math.cos(u) + 4 * Math.cos(c2),
+                        y: -Math.sin(u) + 4 * Math.sin(c2),
+                        z: -3 * Math.cos(c3)
+                    });
+
+                    const up = Math.abs(knotDot(tangent, { x: 0, y: 1, z: 0 })) < 0.99
+                        ? { x: 0, y: 1, z: 0 }
+                        : { x: 1, y: 0, z: 0 };
+                    const normal = knotNorm(knotCross(tangent, up));
+                    const binormal = knotCross(tangent, normal);
+                    const radius = 0.3;
+                    const segColor = tubeIdx % COLORS.length;
+
+                    for (let v = 0; v < 2 * Math.PI; v += 0.26) {
+                        const cv = Math.cos(v);
+                        const sv = Math.sin(v);
+                        const offset = {
+                            x: normal.x * cv * radius + binormal.x * sv * radius,
+                            y: normal.y * cv * radius + binormal.y * sv * radius,
+                            z: normal.z * cv * radius + binormal.z * sv * radius
+                        };
+
+                        const point = {
+                            x: center.x + offset.x,
+                            y: center.y + offset.y,
+                            z: center.z + offset.z
+                        };
+
+                        const x1 = point.x;
+                        const y1 = (point.y * cA) - (point.z * sA);
+                        const z1 = (point.y * sA) + (point.z * cA);
+
+                        const x2 = (x1 * cB) + (z1 * sB);
+                        const y2 = y1;
+                        const z2 = (-x1 * sB) + (z1 * cB) + 5;
+                        const invz = 1 / z2;
+
+                        const px = Math.floor((W / 2) + (W * 0.55 * x2 * invz));
+                        const py = Math.floor((H / 2) - (H * 0.85 * y2 * invz));
+
+                        if (px >= 0 && px < W && py >= 0 && py < H) {
+                            const idx = px + (py * W);
+                            if (invz > zbuf[idx]) {
+                                zbuf[idx] = invz;
+                                const n = knotNorm(offset);
+                                const nx1 = n.x;
+                                const ny1 = (n.y * cA) - (n.z * sA);
+                                const nz1 = (n.y * sA) + (n.z * cA);
+                                const nx2 = (nx1 * cB) + (nz1 * sB);
+                                const ny2 = ny1;
+                                const nz2 = (-nx1 * sB) + (nz1 * cB);
+                                const lum = Math.max(0, knotDot({ x: nx2, y: ny2, z: nz2 }, light));
+                                const ci = Math.min(RAMP.length - 1, Math.floor(lum * (RAMP.length - 1)));
+                                screen[idx] = RAMP[ci];
+                                colorIdx[idx] = segColor;
+                            }
+                        }
+                    }
+                }
+
+                let html = '';
+                for (let y = 0; y < H; y++) {
+                    for (let x = 0; x < W; x++) {
+                        const idx = x + (y * W);
+                        const ch = screen[idx];
+                        html += (ch === ' ')
+                            ? ' '
+                            : `<span style="color:${COLORS[colorIdx[idx]]}">${ch}</span>`;
+                    }
+                    html += '\n';
+                }
+
+                target.innerHTML = html;
+                changesKnotA += 0.042;
+                changesKnotB += 0.024;
+            };
+
+            renderFrame();
+            changesKnotTimer = setInterval(renderFrame, 45);
+        }
+
+        function stopChangesKnotLoader() {
+            if (changesKnotTimer) {
+                clearInterval(changesKnotTimer);
+                changesKnotTimer = null;
+            }
+        }
 
         // Parse URL parameters
         const params = new URLSearchParams(window.location.search);
@@ -1266,6 +1492,8 @@
         afterDate = params.get('afterDate');
         bbox = JSON.parse(params.get('bbox') || 'null');
         currentSource = params.get('source') || 'sentinel';
+        currentRenderMode = params.get('renderMode') || 'natural_color';
+        currentRenderLabel = params.get('renderLabel') || 'Natural Color';
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -1360,6 +1588,12 @@
                 const years = (days / 365).toFixed(1);
                 document.getElementById('timespan-info').textContent =
                     `${days} days (~${years} years)`;
+            }
+
+            const modeEl = document.getElementById('analysis-mode-info');
+            if (modeEl) {
+                modeEl.textContent = currentRenderLabel;
+                modeEl.title = currentRenderMode;
             }
         }
 
@@ -1722,11 +1956,13 @@
             const placeholder = document.getElementById('changes-placeholder');
             const dateEl = document.getElementById('changes-date-display');
 
-            // Prefer the composited image (overlay blended onto satellite) for
-            // standalone display; fall back to the transparent overlay for Leaflet.
+            // Match unified map visual style: prefer the same temporal trend overlay.
             let imgSrc = null;
             let label = '';
-            if (results.changes_panel_image) {
+            if (layers.temporal_trend_visualization?.image) {
+                imgSrc = layers.temporal_trend_visualization.image;
+                label = 'Temporal Trend';
+            } else if (results.changes_panel_image) {
                 imgSrc = results.changes_panel_image;
                 label = 'Temporal Trend';
             } else if (layers.classified_change_map?.image) {
@@ -1735,9 +1971,6 @@
             } else if (layers.change_probability_heatmap?.image) {
                 imgSrc = layers.change_probability_heatmap.image;
                 label = 'Change Probability Heatmap';
-            } else if (layers.temporal_trend_visualization?.image) {
-                imgSrc = layers.temporal_trend_visualization.image;
-                label = 'Temporal Trend';
             }
 
             if (!imgSrc) {
@@ -1756,24 +1989,26 @@
             const wrap = document.createElement('div');
             wrap.className = 'changes-img-wrap';
 
-            const img = document.createElement('img');
-            img.src = imgSrc;
-            img.alt = 'Detected Changes';
-            img.style.maxWidth = '100%';
-            img.style.maxHeight = '100%';
-            img.style.border = '5px solid #5555FF';
-            img.style.boxShadow = '6px 6px 0 rgba(85,85,255,0.2)';
-            img.style.imageRendering = 'crisp-edges';
-            img.style.objectFit = 'contain';
+            // Use current AFTER image as satellite base so overlay looks like Unified Map.
+            const baseImg = document.createElement('img');
+            baseImg.className = 'changes-base-img';
+            baseImg.alt = 'Satellite base image';
+            baseImg.src = afterImageUrl ? `${API_URL}${afterImageUrl}` : imgSrc;
+
+            const overlayImg = document.createElement('img');
+            overlayImg.className = 'changes-overlay-img';
+            overlayImg.src = imgSrc;
+            overlayImg.alt = 'Temporal trend overlay';
 
             const legend = document.createElement('div');
             legend.className = 'changes-legend';
             legend.innerHTML = [
-                '<span class="legend-dot" style="background:#c81414;"></span>Vegetation Loss',
-                '<span class="legend-dot" style="background:#f58c14;"></span>Urban Expansion',
+                '<span class="legend-dot" style="background:#f58c14;"></span>Urban expansion trend',
+                '<span class="legend-dot" style="background:#c81414;"></span>Vegetation decline trend',
             ].join('<br>');
 
-            wrap.appendChild(img);
+            wrap.appendChild(baseImg);
+            wrap.appendChild(overlayImg);
             wrap.appendChild(legend);
             content.appendChild(wrap);
 
@@ -1848,7 +2083,7 @@
             if (urbanPx > 0) {
                 findings.push(`<div class="finding-item urban">
                     <span>🏙️</span>
-                    <span><strong>Urban expansion trend:</strong> ${urbanHa} hectares (${urbanPx.toLocaleString()} pixels) show consistent year-over-year increase in built-up index. Detected by ConvLSTM temporal regression over ${yearsUsed.length} years of Sentinel-2 data (NDBI slope > 0.015/year).</span>
+                    <span><strong>Urban expansion trend:</strong> ${urbanHa} hectares (${urbanPx.toLocaleString()} pixels) show consistent year-over-year increase in built-up index. Detected from per-pixel linear trend on yearly Sentinel-2 NDBI values over ${yearsUsed.length} years (NDBI slope > 0.015/year).</span>
                 </div>`);
             }
 
@@ -1859,7 +2094,7 @@
                 const vegHa = totalAreaHa > 0 ? Math.min(parseFloat(vegHaRaw), totalAreaHa).toFixed(1) : vegHaRaw;
                 findings.push(`<div class="finding-item vegetation">
                     <span>🌳</span>
-                    <span><strong>Vegetation declining:</strong> ${vegHa} hectares show gradual loss over ${yearsUsed.length} years. ConvLSTM temporal analysis found persistent NDVI decline (slope < -0.02/year). Possible causes: land clearing, construction prep.</span>
+                    <span><strong>Vegetation declining:</strong> ${vegHa} hectares show gradual loss over ${yearsUsed.length} years. Detected from per-pixel linear trend on yearly Sentinel-2 NDVI values (slope < -0.02/year). Possible causes: land clearing, construction prep.</span>
                 </div>`);
             }
 
@@ -1869,11 +2104,11 @@
                 const afterYr = temporal.after_year || '?';
                 let keyMsg = '';
                 if (changePct > 15) {
-                    keyMsg = `Major land use changes detected. ${areaHa} hectares (${changePct}%) of the ${totalAreaHa > 0 ? totalAreaHa + ' ha ' : ''}study area transformed between ${beforeYr} and ${afterYr}. Multi-temporal CNN+ConvLSTM analysis over ${yearsUsed.length} years confirms significant development activity.`;
+                    keyMsg = `Major land use changes detected. ${areaHa} hectares (${changePct}%) of the ${totalAreaHa > 0 ? totalAreaHa + ' ha ' : ''}study area transformed between ${beforeYr} and ${afterYr}. Unified multi-temporal analysis over ${yearsUsed.length} years (ConvLSTM probability + spectral trend rules) confirms significant development activity.`;
                 } else if (changePct > 5) {
-                    keyMsg = `Moderate development activity detected. ${areaHa} hectares (${changePct}%) changed between ${beforeYr} and ${afterYr}. CNN+ConvLSTM temporal analysis identified construction and infrastructure development across multiple zones.`;
+                    keyMsg = `Moderate development activity detected. ${areaHa} hectares (${changePct}%) changed between ${beforeYr} and ${afterYr}. Unified multi-temporal analysis (ConvLSTM probability + spectral trend rules) identified construction and infrastructure development across multiple zones.`;
                 } else if (changePct > 0) {
-                    keyMsg = `Minor changes detected covering ${areaHa} hectares (${changePct}%) between ${beforeYr} and ${afterYr}. CNN+ConvLSTM flagged small-scale construction or land modifications.`;
+                    keyMsg = `Minor changes detected covering ${areaHa} hectares (${changePct}%) between ${beforeYr} and ${afterYr}. Unified multi-temporal analysis flagged small-scale construction or land modifications.`;
                 }
                 if (keyMsg) {
                     findings.push(`<div class="finding-item key">
@@ -1918,15 +2153,16 @@
             closeDeforestResults();
             setMapStatus('Running unified multi-temporal analysis...');
 
-            // Show spinner in changes panel while running
+            // Show themed knot loader in changes panel while running
             const placeholder = document.getElementById('changes-placeholder');
             const dateEl = document.getElementById('changes-date-display');
             if (placeholder) {
                 placeholder.innerHTML = `
-                    <div class="spinner" style="width:40px;height:40px;border-width:5px;"></div>
+                    <pre class="changes-knot-loader" id="changes-knot-loader"></pre>
                     <p style="font-family:'Press Start 2P',cursive;font-size:0.5em;color:#5555FF;">Analyzing...</p>
                 `;
                 placeholder.style.display = 'flex';
+                startChangesKnotLoader(document.getElementById('changes-knot-loader'));
             }
             if (dateEl) dateEl.textContent = 'Analyzing...';
 
@@ -2024,6 +2260,7 @@
 
             } catch (error) {
                 console.error('Unified analysis failed:', error);
+                stopChangesKnotLoader();
                 // Reset placeholder on error
                 if (placeholder) {
                     placeholder.innerHTML = `
@@ -2037,6 +2274,7 @@
                 alert(`Unified map analysis failed: ${error.message}`);
                 setMapStatus(error.message || 'Unified map analysis failed.', true);
             } finally {
+                stopChangesKnotLoader();
                 btn.disabled = false;
                 btn.textContent = '🗺️ Run Unified Map Analysis';
             }
@@ -2069,6 +2307,8 @@
             images: [],       // preloaded Image objects
             totalAreaHa: 0,
             controlsWired: false,
+            chartInteractionsWired: false,
+            chartHoverIdx: null,
             sidebarOpen: true,
         };
 
@@ -2152,6 +2392,12 @@
                 // Build timeline
                 buildTimeline(data.frames);
 
+                // Sync layout spacing with current sidebar state.
+                const layout = document.querySelector('.anim-layout');
+                if (layout) {
+                    layout.classList.toggle('anim-metrics-collapsed', !window._animState.sidebarOpen);
+                }
+
                 // Wire controls
                 wireAnimControls();
 
@@ -2204,17 +2450,87 @@
                 if (sideBtn) sideBtn.click();
             });
 
+            wireAnimChartInteractions();
+
             window.addEventListener('resize', () => {
                 showAnimFrame(window._animState.idx, true);
                 drawChart(window._animState.idx);
             });
         }
 
+        function wireAnimChartInteractions() {
+            if (window._animState.chartInteractionsWired) return;
+            window._animState.chartInteractionsWired = true;
+
+            const canvas = document.getElementById('anim-chart');
+            if (!canvas) return;
+
+            const resolveIndexFromClientX = (clientX) => {
+                const frames = window._animFrames;
+                if (!frames || frames.length === 0) return null;
+                const rect = canvas.getBoundingClientRect();
+                const pad = { left: 44, right: 46 };
+                const chartW = rect.width - pad.left - pad.right;
+                if (chartW <= 4) return 0;
+                const rel = (clientX - rect.left - pad.left) / chartW;
+                const t = Math.max(0, Math.min(1, rel));
+                return Math.round(t * (frames.length - 1));
+            };
+
+            canvas.addEventListener('mousemove', (ev) => {
+                const idx = resolveIndexFromClientX(ev.clientX);
+                if (idx === null) return;
+                window._animState.chartHoverIdx = idx;
+                drawChart(window._animState.idx);
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                if (window._animState.chartHoverIdx !== null) {
+                    window._animState.chartHoverIdx = null;
+                    drawChart(window._animState.idx);
+                }
+            });
+
+            canvas.addEventListener('click', (ev) => {
+                const idx = resolveIndexFromClientX(ev.clientX);
+                if (idx === null) return;
+                stopAnim();
+                window._animState.chartHoverIdx = idx;
+                showAnimFrame(idx, true);
+                drawChart(idx);
+            });
+
+            canvas.addEventListener('touchstart', (ev) => {
+                if (!ev.touches || ev.touches.length === 0) return;
+                const idx = resolveIndexFromClientX(ev.touches[0].clientX);
+                if (idx === null) return;
+                window._animState.chartHoverIdx = idx;
+                drawChart(window._animState.idx);
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', (ev) => {
+                if (!ev.touches || ev.touches.length === 0) return;
+                const idx = resolveIndexFromClientX(ev.touches[0].clientX);
+                if (idx === null) return;
+                window._animState.chartHoverIdx = idx;
+                drawChart(window._animState.idx);
+            }, { passive: true });
+
+            canvas.addEventListener('touchend', () => {
+                window._animState.chartHoverIdx = null;
+                drawChart(window._animState.idx);
+            }, { passive: true });
+        }
+
         function toggleMetricsSidebar() {
+            const layout = document.querySelector('.anim-layout');
             const sidebar = document.querySelector('.anim-sidebar');
             if (!sidebar) return;
             window._animState.sidebarOpen = !window._animState.sidebarOpen;
             sidebar.classList.toggle('collapsed', !window._animState.sidebarOpen);
+            if (layout) {
+                layout.classList.toggle('anim-metrics-collapsed', !window._animState.sidebarOpen);
+            }
         }
 
         function getSpeedMs() {
@@ -2547,18 +2863,76 @@
 
             const canvas = document.getElementById('anim-chart');
             const ctx = canvas.getContext('2d');
-            const W = canvas.width;
-            const H = canvas.height;
+            const dpr = Math.max(1, window.devicePixelRatio || 1);
+            const W = Math.max(420, Math.floor(canvas.clientWidth || 560));
+            const H = Math.max(220, Math.floor(canvas.clientHeight || 240));
+            const nextW = Math.floor(W * dpr);
+            const nextH = Math.floor(H * dpr);
+            if (canvas.width !== nextW || canvas.height !== nextH) {
+                canvas.width = nextW;
+                canvas.height = nextH;
+            }
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
             ctx.clearRect(0, 0, W, H);
 
             const n = frames.length;
-            const pad = { top: 10, right: 10, bottom: 24, left: 36 };
+            const pad = { top: 18, right: 46, bottom: 30, left: 44 };
             const chartW = W - pad.left - pad.right;
             const chartH = H - pad.top - pad.bottom;
+            const isHovering = Number.isInteger(window._animState.chartHoverIdx);
+            const drawN = isHovering ? n : Math.min(upToIdx + 1, n);
 
-            // Draw grid
-            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            if (drawN <= 0) return;
+
+            const spectralVals = [];
+            for (let i = 0; i < drawN; i++) {
+                const f = frames[i];
+                spectralVals.push(f.ndvi_mean ?? 0);
+                spectralVals.push(f.ndbi_mean ?? 0);
+                spectralVals.push(f.ndvi_min ?? f.ndvi_mean ?? 0);
+                spectralVals.push(f.ndvi_max ?? f.ndvi_mean ?? 0);
+            }
+
+            let yMin = Math.min(...spectralVals);
+            let yMax = Math.max(...spectralVals);
+            yMin = Math.max(-1.0, yMin - 0.08);
+            yMax = Math.min(1.0, yMax + 0.08);
+            if (yMax - yMin < 0.22) {
+                const mid = (yMax + yMin) / 2;
+                yMin = Math.max(-1.0, mid - 0.11);
+                yMax = Math.min(1.0, mid + 0.11);
+            }
+
+            const maxChangeHa = Math.max(
+                1,
+                ...frames.slice(0, drawN).map((f) => Number(f.change_area_ha || 0))
+            );
+
+            function xAt(i) {
+                if (n <= 1) return pad.left + chartW / 2;
+                return pad.left + (i / (n - 1)) * chartW;
+            }
+
+            function spectralToY(val) {
+                const clamped = Math.max(yMin, Math.min(yMax, Number(val || 0)));
+                return pad.top + chartH - ((clamped - yMin) / Math.max(1e-6, (yMax - yMin))) * chartH;
+            }
+
+            function changeToY(valHa) {
+                const v = Math.max(0, Number(valHa || 0));
+                return pad.top + chartH - (v / maxChangeHa) * chartH;
+            }
+
+            const focusIdxRaw = isHovering ? window._animState.chartHoverIdx : upToIdx;
+            const focusIdx = Math.max(0, Math.min(focusIdxRaw, drawN - 1));
+
+            // Subtle plot background
+            ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            ctx.fillRect(pad.left, pad.top, chartW, chartH);
+
+            // Horizontal grid + dual-axis labels
+            ctx.strokeStyle = 'rgba(255,255,255,0.10)';
             ctx.lineWidth = 1;
             for (let i = 0; i <= 4; i++) {
                 const y = pad.top + (chartH / 4) * i;
@@ -2566,117 +2940,169 @@
                 ctx.moveTo(pad.left, y);
                 ctx.lineTo(W - pad.right, y);
                 ctx.stroke();
+
+                // Left: spectral value
+                const specVal = yMax - ((yMax - yMin) * i / 4);
+                ctx.fillStyle = 'rgba(175, 225, 215, 0.95)';
+                ctx.font = '10px "Space Mono"';
+                ctx.textAlign = 'right';
+                ctx.fillText(specVal.toFixed(2), pad.left - 6, y + 3);
+
+                // Right: change area in ha
+                const changeVal = maxChangeHa - (maxChangeHa * i / 4);
+                ctx.fillStyle = 'rgba(255, 183, 137, 0.95)';
+                ctx.textAlign = 'left';
+                ctx.fillText(`${changeVal.toFixed(1)}h`, W - pad.right + 6, y + 3);
             }
 
-            // Y-axis labels (NDVI scale: -0.2 to 0.8)
-            ctx.fillStyle = '#666';
-            ctx.font = '9px "Space Mono"';
+            // Axis titles
+            ctx.font = '10px "Space Mono"';
+            ctx.fillStyle = 'rgba(140, 215, 196, 0.95)';
+            ctx.textAlign = 'left';
+            ctx.fillText('Spectral index (NDVI/NDBI)', pad.left, 11);
+            ctx.fillStyle = 'rgba(255, 176, 128, 0.95)';
             ctx.textAlign = 'right';
-            const ndviLabels = [0.8, 0.6, 0.4, 0.2, 0.0];
-            for (let i = 0; i < ndviLabels.length; i++) {
-                const y = pad.top + (chartH / 4) * i;
-                ctx.fillText(ndviLabels[i].toFixed(1), pad.left - 4, y + 3);
+            ctx.fillText('Changed area (ha)', W - 2, 11);
+
+            // Bars: changed area (right-axis)
+            const barW = Math.max(5, Math.min(11, chartW / Math.max(6, n) * 0.65));
+            ctx.fillStyle = 'rgba(244, 85, 85, 0.32)';
+            for (let i = 0; i < drawN; i++) {
+                const x = xAt(i);
+                const yTop = changeToY(frames[i].change_area_ha);
+                ctx.fillRect(x - barW / 2, yTop, barW, pad.top + chartH - yTop);
             }
 
-            // X-axis year labels
-            ctx.textAlign = 'center';
-            frames.forEach((f, i) => {
-                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                ctx.fillStyle = i <= upToIdx ? '#00B8A9' : '#444';
-                ctx.fillText(f.year, x, H - 4);
-            });
-
-            const drawN = Math.min(upToIdx + 1, n);
-
-            // Helper to map NDVI value (range -0.2 to 0.8) to Y coordinate
-            function ndviToY(val) {
-                const clamped = Math.max(-0.2, Math.min(0.8, val));
-                return pad.top + chartH - ((clamped + 0.2) / 1.0) * chartH;
-            }
-
-            // Draw NDVI Mean line
-            ctx.strokeStyle = '#4CAF50';
-            ctx.lineWidth = 2.5;
+            // NDVI range band (min/max)
+            ctx.fillStyle = 'rgba(76, 175, 80, 0.14)';
             ctx.beginPath();
             for (let i = 0; i < drawN; i++) {
-                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                const y = ndviToY(frames[i].ndvi_mean);
+                const x = xAt(i);
+                const y = spectralToY(frames[i].ndvi_max ?? frames[i].ndvi_mean);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            for (let i = drawN - 1; i >= 0; i--) {
+                const x = xAt(i);
+                const y = spectralToY(frames[i].ndvi_min ?? frames[i].ndvi_mean);
+                ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // NDVI mean line
+            ctx.strokeStyle = '#58D06F';
+            ctx.lineWidth = 2.8;
+            ctx.beginPath();
+            for (let i = 0; i < drawN; i++) {
+                const x = xAt(i);
+                const y = spectralToY(frames[i].ndvi_mean);
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
             ctx.stroke();
 
-            // Draw NDVI range band (min-max) as shaded area
-            if (drawN > 0) {
-                ctx.fillStyle = 'rgba(76, 175, 80, 0.12)';
-                ctx.beginPath();
-                // Top edge (max values)
-                for (let i = 0; i < drawN; i++) {
-                    const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                    const y = ndviToY(frames[i].ndvi_max ?? frames[i].ndvi_mean);
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                // Bottom edge (min values, reversed)
-                for (let i = drawN - 1; i >= 0; i--) {
-                    const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                    const y = ndviToY(frames[i].ndvi_min ?? frames[i].ndvi_mean);
-                    ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Draw NDVI Mean dots
-            ctx.fillStyle = '#4CAF50';
-            for (let i = 0; i < drawN; i++) {
-                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                const y = ndviToY(frames[i].ndvi_mean);
-                ctx.beginPath();
-                ctx.arc(x, y, i === upToIdx ? 4.5 : 2.5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Draw NDBI Mean line
-            ctx.strokeStyle = '#FF9800';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 3]);
+            // NDBI line
+            ctx.strokeStyle = '#FFB347';
+            ctx.lineWidth = 2.2;
+            ctx.setLineDash([5, 4]);
             ctx.beginPath();
             for (let i = 0; i < drawN; i++) {
-                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                const y = ndviToY(frames[i].ndbi_mean);
+                const x = xAt(i);
+                const y = spectralToY(frames[i].ndbi_mean);
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Draw change area as bar (normalized to total area)
-            const totalHa = window._animState.totalAreaHa || 1;
-            ctx.fillStyle = 'rgba(244,67,54,0.35)';
+            // Dots + current marker
             for (let i = 0; i < drawN; i++) {
-                const x = pad.left + (i / Math.max(1, n - 1)) * chartW;
-                const pct = (frames[i].change_area_ha / totalHa) * 100;
-                const barH = (pct / 100) * chartH;
-                ctx.fillRect(x - 3, pad.top + chartH - barH, 6, barH);
+                const x = xAt(i);
+                const yNdvi = spectralToY(frames[i].ndvi_mean);
+                ctx.beginPath();
+                ctx.fillStyle = i === focusIdx ? '#8EFFA0' : '#58D06F';
+                ctx.arc(x, yNdvi, i === focusIdx ? 4.6 : 2.8, 0, Math.PI * 2);
+                ctx.fill();
             }
 
+            if (focusIdx >= 0 && focusIdx < drawN) {
+                const xNow = xAt(focusIdx);
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(xNow, pad.top);
+                ctx.lineTo(xNow, pad.top + chartH);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // X-axis labels (reduce clutter by skipping some labels when long)
+            ctx.textAlign = 'center';
+            const labelStep = n > 10 ? 2 : 1;
+            frames.forEach((f, i) => {
+                if (i % labelStep !== 0 && i !== 0 && i !== n - 1) return;
+                const x = xAt(i);
+                ctx.fillStyle = i <= Math.max(upToIdx, focusIdx) ? '#8fdad2' : '#4f5a62';
+                ctx.font = '9px "Space Mono"';
+                ctx.fillText(f.year, x, H - 4);
+            });
+
             // Legend
-            ctx.font = '9px "Space Mono"';
+            ctx.font = '10px "Space Mono"';
             const legendItems = [
-                { color: '#4CAF50', label: 'NDVI' },
-                { color: '#FF9800', label: 'NDBI' },
-                { color: 'rgba(244,67,54,0.6)', label: 'Change' },
+                { color: '#58D06F', label: 'NDVI mean' },
+                { color: '#FFB347', label: 'NDBI mean' },
+                { color: 'rgba(244,85,85,0.65)', label: 'Change (ha)' },
             ];
             let lx = pad.left;
             legendItems.forEach(({ color, label }) => {
                 ctx.fillStyle = color;
-                ctx.fillRect(lx, 2, 8, 8);
-                ctx.fillStyle = '#888';
+                ctx.fillRect(lx, 2, 10, 8);
+                ctx.fillStyle = '#a9b4bc';
                 ctx.textAlign = 'left';
-                ctx.fillText(label, lx + 11, 9);
-                lx += ctx.measureText(label).width + 22;
+                ctx.fillText(label, lx + 14, 9);
+                lx += ctx.measureText(label).width + 30;
             });
+
+            // Current point summary chip
+            const current = frames[focusIdx];
+            const chipPrefix = isHovering ? 'Hover' : 'Current';
+            const chip = `${chipPrefix}: ${current.year}  NDVI ${Number(current.ndvi_mean || 0).toFixed(2)}  NDBI ${Number(current.ndbi_mean || 0).toFixed(2)}  Change ${Number(current.change_area_ha || 0).toFixed(1)} ha`;
+            ctx.fillStyle = 'rgba(8, 14, 20, 0.72)';
+            const chipW = Math.min(chartW, ctx.measureText(chip).width + 18);
+            ctx.fillRect(pad.left, pad.top + 4, chipW, 16);
+            ctx.fillStyle = '#d6fff5';
+            ctx.textAlign = 'left';
+            ctx.fillText(chip, pad.left + 8, pad.top + 16);
+
+            // Hover tooltip near selected point
+            if (isHovering) {
+                const xHover = xAt(focusIdx);
+                const yHover = spectralToY(current.ndvi_mean);
+                const t1 = `Year ${current.year}`;
+                const t2 = `NDVI ${Number(current.ndvi_mean || 0).toFixed(2)} | NDBI ${Number(current.ndbi_mean || 0).toFixed(2)}`;
+                const t3 = `Change ${Number(current.change_area_ha || 0).toFixed(1)} ha`;
+
+                ctx.font = '10px "Space Mono"';
+                const tw = Math.max(ctx.measureText(t1).width, ctx.measureText(t2).width, ctx.measureText(t3).width) + 14;
+                const th = 46;
+                const bx = Math.min(W - tw - 8, Math.max(8, xHover + 10));
+                const by = Math.max(8, yHover - th - 10);
+
+                ctx.fillStyle = 'rgba(5, 16, 22, 0.92)';
+                ctx.fillRect(bx, by, tw, th);
+                ctx.strokeStyle = 'rgba(98, 224, 196, 0.9)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(bx, by, tw, th);
+
+                ctx.fillStyle = '#dffcf2';
+                ctx.textAlign = 'left';
+                ctx.fillText(t1, bx + 7, by + 13);
+                ctx.fillText(t2, bx + 7, by + 26);
+                ctx.fillText(t3, bx + 7, by + 39);
+            }
         }
 
     </script>

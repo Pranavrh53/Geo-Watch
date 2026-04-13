@@ -5,8 +5,188 @@ let drawnItems = null;
 let selectedBbox = null;
 let mapLayerControl = null;
 let unifiedLayerRefs = {};
+let knotIntervalId = null;
+let knotA = 0;
+let knotB = 0;
+let userLocationMarker = null;
+let userLocationAccuracyCircle = null;
 let accessToken = localStorage.getItem('access_token');
 let currentUser = localStorage.getItem('username');
+
+const KNOT_W = 56;
+const KNOT_H = 24;
+const KNOT_RAMP = '.,-~:;=!*#$@';
+const KNOT_COLORS = ['#00F5FF', '#FF2D95', '#F7FF33', '#FF6A00', '#9BFF00', '#FFFFFF'];
+const GEO_TARGET_ACCURACY_M = 150;
+const GEO_RELIABLE_ACCURACY_M = 5000;
+const GEO_MAX_ACCEPTABLE_ACCURACY_M = 25000;
+const GEO_LOCATE_TIMEOUT_MS = 25000;
+
+function norm(v) {
+    const mag = Math.sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z)) || 1;
+    return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
+}
+
+function dot(a, b) {
+    return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+}
+
+function cross(a, b) {
+    return {
+        x: (a.y * b.z) - (a.z * b.y),
+        y: (a.z * b.x) - (a.x * b.z),
+        z: (a.x * b.y) - (a.y * b.x)
+    };
+}
+
+function startKnotLoader() {
+    const el = document.getElementById('knot-loader');
+    if (!el || knotIntervalId) return;
+
+    const renderFrame = () => {
+        const screen = new Array(KNOT_W * KNOT_H).fill(' ');
+        const colorIdx = new Array(KNOT_W * KNOT_H).fill(-1);
+        const zbuf = new Array(KNOT_W * KNOT_H).fill(0);
+
+        const light = norm({ x: -1, y: 1, z: -1 });
+        const cA = Math.cos(knotA);
+        const sA = Math.sin(knotA);
+        const cB = Math.cos(knotB);
+        const sB = Math.sin(knotB);
+
+        let tubeIdx = 0;
+        for (let u = 0; u < 2 * Math.PI; u += 0.07, tubeIdx++) {
+            const c2 = 2 * u;
+            const c3 = 3 * u;
+            const center = {
+                x: Math.sin(u) + 2 * Math.sin(c2),
+                y: Math.cos(u) - 2 * Math.cos(c2),
+                z: -Math.sin(c3)
+            };
+
+            const tangent = norm({
+                x: Math.cos(u) + 4 * Math.cos(c2),
+                y: -Math.sin(u) + 4 * Math.sin(c2),
+                z: -3 * Math.cos(c3)
+            });
+
+            const up = Math.abs(dot(tangent, { x: 0, y: 1, z: 0 })) < 0.99
+                ? { x: 0, y: 1, z: 0 }
+                : { x: 1, y: 0, z: 0 };
+
+            const normal = norm(cross(tangent, up));
+            const binormal = cross(tangent, normal);
+            const radius = 0.3;
+            const segColor = tubeIdx % KNOT_COLORS.length;
+
+            for (let v = 0; v < 2 * Math.PI; v += 0.24) {
+                const cv = Math.cos(v);
+                const sv = Math.sin(v);
+                const offset = {
+                    x: normal.x * cv * radius + binormal.x * sv * radius,
+                    y: normal.y * cv * radius + binormal.y * sv * radius,
+                    z: normal.z * cv * radius + binormal.z * sv * radius
+                };
+
+                const point = {
+                    x: center.x + offset.x,
+                    y: center.y + offset.y,
+                    z: center.z + offset.z
+                };
+
+                const x1 = point.x;
+                const y1 = (point.y * cA) - (point.z * sA);
+                const z1 = (point.y * sA) + (point.z * cA);
+
+                const x2 = (x1 * cB) + (z1 * sB);
+                const y2 = y1;
+                const z2 = (-x1 * sB) + (z1 * cB) + 5;
+                const invz = 1 / z2;
+
+                const px = Math.floor((KNOT_W / 2) + (KNOT_W * 0.55 * x2 * invz));
+                const py = Math.floor((KNOT_H / 2) - (KNOT_H * 0.85 * y2 * invz));
+
+                if (px >= 0 && px < KNOT_W && py >= 0 && py < KNOT_H) {
+                    const idx = px + (py * KNOT_W);
+                    if (invz > zbuf[idx]) {
+                        zbuf[idx] = invz;
+
+                        const n = norm(offset);
+                        const nx1 = n.x;
+                        const ny1 = (n.y * cA) - (n.z * sA);
+                        const nz1 = (n.y * sA) + (n.z * cA);
+
+                        const nx2 = (nx1 * cB) + (nz1 * sB);
+                        const ny2 = ny1;
+                        const nz2 = (-nx1 * sB) + (nz1 * cB);
+
+                        const lum = Math.max(0, dot({ x: nx2, y: ny2, z: nz2 }, light));
+                        const ci = Math.min(KNOT_RAMP.length - 1, Math.floor(lum * (KNOT_RAMP.length - 1)));
+                        screen[idx] = KNOT_RAMP[ci];
+                        colorIdx[idx] = segColor;
+                    }
+                }
+            }
+        }
+
+        let html = '';
+        for (let y = 0; y < KNOT_H; y++) {
+            for (let x = 0; x < KNOT_W; x++) {
+                const idx = x + (y * KNOT_W);
+                const ch = screen[idx];
+                if (ch === ' ') {
+                    html += ' ';
+                } else {
+                    html += `<span style="color:${KNOT_COLORS[colorIdx[idx]]}">${ch}</span>`;
+                }
+            }
+            html += '\n';
+        }
+
+        el.innerHTML = html;
+        knotA += 0.04;
+        knotB += 0.024;
+    };
+
+    renderFrame();
+    knotIntervalId = setInterval(renderFrame, 42);
+}
+
+function stopKnotLoader() {
+    const el = document.getElementById('knot-loader');
+    if (knotIntervalId) {
+        clearInterval(knotIntervalId);
+        knotIntervalId = null;
+    }
+    if (el) el.innerHTML = '';
+}
+
+const FEATURE_MODE_LABELS = {
+    natural_color: 'Natural Color',
+    geology: 'Geology',
+    ndvi: 'NDVI',
+    bathymetric: 'Bathymetric',
+    infrared: 'Infrared',
+    moisture_index: 'Moisture Index',
+    ndwi: 'NDWI'
+};
+
+const FEATURE_SCAN_MODES = [
+    { mode: 'natural_color', description: 'What you see' },
+    { mode: 'geology', description: 'Rocks & soil' },
+    { mode: 'ndvi', description: 'Plant health' },
+    { mode: 'bathymetric', description: 'Water depth' },
+    { mode: 'infrared', description: 'Vegetation detection' },
+    { mode: 'moisture_index', description: 'Wet vs dry' },
+    { mode: 'ndwi', description: 'Water detection' }
+];
+
+function setPrimaryActionButtonsEnabled(enabled) {
+    const fetchBtn = document.getElementById('fetch-btn');
+    if (fetchBtn) fetchBtn.disabled = !enabled;
+    const scanAllBtn = document.getElementById('scan-all-btn');
+    if (scanAllBtn) scanAllBtn.disabled = !enabled;
+}
 
 // City coordinates
 const CITIES = {
@@ -117,15 +297,17 @@ function initMap() {
         displayCoordinates(selectedBbox);
         
         // Enable fetch button
-        document.getElementById('fetch-btn').disabled = false;
-        document.getElementById('analyze-map-btn').disabled = false;
+        setPrimaryActionButtonsEnabled(true);
+        const analyzeBtn = document.getElementById('analyze-map-btn');
+        if (analyzeBtn) analyzeBtn.disabled = false;
     });
 
     map.on(L.Draw.Event.DELETED, function () {
         selectedBbox = null;
         document.getElementById('coordinates-display').classList.remove('show');
-        document.getElementById('fetch-btn').disabled = true;
-        document.getElementById('analyze-map-btn').disabled = true;
+        setPrimaryActionButtonsEnabled(false);
+        const analyzeBtn = document.getElementById('analyze-map-btn');
+        if (analyzeBtn) analyzeBtn.disabled = true;
     });
 }
 
@@ -166,8 +348,9 @@ function applyManualCoords() {
 
     // Update sidebar display and enable fetch
     displayCoordinates(selectedBbox);
-    document.getElementById('fetch-btn').disabled = false;
-    document.getElementById('analyze-map-btn').disabled = false;
+    setPrimaryActionButtonsEnabled(true);
+    const analyzeBtn = document.getElementById('analyze-map-btn');
+    if (analyzeBtn) analyzeBtn.disabled = false;
 }
 
 function clearUnifiedOverlays() {
@@ -295,56 +478,175 @@ function addGeolocationControl() {
                     return;
                 }
 
-                navigator.geolocation.getCurrentPosition(
+                let bestPosition = null;
+                let watchId = null;
+                let settled = false;
+
+                const placeLocationMarker = (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const accuracyMeters = Math.max(0, position.coords.accuracy || 0);
+
+                    const zoomLevel = accuracyMeters > 25000 ? 9 : accuracyMeters > 5000 ? 11 : 15;
+                    map.flyTo([lat, lon], zoomLevel, { duration: 1.1 });
+
+                    if (userLocationMarker && map.hasLayer(userLocationMarker)) {
+                        map.removeLayer(userLocationMarker);
+                    }
+                    if (userLocationAccuracyCircle && map.hasLayer(userLocationAccuracyCircle)) {
+                        map.removeLayer(userLocationAccuracyCircle);
+                    }
+
+                    userLocationMarker = L.marker([lat, lon], {
+                        icon: L.divIcon({
+                            className: 'user-location-marker',
+                            html: '🔵',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 18],
+                            popupAnchor: [0, -16]
+                        })
+                    }).addTo(map);
+
+                    userLocationAccuracyCircle = L.circle([lat, lon], {
+                        radius: accuracyMeters,
+                        color: '#00F5FF',
+                        weight: 2,
+                        fillColor: '#00F5FF',
+                        fillOpacity: 0.12
+                    }).addTo(map);
+
+                    userLocationMarker.bindPopup(
+                        `Your Location<br>Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}<br>Accuracy: ±${Math.round(accuracyMeters)} m`
+                    ).openPopup();
+
+                    if (accuracyMeters <= GEO_RELIABLE_ACCURACY_M) {
+                        localStorage.setItem('geoWatchLastReliableLocation', JSON.stringify({
+                            lat,
+                            lon,
+                            accuracy: accuracyMeters,
+                            ts: Date.now()
+                        }));
+                    }
+
+                    if (accuracyMeters > GEO_MAX_ACCEPTABLE_ACCURACY_M) {
+                        showAlert(`Approximate location shown (±${Math.round(accuracyMeters)}m). Turn on GPS/precise location for better accuracy.`, 'error');
+                    } else {
+                        showAlert(`Location found: ${lat.toFixed(4)}, ${lon.toFixed(4)} (±${Math.round(accuracyMeters)}m)`, 'success');
+                    }
+                };
+
+                const finalize = () => {
+                    if (settled) return;
+                    settled = true;
+
+                    if (watchId !== null) {
+                        navigator.geolocation.clearWatch(watchId);
+                    }
+
+                    container.classList.remove('active');
+
+                    if (!bestPosition) {
+                        showAlert('Unable to retrieve your location.', 'error');
+                        return;
+                    }
+
+                    const accuracyMeters = Math.max(0, bestPosition.coords.accuracy || 0);
+                    if (accuracyMeters > GEO_MAX_ACCEPTABLE_ACCURACY_M) {
+                        const lastReliableRaw = localStorage.getItem('geoWatchLastReliableLocation');
+                        if (lastReliableRaw) {
+                            try {
+                                const lastReliable = JSON.parse(lastReliableRaw);
+                                placeLocationMarker({
+                                    coords: {
+                                        latitude: lastReliable.lat,
+                                        longitude: lastReliable.lon,
+                                        accuracy: lastReliable.accuracy
+                                    }
+                                });
+                                showAlert(`Current GPS fix is too coarse (±${Math.round(accuracyMeters)}m). Showing last reliable location instead.`, 'error');
+                                return;
+                            } catch (e) {
+                                console.warn('Failed to parse last reliable location:', e);
+                            }
+                        }
+
+                        showAlert(`Location fix is too coarse (±${Math.round(accuracyMeters)}m). Move to open sky or enable precise location, then retry.`, 'error');
+                        return;
+                    }
+
+                    placeLocationMarker(bestPosition);
+                };
+
+                const fallbackLocate = () => {
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            if (settled) return;
+                            bestPosition = position;
+                            finalize();
+                        },
+                        function() {
+                            if (settled) return;
+                            settled = true;
+                            if (watchId !== null) {
+                                navigator.geolocation.clearWatch(watchId);
+                            }
+                            container.classList.remove('active');
+                            showAlert('Could not detect location. Check browser/site location settings and try again.', 'error');
+                        },
+                        {
+                            enableHighAccuracy: false,
+                            timeout: 8000,
+                            maximumAge: 120000
+                        }
+                    );
+                };
+
+                watchId = navigator.geolocation.watchPosition(
                     function(position) {
-                        const lat = position.coords.latitude;
-                        const lon = position.coords.longitude;
-                        
-                        // Center map on user location
-                        map.setView([lat, lon], 13);
-                        
-                        // Add a temporary marker
-                        const marker = L.marker([lat, lon], {
-                            icon: L.divIcon({
-                                className: 'user-location-marker',
-                                html: '🔵',
-                                iconSize: [20, 20]
-                            })
-                        }).addTo(map);
-                        
-                        // Remove marker after 3 seconds
-                        setTimeout(() => {
-                            map.removeLayer(marker);
-                        }, 3000);
-                        
-                        container.classList.remove('active');
-                        
-                        showAlert(`Location found: ${lat.toFixed(4)}, ${lon.toFixed(4)}`, 'success');
+                        if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+                            bestPosition = position;
+                        }
+
+                        const accuracyMeters = Math.max(0, bestPosition.coords.accuracy || 0);
+                        if (accuracyMeters <= GEO_TARGET_ACCURACY_M) {
+                            finalize();
+                        }
                     },
                     function(error) {
-                        container.classList.remove('active');
-                        let message = 'Unable to retrieve your location';
-                        
-                        switch(error.code) {
-                            case error.PERMISSION_DENIED:
-                                message = 'Location permission denied. Please enable location access.';
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                message = 'Location information unavailable.';
-                                break;
-                            case error.TIMEOUT:
-                                message = 'Location request timed out.';
-                                break;
+                        if (settled) return;
+
+                        if (error.code === error.PERMISSION_DENIED) {
+                            settled = true;
+                            if (watchId !== null) {
+                                navigator.geolocation.clearWatch(watchId);
+                            }
+                            container.classList.remove('active');
+                            showAlert('Location permission denied. Please enable location access.', 'error');
+                            return;
                         }
-                        
-                        showAlert(message, 'error');
+
+                        if (!bestPosition) {
+                            fallbackLocate();
+                            return;
+                        }
+
+                        finalize();
                     },
                     {
                         enableHighAccuracy: true,
-                        timeout: 5000,
-                        maximumAge: 0
+                        timeout: GEO_LOCATE_TIMEOUT_MS,
+                        maximumAge: 30000
                     }
                 );
+
+                setTimeout(() => {
+                    if (settled) return;
+                    if (bestPosition) {
+                        finalize();
+                    } else {
+                        fallbackLocate();
+                    }
+                }, GEO_LOCATE_TIMEOUT_MS);
             };
 
             return container;
@@ -396,6 +698,7 @@ async function fetchImages() {
 
     const beforeDate = document.getElementById('before-date').value;
     const afterDate = document.getElementById('after-date').value;
+    const selectedMode = 'natural_color';
 
     if (!beforeDate || !afterDate) {
         showAlert('Please select both dates', 'error');
@@ -409,11 +712,11 @@ async function fetchImages() {
     try {
         // Fetch before image
         document.getElementById('loading-text').textContent = 'Fetching before image (Sentinel-2)...';
-        const beforeImage = await fetchTile(selectedBbox, beforeDate);
+        const beforeImage = await fetchTile(selectedBbox, beforeDate, selectedMode);
 
         // Fetch after image
         document.getElementById('loading-text').textContent = 'Fetching after image (Sentinel-2)...';
-        const afterImage = await fetchTile(selectedBbox, afterDate);
+        const afterImage = await fetchTile(selectedBbox, afterDate, selectedMode);
 
         // Check if images are empty/invalid
         const beforeEmpty = beforeImage.quality && !beforeImage.quality.is_valid;
@@ -456,7 +759,9 @@ async function fetchImages() {
             beforeDate: beforeDate,
             afterDate: afterDate,
             bbox: JSON.stringify(selectedBbox),
-            source: beforeImage.source || 'sentinel'
+            source: beforeImage.source || 'sentinel',
+            renderMode: beforeImage.render_mode || selectedMode,
+            renderLabel: beforeImage.render_label || FEATURE_MODE_LABELS[selectedMode] || 'Natural Color'
         });
         window.location.href = `compare.html?${params.toString()}`;
 
@@ -468,7 +773,7 @@ async function fetchImages() {
     }
 }
 
-async function fetchTile(bbox, date) {
+async function fetchTile(bbox, date, renderMode) {
     const response = await fetch(`${API_URL}/api/tile/fetch`, {
         method: 'POST',
         headers: {
@@ -478,7 +783,8 @@ async function fetchTile(bbox, date) {
         body: JSON.stringify({
             bbox: bbox,
             date: date,
-            size: 512
+            size: 512,
+            render_mode: renderMode || 'natural_color'
         })
     });
 
@@ -492,6 +798,67 @@ async function fetchTile(bbox, date) {
     }
 
     return await response.json();
+}
+
+async function fetchAllFeatureScans() {
+    if (!selectedBbox) {
+        showAlert('Please select a region on the map first', 'error');
+        return;
+    }
+
+    const beforeDate = document.getElementById('before-date').value;
+    const afterDate = document.getElementById('after-date').value;
+
+    if (!beforeDate || !afterDate) {
+        showAlert('Please select both dates', 'error');
+        return;
+    }
+
+    showLoading('Processing all feature scans...');
+    const scanBtn = document.getElementById('scan-all-btn');
+    if (scanBtn) scanBtn.disabled = true;
+
+    try {
+        const results = [];
+
+        for (let i = 0; i < FEATURE_SCAN_MODES.length; i++) {
+            const entry = FEATURE_SCAN_MODES[i];
+            const label = FEATURE_MODE_LABELS[entry.mode] || entry.mode;
+            document.getElementById('loading-text').textContent = `Processing ${label} (${i + 1}/${FEATURE_SCAN_MODES.length})...`;
+
+            const before = await fetchTile(selectedBbox, beforeDate, entry.mode);
+            const after = await fetchTile(selectedBbox, afterDate, entry.mode);
+
+            results.push({
+                mode: entry.mode,
+                label,
+                description: entry.description,
+                before_image_url: before.image_url,
+                after_image_url: after.image_url,
+                data_source: after.data_source || before.data_source || null
+            });
+        }
+
+        await saveToHistory(selectedBbox, beforeDate, afterDate);
+
+        const payload = {
+            bbox: selectedBbox,
+            beforeDate,
+            afterDate,
+            source: 'sentinel',
+            scans: results,
+            generatedAt: new Date().toISOString()
+        };
+
+        sessionStorage.setItem('geoWatchFeatureScans', JSON.stringify(payload));
+        hideLoading();
+        window.location.href = 'scan_all.html';
+    } catch (error) {
+        console.error('All feature scan failed:', error);
+        hideLoading();
+        showAlert(error.message || 'Failed to process all feature scans', 'error');
+        if (scanBtn) scanBtn.disabled = false;
+    }
 }
 
 async function saveToHistory(bbox, beforeDate, afterDate) {
@@ -576,17 +943,20 @@ function loadHistoryItem(item) {
     document.getElementById('after-date').value = item.after_date;
 
     // Enable fetch button
-    document.getElementById('fetch-btn').disabled = false;
-    document.getElementById('analyze-map-btn').disabled = false;
+    setPrimaryActionButtonsEnabled(true);
+    const analyzeBtn = document.getElementById('analyze-map-btn');
+    if (analyzeBtn) analyzeBtn.disabled = false;
 }
 
 function showLoading(text) {
     document.getElementById('loading-text').textContent = text;
     document.getElementById('loading').classList.add('show');
+    startKnotLoader();
 }
 
 function hideLoading() {
     document.getElementById('loading').classList.remove('show');
+    stopKnotLoader();
 }
 
 function showAlert(message, type = 'error') {

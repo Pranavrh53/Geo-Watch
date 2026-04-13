@@ -269,13 +269,22 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.34) 100%);
+            backdrop-filter: blur(1.5px);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
             flex-direction: column;
             gap: 20px;
+        }
+
+        .loading-stack {
+            background: rgba(0, 0, 0, 0.76);
+            border: 3px solid rgba(0, 245, 255, 0.8);
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 245, 255, 0.2);
+            padding: 16px 18px 14px;
+            min-width: min(94vw, 560px);
         }
 
         .loading-overlay.show {
@@ -287,31 +296,39 @@
             text-align: center;
         }
 
-        .spinner {
-            border: 6px solid #f0f0f0;
-            border-top: 6px solid #B2E600;
-            border-right: 6px solid #FF7070;
-            border-bottom: 6px solid #00B8A9;
-            border-left: 6px solid #5555FF;
-            border-radius: 0;
-            width: 60px;
-            height: 60px;
-            animation: spinPixel 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
-            margin: 0 auto 20px;
-            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.2);
+        .knot-loader {
+            width: min(92vw, 520px);
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            margin: 0 auto 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 8px;
+            line-height: 1;
+            white-space: pre;
+            text-align: center;
+            overflow: hidden;
+            user-select: none;
         }
 
-        @keyframes spinPixel {
-            0% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(180deg) scale(1.1); }
-            100% { transform: rotate(360deg) scale(1); }
+        .knot-loader span {
+            display: inline;
+            text-shadow:
+                0 0 1px #000,
+                0 0 2px #000,
+                0 0 1px #fff,
+                0 0 4px rgba(255, 255, 255, 0.45);
         }
 
         #loading-text {
             font-family: 'Press Start 2P', cursive;
             font-size: 0.7em;
-            color: #00B8A9;
+            color: #F7FF33;
+            text-shadow: 0 0 2px #000, 0 0 8px rgba(0, 0, 0, 0.8);
             animation: pulse 1.5s ease-in-out infinite;
+            display: block;
+            text-align: center;
         }
 
         @keyframes pulse {
@@ -602,8 +619,26 @@
                 </div>
 
                 <div class="section">
+                    <h3 class="section-title">Scan and Analyse Features</h3>
+                    <div class="instructions" style="font-size:0.72em;line-height:1.7;">
+                        <strong>Natural Color</strong> → What you see<br>
+                        <strong>Geology</strong> → Rocks &amp; soil<br>
+                        <strong>NDVI</strong> → Plant health<br>
+                        <strong>Bathymetric</strong> → Water depth<br>
+                        <strong>Infrared</strong> → Vegetation detection<br>
+                        <strong>Moisture Index</strong> → Wet vs dry<br>
+                        <strong>NDWI</strong> → Water detection<br><br>
+                        Click <strong>Scan All Features</strong> to process all views automatically and review them one-by-one.
+                    </div>
+                </div>
+
+                <div class="section">
                     <button class="btn btn-primary" id="fetch-btn" onclick="fetchImages()" disabled>
                         Show Before/After Images
+                    </button>
+                    <button class="btn btn-primary" id="scan-all-btn" onclick="fetchAllFeatureScans()" disabled
+                        style="margin-top:10px;background:linear-gradient(135deg,#5555FF 0%,#3333CC 100%);border-color:#3333CC;box-shadow:6px 6px 0 rgba(85,85,255,0.3);">
+                        Scan All Features
                     </button>
                     
                 </div>
@@ -617,8 +652,10 @@
 
         <div class="map-container">
             <div id="loading" class="loading-overlay">
-                <div class="spinner"></div>
-                <span id="loading-text">Loading...</span>
+                <div class="loading-stack">
+                    <pre id="knot-loader" class="knot-loader"></pre>
+                    <span id="loading-text">Loading...</span>
+                </div>
             </div>
             <div id="map"></div>
         </div>

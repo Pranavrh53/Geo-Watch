@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 import sys
 import json
 import logging
+import hashlib
 import numpy as np
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -50,6 +51,213 @@ def check_image_quality_simple(img_array: np.ndarray) -> Dict[str, object]:
         "quality": "Good" if std_dev >= 45 else "Acceptable" if std_dev >= 20 else "Poor",
         "reason": None if is_valid else "Image is nearly uniform/blank",
     }
+
+
+FEATURE_RENDER_MODES = {
+    "natural_color": "Natural Color",
+    "geology": "Geology",
+    "ndvi": "NDVI",
+    "bathymetric": "Bathymetric",
+    "infrared": "Infrared",
+    "moisture_index": "Moisture Index",
+    "ndwi": "NDWI",
+}
+
+
+def _normalize01(arr: np.ndarray) -> np.ndarray:
+    amin = float(np.min(arr))
+    amax = float(np.max(arr))
+    if amax - amin < 1e-6:
+        return np.zeros_like(arr, dtype=np.float32)
+    return ((arr - amin) / (amax - amin)).astype(np.float32)
+
+
+def _stretch_8bit(bands: np.ndarray, lower_percent: float = 2, higher_percent: float = 98) -> np.ndarray:
+    """
+    Percentile contrast stretch — same method as Orbitia / standard remote sensing.
+    Input:  (H, W, C) any dtype
+    Output: (H, W, C) uint8 [0-255]
+    """
+    out = np.zeros_like(bands, dtype=np.float64)
+    num_channels = bands.shape[2] if bands.ndim == 3 else 1
+    if bands.ndim == 2:
+        bands = bands[:, :, np.newaxis]
+        out = out[:, :, np.newaxis]
+
+    for i in range(num_channels):
+        c = float(np.percentile(bands[:, :, i], lower_percent))
+        d = float(np.percentile(bands[:, :, i], higher_percent))
+        if d - c < 1e-10:
+            out[:, :, i] = 0
+        else:
+            t = (bands[:, :, i].astype(np.float64) - c) * 255.0 / (d - c)
+            t = np.clip(t, 0, 255)
+            out[:, :, i] = t
+
+    return out.astype(np.uint8)
+
+
+def _index_to_grayscale(index_arr: np.ndarray) -> np.ndarray:
+    """
+    Convert a spectral index (e.g. NDVI, NDWI, NDMI) to a grayscale uint8 image
+    using percentile stretch. Bright = high index, Dark = low index.
+    Same approach as Orbitia's calculate_ndvi / calculate_ndwi / calculate_moisture.
+    """
+    idx = np.expand_dims(index_arr, -1) if index_arr.ndim == 2 else index_arr
+    stretched = _stretch_8bit(idx.astype(np.float64))
+    # Return as 3-channel grayscale (RGB all same) so it works with PNG saving
+    gray = stretched[:, :, 0] if stretched.ndim == 3 else stretched
+    return np.stack([gray, gray, gray], axis=-1)
+
+
+# ---------------------------------------------------------------------------
+# PRIMARY: Multiband rendering (uses real Sentinel-2 spectral bands)
+# Approach: Exactly like Orbitia — direct band composites with percentile
+#           stretch for composites; grayscale percentile-stretched output
+#           for spectral indices (NDVI, NDWI, Moisture).
+# ---------------------------------------------------------------------------
+
+def _apply_feature_render_multiband(bands: np.ndarray, render_mode: str) -> np.ndarray:
+    """
+    Render feature analysis from real multi-band satellite data.
+
+    bands: (H, W, 8) float32 reflectances [0-1]
+           channels = [B01, B02, B03, B04, B05, B07, B08, B11]
+    """
+    mode = (render_mode or "natural_color").lower()
+
+    B01 = bands[:, :, 0]   # Coastal Aerosol (Band 1)
+    B02 = bands[:, :, 1]   # Blue (Band 2)
+    B03 = bands[:, :, 2]   # Green (Band 3)
+    B04 = bands[:, :, 3]   # Red (Band 4)
+    B05 = bands[:, :, 4]   # Red Edge 1 (Band 5)
+    B07 = bands[:, :, 5]   # Red Edge 3 (Band 7)
+    B08 = bands[:, :, 6]   # NIR (Band 8)
+    B11 = bands[:, :, 7]   # SWIR 1 (Band 11)
+
+    eps = 1e-10
+
+    # ── Natural Color: R=B04, G=B03, B=B02 ────────────────────────────────
+    if mode == "natural_color":
+        rgb = np.stack([B04, B03, B02], axis=-1)
+        return _stretch_8bit(rgb)
+
+    # ── Geology (False Color SWIR): R=B11, G=B08, B=B02 ──────────────────
+    #    Orbitia Sentinel: bands 12,11,2  →  Our mapping: B11→SWIR, B08→NIR, B02→Blue
+    if mode == "geology":
+        rgb = np.stack([B11, B08, B02], axis=-1)
+        return _stretch_8bit(rgb)
+
+    # ── NDVI: (NIR - Red) / (NIR + Red) → Grayscale ──────────────────────
+    #    Bright/White = healthy vegetation, Dark = bare/water
+    if mode == "ndvi":
+        ndvi = (B08 - B04) / (B08 + B04 + eps)
+        return _index_to_grayscale(ndvi)
+
+    # ── Bathymetric: R=B04, G=B03, B=B01 (Masked strictly to water) ───────
+    #    Coastal aerosol penetrates water → reveals depth. Land kept natural.
+    if mode == "bathymetric":
+        # Calculate natural color for land
+        nat_rgb = np.stack([B04, B03, B02], axis=-1)
+        nat_stretch = _stretch_8bit(nat_rgb)
+        
+        # Calculate bathymetric for water
+        bathy_rgb = np.stack([B04, B03, B01], axis=-1)
+        bathy_stretch = _stretch_8bit(bathy_rgb)
+        
+        # Mask water using NDWI (> 0 indicates water)
+        ndwi = (B03 - B08) / (B03 + B08 + eps)
+        water_mask = np.expand_dims(ndwi > 0.0, -1)
+        
+        # Combine: natural on land, bathymetric on water
+        out = np.where(water_mask, bathy_stretch, nat_stretch)
+        return out.astype(np.uint8)
+
+    # ── Color Infrared (CIR): R=B08(NIR), G=B04(Red), B=B03(Green) ───────
+    #    Red/Pink = healthy vegetation, Dark = water/barren
+    if mode == "infrared":
+        rgb = np.stack([B08, B04, B03], axis=-1)
+        return _stretch_8bit(rgb)
+
+    # ── Moisture Index (NDMI): (NIR - SWIR) / (NIR + SWIR) → Grayscale ───
+    #    Bright = high moisture, Dark = dry
+    if mode == "moisture_index":
+        ndmi = (B08 - B11) / (B08 + B11 + eps)
+        return _index_to_grayscale(ndmi)
+
+    # ── NDWI: (Green - NIR) / (Green + NIR) → Grayscale ──────────────────
+    #    Bright = water, Dark = land
+    if mode == "ndwi":
+        ndwi = (B03 - B08) / (B03 + B08 + eps)
+        return _index_to_grayscale(ndwi)
+
+    # Fallback: natural color
+    rgb = np.stack([B04, B03, B02], axis=-1)
+    return _stretch_8bit(rgb)
+
+
+# ---------------------------------------------------------------------------
+# FALLBACK: RGB-only pseudo-rendering (when multiband data unavailable)
+# ---------------------------------------------------------------------------
+
+def _apply_feature_render_mode(rgb_u8: np.ndarray, render_mode: str) -> np.ndarray:
+    """
+    Approximate feature rendering from 3-channel RGB when real bands unavailable.
+    Uses pseudo-NIR/SWIR derived from visible channels.
+    """
+    mode = (render_mode or "natural_color").lower()
+    if mode == "natural_color":
+        return rgb_u8
+
+    rgb = rgb_u8.astype(np.float64) / 255.0
+    r = rgb[:, :, 0]
+    g = rgb[:, :, 1]
+    b = rgb[:, :, 2]
+
+    # Pseudo spectral approximations
+    pseudo_nir  = np.clip(0.50 * r + 0.40 * g - 0.10 * b + 0.12, 0.0, 1.0)
+    pseudo_swir = np.clip(0.45 * r + 0.20 * g - 0.15 * b + 0.05, 0.0, 1.0)
+    eps = 1e-10
+
+    # ── Geology: SWIR-false-color approximation ───────────────────────────
+    if mode == "geology":
+        composite = np.stack([pseudo_swir, pseudo_nir, b], axis=-1)
+        return _stretch_8bit(composite)
+
+    # ── NDVI → Grayscale ──────────────────────────────────────────────────
+    if mode == "ndvi":
+        ndvi = (pseudo_nir - r) / (pseudo_nir + r + eps)
+        return _index_to_grayscale(ndvi)
+
+    # ── Bathymetric (Masked strictly to water) ────────────────────────────
+    if mode == "bathymetric":
+        coastal_approx = np.clip(b * 0.7 + g * 0.3, 0.0, 1.0)
+        composite = np.stack([r, g, coastal_approx], axis=-1)
+        bathy_stretch = _stretch_8bit(composite)
+        
+        # Mask using NDWI approx
+        ndwi = (g - pseudo_nir) / (g + pseudo_nir + eps)
+        water_mask = np.expand_dims(ndwi > 0.0, -1)
+        
+        out = np.where(water_mask, bathy_stretch, rgb_u8)
+        return out.astype(np.uint8)
+
+    # ── Infrared (CIR) ───────────────────────────────────────────────────
+    if mode == "infrared":
+        composite = np.stack([pseudo_nir, r, g], axis=-1)
+        return _stretch_8bit(composite)
+
+    # ── Moisture Index → Grayscale ────────────────────────────────────────
+    if mode == "moisture_index":
+        moisture = (pseudo_nir - pseudo_swir) / (pseudo_nir + pseudo_swir + eps)
+        return _index_to_grayscale(moisture)
+
+    # ── NDWI → Grayscale ──────────────────────────────────────────────────
+    if mode == "ndwi":
+        ndwi = (g - pseudo_nir) / (g + pseudo_nir + eps)
+        return _index_to_grayscale(ndwi)
+
+    return rgb_u8
 
 # In-memory task status storage (use Redis in production)
 task_status = {}
@@ -197,6 +405,7 @@ class TileFetchRequest(BaseModel):
     bbox: Dict[str, float]  # {west, south, east, north}
     date: str  # YYYY-MM-DD
     size: Optional[int] = 512
+    render_mode: Optional[str] = "natural_color"
 
 
 @app.post("/api/tile/fetch")
@@ -206,8 +415,9 @@ async def fetch_tile(
     db: Session = Depends(get_db)
 ):
     """
-    Fetch satellite tile for custom region
-    Returns URL to cached image with quality metrics
+    Fetch satellite tile for custom region.
+    For non-natural-color modes, uses real multi-spectral band data from
+    the Sentinel Hub Process API to compute accurate composites/indices.
     """
     try:
         fetcher = get_tile_fetcher()
@@ -217,9 +427,15 @@ async def fetch_tile(
         if not all(k in bbox for k in ['west', 'south', 'east', 'north']):
             raise HTTPException(status_code=400, detail="Invalid bbox format")
         
-        # Get tile (from cache or fetch new)
+        render_mode = (request.render_mode or "natural_color").lower()
+        if render_mode not in FEATURE_RENDER_MODES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid render_mode '{render_mode}'. Allowed: {', '.join(FEATURE_RENDER_MODES.keys())}"
+            )
+
+        # Get tile (from cache or fetch new) — always needed for quality check
         size = (request.size, request.size)
-        
         tile_path = fetcher.get_tile(db, bbox, request.date, size)
         
         # Check image quality
@@ -227,14 +443,56 @@ async def fetch_tile(
         img = Image.open(tile_path).convert("RGB")
         quality_check = check_image_quality_simple(np.array(img))
         
+        image_name = tile_path.name
+        data_source = "rgb_fallback"
+
+        if render_mode != "natural_color":
+            # Build a cache key that includes render_mode and uses "mb" suffix
+            # to distinguish multiband-rendered images from old RGB-approximated ones
+            mb_seed = f"{tile_path.stem}:{render_mode}:mb"
+            mb_name = f"{hashlib.md5(mb_seed.encode()).hexdigest()}_{render_mode}_mb.png"
+            mb_path = tile_path.parent / mb_name
+
+            if mb_path.exists():
+                # Already processed with multiband data
+                image_name = mb_name
+                data_source = "multiband_cached"
+            else:
+                # Try to fetch real multi-spectral bands
+                multiband = fetcher.fetch_multiband_tile(bbox, request.date, size)
+
+                if multiband is not None and multiband.ndim == 3 and multiband.shape[2] == 8:
+                    # Use real spectral bands for accurate rendering
+                    logger.info(f"Using multiband data for {render_mode} rendering")
+                    processed_array = _apply_feature_render_multiband(multiband, render_mode)
+                    Image.fromarray(processed_array).save(mb_path, "PNG")
+                    image_name = mb_name
+                    data_source = "multiband"
+                else:
+                    # Fallback: use RGB approximation
+                    logger.warning(f"Multiband unavailable, using RGB fallback for {render_mode}")
+                    fallback_seed = f"{tile_path.stem}:{render_mode}:fallback"
+                    fallback_name = f"{hashlib.md5(fallback_seed.encode()).hexdigest()}_{render_mode}.png"
+                    fallback_path = tile_path.parent / fallback_name
+
+                    if not fallback_path.exists():
+                        processed_array = _apply_feature_render_mode(np.array(img), render_mode)
+                        Image.fromarray(processed_array).save(fallback_path, "PNG")
+
+                    image_name = fallback_name
+                    data_source = "rgb_fallback"
+
         # Return file path as URL with quality info
         return {
             "status": "success",
-            "image_url": f"/api/tile/image/{tile_path.name}",
+            "image_url": f"/api/tile/image/{image_name}",
             "cached": True,
             "date": request.date,
             "bbox": bbox,
             "source": "sentinel",
+            "render_mode": render_mode,
+            "render_label": FEATURE_RENDER_MODES[render_mode],
+            "data_source": data_source,
             "quality": quality_check
         }
     

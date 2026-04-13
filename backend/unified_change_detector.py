@@ -570,8 +570,13 @@ class UnifiedTemporalChangeDetector:
         after_year = datetime.strptime(after_date, "%Y-%m-%d").year
         min_year = min(before_year, after_year)
         max_year = max(before_year, after_year)
-        start_year = max(2016, min_year - 4)
-        end_year = min(datetime.utcnow().year, max_year + 2)
+
+        # Use the exact user-selected window for all reported stats.
+        # Previous buffered expansion (min-4 to max+2) made different user
+        # ranges collapse to the same internal years, causing near-identical
+        # outputs such as 2020-2025 vs 2016-2025.
+        start_year = max(2016, min_year)
+        end_year = min(datetime.utcnow().year, max_year)
         return list(range(start_year, end_year + 1))
 
     def _build_temporal_stack(

@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛰️ Geo-Watch - Feature Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            min-height: 100vh;
+            background: #f5f5f5;
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px),
+                repeating-linear-gradient(90deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px);
+            background-size: 50px 50px;
+            color: #1a1a1a;
+            padding: 20px;
+            animation: fadeIn 0.4s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ── Header Bar ─────────────────────────────────── */
+        .header {
+            max-width: 1200px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #B2E600 0%, #A0D000 100%);
+            border: 5px solid #A0D000;
+            box-shadow: 6px 6px 0 rgba(178, 230, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #B2E600 0%, #FF7070 25%, #00B8A9 50%, #5555FF 75%);
+        }
+
+        .header-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7em;
+            color: #1a1a1a;
+            line-height: 1.6;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: 4px solid;
+            border-radius: 0;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55em;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-transform: uppercase;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .btn:hover {
+            transform: translate(-2px, -2px);
+        }
+
+        .btn:active {
+            transform: translate(2px, 2px);
+        }
+
+        .btn-back {
+            background: #fff;
+            color: #1a1a1a;
+            border-color: #00B8A9;
+            box-shadow: 4px 4px 0 rgba(0, 184, 169, 0.3);
+        }
+
+        .btn-back:hover {
+            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.3);
+            background: #e8fff8;
+        }
+
+        .btn-compare {
+            background: linear-gradient(135deg, #5555FF 0%, #3333CC 100%);
+            color: #fff;
+            border-color: #3333CC;
+            box-shadow: 4px 4px 0 rgba(85, 85, 255, 0.3);
+        }
+
+        .btn-compare:hover {
+            box-shadow: 6px 6px 0 rgba(85, 85, 255, 0.3);
+        }
+
+        .btn-compare-multi {
+            background: linear-gradient(135deg, #FF7070 0%, #FF5555 100%);
+            color: #fff;
+            border-color: #FF5555;
+            box-shadow: 4px 4px 0 rgba(255, 112, 112, 0.3);
+        }
+
+        .btn-compare-multi:hover:not(.disabled) {
+            box-shadow: 6px 6px 0 rgba(255, 112, 112, 0.3);
+            background: linear-gradient(135deg, #FF8080 0%, #FF7070 100%);
+        }
+
+        .btn-compare-multi.disabled {
+            filter: grayscale(1);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .compare-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #00B8A9;
+            margin-right: 6px;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            background: #f7f7f7;
+            border: 2px solid #ddd;
+            padding: 4px 8px;
+            font-size: 0.7em;
+            color: #555;
+            font-weight: bold;
+        }
+
+        /* ── Meta info strip ────────────────────────────── */
+        .meta-strip {
+            max-width: 1200px;
+            margin: 0 auto 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .meta-card {
+            background: #fff;
+            border: 4px solid #00B8A9;
+            border-left-width: 8px;
+            padding: 12px 14px;
+            box-shadow: 4px 4px 0 rgba(0, 184, 169, 0.2);
+        }
+
+        .meta-label {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.45em;
+            color: #00B8A9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .meta-value {
+            font-size: 0.8em;
+            font-weight: 700;
+            color: #1a1a1a;
+            word-break: break-all;
+        }
+
+        /* ── Analysis Card Grid ─────────────────────────── */
+        .grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+
+        .analysis-card {
+            background: #fff;
+            border: 5px solid #00B8A9;
+            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.2);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .analysis-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 9px 9px 0 rgba(0, 184, 169, 0.25);
+            border-color: #5555FF;
+        }
+
+        /* Card header */
+        .card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 10px 12px;
+            border-bottom: 3px solid #B2E600;
+            background: #fcfcfc;
+            gap: 8px;
+        }
+
+        .card-name {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.52em;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+
+        .card-bands {
+            font-size: 0.7em;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6em;
+            font-weight: 700;
+            padding: 3px 8px;
+            border: 2px solid;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .badge-real {
+            color: #006f56;
+            background: #e8fff8;
+            border-color: #00B8A9;
+        }
+
+        .badge-approx {
+            color: #8b5e3c;
+            background: #fff8e8;
+            border-color: #e0c080;
+        }
+
+        /* Image area */
+        .card-image {
+            aspect-ratio: 16 / 10;
+            background: #0a0a0a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: auto;
+            display: block;
+            cursor: zoom-in;
+        }
+
+        /* Card info (always visible below image) */
+        .card-info {
+            padding: 10px 12px;
+            border-top: 3px solid #B2E600;
+            background: #fcfcfc;
+        }
+
+        .card-info .info-desc {
+            font-size: 0.75em;
+            line-height: 1.55;
+            color: #444;
+            margin-bottom: 8px;
+        }
+
+        .card-info .info-formula {
+            font-size: 0.72em;
+            font-weight: 700;
+            color: #00B8A9;
+            background: #e8fff8;
+            border: 2px solid #c8f4e8;
+            padding: 3px 8px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .card-info .info-use {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.4em;
+            color: #FF7070;
+            background: #fff5f5;
+            border: 2px solid #ffd4d4;
+            padding: 4px 10px;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Color Legend */
+        .legend {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 2px dashed #e0e0e0;
+        }
+
+        .legend.show {
+            display: flex;
+        }
+
+        .btn-legend-toggle {
+            display: block;
+            margin-top: 8px;
+            background: none;
+            border: 2px solid #ccc;
+            padding: 4px 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65em;
+            font-weight: bold;
+            color: #555;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-legend-toggle:hover {
+            background: #f0f0f0;
+            border-color: #999;
+            color: #111;
+        }
+
+        .legend-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.38em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72em;
+            color: #333;
+            line-height: 1.3;
+        }
+
+        .legend-swatch {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+            border-radius: 2px;
+        }
+
+        /* ── Empty state ────────────────────────────────── */
+        .empty-state {
+            max-width: 1200px;
+            margin: 40px auto;
+            background: #fff;
+            border: 5px solid #FF7070;
+            border-left-width: 12px;
+            padding: 30px;
+            box-shadow: 6px 6px 0 rgba(255, 112, 112, 0.3);
+            text-align: center;
+        }
+
+        .empty-state h2 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7em;
+            color: #FF5555;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        /* ── Responsive ─────────────────────────────────── */
+        @media (max-width: 900px) {
+            .meta-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 620px) {
+            body {
+                padding: 10px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Scrollbar ──────────────────────────────────── */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #e0e0e0;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #00B8A9, #00A99D);
+            border: 2px solid #e0e0e0;
+        }
+
+        /* ── Image Modal ────────────────────────────────── */
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .image-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 95%;
+            max-height: 85vh;
+            border: 6px solid #00B8A9;
+            box-shadow: 10px 10px 0 rgba(0, 184, 169, 0.4);
+            background: #111;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 85vh;
+            object-fit: contain;
+            display: block;
+            image-rendering: auto;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            width: 40px;
+            height: 40px;
+            background: #FF7070;
+            border: 4px solid #fff;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+            transition: all 0.15s;
+        }
+
+        .modal-close:hover {
+            transform: scale(1.1) rotate(5deg);
+            background: #FF5555;
+        }
+
+        .modal-title {
+            color: #B2E600;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 0 #000;
+            text-align: center;
+        }
+
+        /* ── Compare Side-by-Side Modal ─────────────────── */
+        .compare-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .compare-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .compare-modal-content {
+            position: relative;
+            width: 98%;
+            height: 90vh;
+            border: 6px solid #B2E600;
+            box-shadow: 10px 10px 0 rgba(178, 230, 0, 0.4);
+            background: #111;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+        }
+
+        .compare-grid {
+            display: grid;
+            gap: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .compare-grid.cols-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .compare-grid.cols-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .compare-grid.cols-4 {
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+        }
+
+        .compare-grid.auto-cols {
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+
+        .compare-item {
+            display: flex;
+            flex-direction: column;
+            background: #222;
+            border: 4px solid #444;
+            height: 100%;
+        }
+
+        .compare-item-title {
+            color: #fff;
+            background: #333;
+            padding: 10px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.6em;
+            text-align: center;
+            border-bottom: 4px solid #444;
+        }
+
+        .compare-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: auto;
+            display: block;
+            flex: 1;
+            min-height: 0;
+            cursor: zoom-in;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="image-modal" id="image-modal">
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-content">
+            <div class="modal-close" id="modal-close">X</div>
+            <img id="modal-img" src="" alt="Full Resolution">
+        </div>
+    </div>
+
+    <!-- Side-by-Side Compare Modal -->
+    <div class="compare-modal" id="compare-modal">
+        <div class="modal-title" style="color: #FF7070;">Compare Views</div>
+        <div class="compare-modal-content">
+            <div class="modal-close" id="compare-modal-close">X</div>
+            <div class="compare-grid" id="compare-grid">
+                <!-- Images injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <div id="app"></div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        const payloadRaw = sessionStorage.getItem('geoWatchFeatureScans');
+
+        const TYPE_INFO = {
+            natural_color: {
+                title: 'Natural Color',
+                icon: '🌍',
+                bands: 'Red · Green · Blue',
+                about: 'Displays Earth as human eyes would see it from space.',
+                use: 'Land use mapping',
+                color: '#00B8A9',
+                legend: [
+                    { color: '#3a7d3a', label: 'Dense forest / healthy vegetation' },
+                    { color: '#6aab5a', label: 'Crops / lighter vegetation' },
+                    { color: '#3b6ab5', label: 'Deep water bodies' },
+                    { color: '#7ab4d9', label: 'Shallow / sediment-filled water' },
+                    { color: '#b0a090', label: 'Urban areas / concrete / roads' },
+                    { color: '#d4b07a', label: 'Bare soil / dry farmland' },
+                    { color: '#f0f0f0', label: 'Sand / snow / clouds' },
+                ]
+            },
+            geology: {
+                title: 'Geology',
+                icon: '🪨',
+                bands: 'SWIR · NIR · Blue',
+                about: 'Highlights mineral composition, rock types, and geological structures using infrared contrast.',
+                use: 'Mining & exploration',
+                color: '#FF7070',
+                legend: [
+                    { color: '#3ecf3e', label: 'Vegetation (NIR reflectance)' },
+                    { color: '#e8c060', label: 'Bare soil / dry sandy terrain' },
+                    { color: '#d060d0', label: 'Urban: concrete, asphalt, metal roofs' },
+                    { color: '#60a0d0', label: 'Wetlands / damp soil / sediment' },
+                    { color: '#c04040', label: 'Iron-rich / clay-rich exposed rock' },
+                    { color: '#101010', label: 'Water bodies (absorbs all IR)' },
+                    { color: '#9060c0', label: 'Crystalline rock / granite formations' },
+                ]
+            },
+            ndvi: {
+                title: 'NDVI',
+                icon: '🌱',
+                bands: 'NIR and Red',
+                formula: '(NIR − Red) / (NIR + Red)',
+                about: 'Measures vegetation health. Bright = dense healthy plants. Dark = bare soil or water.',
+                use: 'Agriculture & drought',
+                color: '#B2E600',
+                legend: [
+                    { color: '#ffffff', label: 'Very bright — dense healthy vegetation' },
+                    { color: '#c0c0c0', label: 'Light grey — moderate vegetation' },
+                    { color: '#808080', label: 'Mid grey — sparse / stressed plants' },
+                    { color: '#303030', label: 'Dark grey — bare soil / rock' },
+                    { color: '#000000', label: 'Black — water or negative NDVI' },
+                ]
+            },
+            bathymetric: {
+                title: 'Bathymetric',
+                icon: '🌊',
+                bands: 'Red · Green · Coastal Aerosol',
+                about: 'Short wavelengths penetrate shallow water revealing depth. Deeper = darker.',
+                use: 'Coastal monitoring',
+                color: '#5555FF',
+                legend: [
+                    { color: '#e0f4ff', label: 'Very shallow water / coastal shelf' },
+                    { color: '#80c8e0', label: 'Shallow water / reef zones' },
+                    { color: '#2060a0', label: 'Moderate depth' },
+                    { color: '#0a1540', label: 'Deep water (light cannot penetrate)' },
+                    { color: '#d4c8a0', label: 'Sandy / exposed land near coast' },
+                    { color: '#c8d0d0', label: 'Suspended sediment in water' },
+                ]
+            },
+            infrared: {
+                title: 'Infrared',
+                icon: '🔥',
+                bands: 'NIR · Red · Green',
+                about: 'Healthy plants reflect NIR → bright red/pink. Water is dark. Reveals fire damage and crop stress.',
+                use: 'Forest & fire mapping',
+                color: '#FF7070',
+                legend: [
+                    { color: '#FF3030', label: 'Bright red — dense healthy vegetation' },
+                    { color: '#FF9090', label: 'Pink / light red — moderate vegetation' },
+                    { color: '#c0c060', label: 'Yellow/olive — stressed or sparse crops' },
+                    { color: '#808080', label: 'Grey — urban / barren / burned land' },
+                    { color: '#101030', label: 'Dark blue / black — water bodies' },
+                ]
+            },
+            moisture_index: {
+                title: 'Moisture Index',
+                icon: '💧',
+                bands: 'NIR and SWIR',
+                formula: '(NIR − SWIR) / (NIR + SWIR)',
+                about: 'Detects water content inside vegetation and soil. Bright = wet. Dark = dry.',
+                use: 'Drought & fire risk',
+                color: '#00B8A9',
+                legend: [
+                    { color: '#ffffff', label: 'Very bright — waterlogged / flooded soil' },
+                    { color: '#c0c0c0', label: 'Light grey — high moisture in plants' },
+                    { color: '#808080', label: 'Mid grey — moderate moisture' },
+                    { color: '#404040', label: 'Dark — dry vegetation / at risk' },
+                    { color: '#000000', label: 'Black — extremely dry / bare rock' },
+                ]
+            },
+            ndwi: {
+                title: 'NDWI',
+                icon: '🏞️',
+                bands: 'Green and NIR',
+                formula: '(Green − NIR) / (Green + NIR)',
+                about: 'Isolates open water perfectly. Bright = water. Dark = land.',
+                use: 'Water & flood tracking',
+                color: '#5555FF',
+                legend: [
+                    { color: '#ffffff', label: 'Bright white — open deep water' },
+                    { color: '#c0c0c0', label: 'Light grey — shallow water / river edge' },
+                    { color: '#606060', label: 'Mid grey — moist soil / wetland margin' },
+                    { color: '#202020', label: 'Dark — dry land / vegetation' },
+                    { color: '#000000', label: 'Black — dense vegetation / no water' },
+                ]
+            }
+        };
+
+        function esc(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        if (!payloadRaw) {
+            document.getElementById('app').innerHTML = `
+                <div class="header">
+                    <div class="header-title">🛰️ Geo-Watch · Feature Analysis</div>
+                    <div class="header-actions">
+                        <button class="btn btn-back" onclick="window.location.href='dashboard.html'">← Back</button>
+                    </div>
+                </div>
+                <div class="empty-state">
+                    <h2>⚠ No Scan Data</h2>
+                    <p>No scan payload found. Go back to the dashboard and run <strong>Scan All Features</strong> first.</p>
+                </div>
+            `;
+        } else {
+            const payload = JSON.parse(payloadRaw);
+            const scans = Array.isArray(payload.scans) ? payload.scans : [];
+            const beforeDate = payload.beforeDate || '-';
+            const afterDate = payload.afterDate || '-';
+            const bbox = payload.bbox || null;
+
+            const areaText = bbox
+                ? `${bbox.south.toFixed(4)}, ${bbox.west.toFixed(4)} → ${bbox.north.toFixed(4)}, ${bbox.east.toFixed(4)}`
+                : 'N/A';
+
+            const sortedModes = [
+                'natural_color', 'geology', 'ndvi', 'bathymetric',
+                'infrared', 'moisture_index', 'ndwi'
+            ];
+
+            const scanByMode = new Map(scans.map(s => [s.mode, s]));
+            const orderedScans = sortedModes
+                .map(mode => scanByMode.get(mode))
+                .filter(Boolean);
+
+            const cardsHtml = orderedScans.map(scan => {
+                const info = TYPE_INFO[scan.mode] || {
+                    title: scan.label || scan.mode,
+                    icon: '📡',
+                    bands: 'Custom',
+                    about: 'Processed satellite view.',
+                    use: 'General',
+                    color: '#00B8A9'
+                };
+
+                const imgUrl = scan.after_image_url || scan.before_image_url || '';
+                const isMultiband = scan.data_source && scan.data_source.startsWith('multiband');
+                const badgeHtml = scan.data_source
+                    ? (isMultiband
+                        ? '<span class="badge badge-real">REAL BANDS</span>'
+                        : '<span class="badge badge-approx">RGB APPROX</span>')
+                    : '';
+
+                return `
+                    <article class="analysis-card">
+                        <div class="card-head">
+                            <div>
+                                <div class="card-name">${esc(info.icon)} ${esc(info.title)}</div>
+                                <div class="card-bands">${info.formula ? info.formula : 'Bands: ' + esc(info.bands)}</div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" class="compare-checkbox" data-src="${imgUrl ? `${API_URL}${imgUrl}` : ''}" data-title="${esc(info.icon)} ${esc(info.title)}" title="Select for comparison"> Select
+                                </div>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                        <div class="card-image">
+                            <img src="${imgUrl ? `${API_URL}${imgUrl}` : ''}"
+                                 alt="${esc(info.title)} analysis"
+                                 loading="lazy">
+                        </div>
+                        <div class="card-info">
+                            ${info.formula ? `<div class="info-formula">\u0192 = ${esc(info.formula)}</div>` : ''}
+                            <div class="info-desc">${esc(info.about)}</div>
+                            <div class="info-use">\u{1F4CC} ${esc(info.use)}</div>
+                            ${info.legend ? `
+                            <button class="btn-legend-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.innerText = this.innerText.includes('Show') ? '\u{1F3A8} Hide Color Key' : '\u{1F3A8} Show Color Key';">\u{1F3A8} Show Color Key</button>
+                            <div class="legend">
+                                <div class="legend-title">Color Key</div>
+                                ${info.legend.map(l => `
+                                    <div class="legend-row">
+                                        <div class="legend-swatch" style="background:${l.color};"></div>
+                                        <span>${esc(l.label)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>` : ''}
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            document.getElementById('app').innerHTML = `
+                <div class="header">
+                    <div class="header-title">🛰️ Geo-Watch · Feature Analysis</div>
+                    <div class="header-actions">
+                        <button class="btn btn-back" id="back-btn">← Back</button>
+                        <button class="btn btn-compare" id="compare-btn">Timeline View</button>
+                        <button class="btn btn-compare-multi disabled" id="compare-multi-btn" disabled>Compare Selected (0)</button>
+                    </div>
+                </div>
+
+                <div class="meta-strip">
+                    <div class="meta-card">
+                        <div class="meta-label">📅 Date</div>
+                        <div class="meta-value">${esc(afterDate)}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">📍 Region</div>
+                        <div class="meta-value">${esc(areaText)}</div>
+                    </div>
+                </div>
+
+                ${orderedScans.length === 0
+                    ? `<div class="empty-state">
+                           <h2>⚠ No Results</h2>
+                           <p>No processed scans were generated. Please run <strong>Scan All Features</strong> again from the dashboard.</p>
+                       </div>`
+                    : `<section class="grid">${cardsHtml}</section>`}
+            `;
+
+            // ── Event Listeners ───────────────────────────────
+            document.getElementById('back-btn')?.addEventListener('click', () => {
+                window.location.href = 'dashboard.html';
+            });
+
+            document.getElementById('compare-btn')?.addEventListener('click', () => {
+                const natural = scans.find(x => x.mode === 'natural_color') || scans[0];
+                if (!natural) {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+                const params = new URLSearchParams({
+                    before: natural.before_image_url,
+                    after: natural.after_image_url,
+                    beforeDate,
+                    afterDate,
+                    bbox: JSON.stringify(bbox || {}),
+                    source: payload.source || 'sentinel',
+                    renderMode: natural.mode || 'natural_color',
+                    renderLabel: natural.label || 'Natural Color'
+                });
+                window.location.href = `compare.html?${params.toString()}`;
+            });
+
+
+
+            // ── Image Modal Logic ──────────────────────────────
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-img');
+            const modalTitle = document.getElementById('modal-title');
+            const modalClose = document.getElementById('modal-close');
+
+            document.querySelectorAll('.card-image img').forEach(img => {
+                img.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const card = img.closest('.analysis-card');
+                    const titleEl = card.querySelector('.card-name');
+                    modalImg.src = img.src;
+                    modalTitle.innerText = titleEl ? titleEl.innerText : 'Analysis Image';
+                    modal.classList.add('show');
+                });
+            });
+
+            modalClose.addEventListener('click', () => {
+                modal.classList.remove('show');
+                setTimeout(() => modalImg.src = '', 300); // clear after fade out
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                    setTimeout(() => modalImg.src = '', 300);
+                }
+            });
+
+            // ── Side-by-Side Compare Logic ─────────────────────────
+            const compareBtnMulti = document.getElementById('compare-multi-btn');
+            const checkboxes = document.querySelectorAll('.compare-checkbox');
+            const compareModalMulti = document.getElementById('compare-modal');
+            const compareGrid = document.getElementById('compare-grid');
+            const compareModalMultiClose = document.getElementById('compare-modal-close');
+
+            const getSelectedCards = () => {
+                return Array.from(checkboxes).filter(cb => cb.checked).map(cb => ({
+                    src: cb.dataset.src,
+                    title: cb.dataset.title,
+                }));
+            };
+
+            const updateCompareBtn = () => {
+                const selected = getSelectedCards();
+                compareBtnMulti.innerText = `Compare Selected (${selected.length})`;
+                if (selected.length >= 2) {
+                    compareBtnMulti.disabled = false;
+                    compareBtnMulti.classList.remove('disabled');
+                } else {
+                    compareBtnMulti.disabled = true;
+                    compareBtnMulti.classList.add('disabled');
+                }
+            };
+
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', updateCompareBtn);
+            });
+
+            compareBtnMulti.addEventListener('click', () => {
+                const selected = getSelectedCards();
+                if (selected.length < 2) return;
+
+                compareGrid.innerHTML = '';
+                compareGrid.className = 'compare-grid ' + (selected.length <= 4 ? 'cols-' + selected.length : 'auto-cols');
+
+                selected.forEach(item => {
+                    compareGrid.innerHTML += `
+                        <div class="compare-item">
+                            <div class="compare-item-title">${esc(item.title)}</div>
+                            <img src="${item.src}" alt="${esc(item.title)}" onclick="window.open('${item.src}', '_blank')">
+                        </div>
+                    `;
+                });
+
+                compareModalMulti.classList.add('show');
+            });
+
+            compareModalMultiClose.addEventListener('click', () => {
+                compareModalMulti.classList.remove('show');
+            });
+
+            compareModalMulti.addEventListener('click', (e) => {
+                if (e.target === compareModalMulti) {
+                    compareModalMulti.classList.remove('show');
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
