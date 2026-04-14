@@ -275,12 +275,16 @@
             align-items: center;
             justify-content: center;
             gap: 16px;
+            height: 100%;
+            padding: 24px;
+            text-align: center;
+        }
 
         .changes-knot-loader {
-            background: #0f1820;
-            border: 3px solid #00B8A9;
-            box-shadow: 5px 5px 0 rgba(0, 184, 169, 0.22);
-            padding: 8px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
             width: min(92%, 360px);
             margin-bottom: 8px;
             font-family: 'Space Mono', monospace;
@@ -289,10 +293,8 @@
             white-space: pre;
             text-align: center;
             overflow: hidden;
-        }
-            height: 100%;
-            padding: 24px;
-            text-align: center;
+            color: #2d3b45;
+            text-shadow: 0 0 1px rgba(0, 0, 0, 0.6);
         }
 
         .changes-placeholder .pulse-icon {
@@ -555,7 +557,7 @@
             text-align: center;
             padding: 50px;
             font-family: 'Press Start 2P', cursive;
-            color: #00B8A9;
+            color: #2f3c45;
         }
 
         .map-view {
@@ -588,17 +590,17 @@
         }
 
         .spinner {
-            border: 6px solid #f0f0f0;
-            border-top: 6px solid #B2E600;
-            border-right: 6px solid #FF7070;
-            border-bottom: 6px solid #00B8A9;
-            border-left: 6px solid #5555FF;
+            border: 6px solid #d7dce2;
+            border-top: 6px solid #5e6e12;
+            border-right: 6px solid #7a3232;
+            border-bottom: 6px solid #0b4f4a;
+            border-left: 6px solid #2e3f86;
             border-radius: 0;
             width: 60px;
             height: 60px;
             animation: spin 0.8s linear infinite;
             margin: 0 auto 20px;
-            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.2);
+            box-shadow: none;
         }
 
         @keyframes spin {
@@ -689,8 +691,8 @@
 
         .stat-cards {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
             margin-bottom: 20px;
         }
 
@@ -751,6 +753,328 @@
             color: #666;
             padding-top: 12px;
             border-top: 2px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* ── Full Analysis Report View ── */
+        .report-view {
+            flex: 1;
+            display: none;
+            overflow-y: auto;
+            background: #f0f2f5;
+            padding: 28px 32px;
+        }
+        .report-view.active { display: block; }
+
+        .report-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            height: 70vh;
+            text-align: center;
+        }
+        .report-empty-icon { font-size: 4em; opacity: 0.4; }
+        .report-empty-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8em;
+            color: #888;
+        }
+        .report-empty-sub {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            color: #aaa;
+            max-width: 480px;
+            line-height: 1.7;
+        }
+        .report-run-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #5555FF, #3333CC);
+            color: white;
+            border: 4px solid #3333CC;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.6em;
+            cursor: pointer;
+            box-shadow: 6px 6px 0 rgba(85,85,255,0.3);
+            transition: all 0.15s;
+        }
+        .report-run-btn:hover {
+            transform: translate(-2px,-2px);
+            box-shadow: 8px 8px 0 rgba(85,85,255,0.3);
+        }
+
+        /* Report sections */
+        .rpt-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            color: white;
+            padding: 28px 32px;
+            margin-bottom: 20px;
+            border-left: 6px solid #B2E600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            position: relative;
+            overflow: hidden;
+        }
+        .rpt-header::after {
+            content: '🛰️';
+            position: absolute;
+            right: 24px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 3.5em;
+            opacity: 0.12;
+        }
+        .rpt-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.85em;
+            color: #B2E600;
+            margin-bottom: 8px;
+        }
+        .rpt-subtitle {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.82em;
+            color: rgba(255,255,255,0.65);
+            line-height: 1.6;
+        }
+        .rpt-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 0;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55em;
+            font-weight: bold;
+            margin-right: 8px;
+            margin-top: 12px;
+        }
+        .rpt-badge-critical { background:#FF5555;color:white; }
+        .rpt-badge-high     { background:#FF7070;color:white; }
+        .rpt-badge-moderate { background:#F5A623;color:white; }
+        .rpt-badge-low      { background:#B2E600;color:#1a1a1a; }
+
+        .rpt-section {
+            background: white;
+            border: 4px solid #e0e0e0;
+            padding: 22px 26px;
+            margin-bottom: 16px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.06);
+        }
+        .rpt-section-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.62em;
+            color: #00B8A9;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 3px dashed #e0e0e0;
+            text-transform: uppercase;
+        }
+
+        /* KPI cards in report */
+        .rpt-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .rpt-kpi {
+            background: #f8f9fa;
+            border: 3px solid #e0e0e0;
+            border-left: 5px solid #00B8A9;
+            padding: 16px;
+            transition: box-shadow 0.2s;
+        }
+        .rpt-kpi:hover { box-shadow: 4px 4px 0 rgba(0,184,169,0.15); }
+        .rpt-kpi-label {
+            font-size: 0.65em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+            font-family: 'Space Mono', monospace;
+        }
+        .rpt-kpi-value {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1em;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+        }
+        .rpt-kpi-note {
+            font-size: 0.72em;
+            color: #aaa;
+            font-family: 'Space Mono', monospace;
+        }
+        .rpt-kpi.accent-red { border-left-color: #FF7070; }
+        .rpt-kpi.accent-green { border-left-color: #B2E600; }
+        .rpt-kpi.accent-blue { border-left-color: #5555FF; }
+        .rpt-kpi.accent-orange { border-left-color: #F5A623; }
+
+        /* Spectral index comparison table */
+        .rpt-spectral-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.82em;
+        }
+        .rpt-spectral-table th {
+            background: #1a1a2e;
+            color: #B2E600;
+            padding: 10px 14px;
+            text-align: left;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.6em;
+            letter-spacing: 0.04em;
+        }
+        .rpt-spectral-table td {
+            padding: 10px 14px;
+            border-bottom: 2px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        .rpt-spectral-table tr:nth-child(even) td { background: #fafafa; }
+        .delta-positive { color: #D32F2F; font-weight: bold; }
+        .delta-negative { color: #2E7D32; font-weight: bold; }
+        .delta-neutral  { color: #888; }
+
+        /* Land cover bars */
+        .lc-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .lc-label {
+            width: 110px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75em;
+            color: #555;
+            text-align: right;
+        }
+        .lc-bar-wrap {
+            flex: 1;
+            height: 18px;
+            background: #f0f0f0;
+            border: 2px solid #e0e0e0;
+            position: relative;
+            overflow: hidden;
+        }
+        .lc-bar {
+            height: 100%;
+            transition: width 0.8s ease;
+        }
+        .lc-pct {
+            width: 50px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55em;
+            color: #333;
+        }
+        .lc-delta {
+            width: 60px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72em;
+            text-align: right;
+        }
+
+        /* Confidence gauge bar */
+        .confidence-bar-wrap {
+            background: #f0f0f0;
+            border: 3px solid #e0e0e0;
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .confidence-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #FF7070, #F5A623, #B2E600, #00B8A9);
+            transition: width 1s ease;
+        }
+        .confidence-label {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55em;
+            color: #555;
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        /* Findings timeline in report */
+        .rpt-finding {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 2px solid #f0f0f0;
+            animation: fadeSlideIn 0.4s ease both;
+        }
+        .rpt-finding:last-child { border-bottom: none; }
+        .rpt-finding-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            border: 3px solid #e0e0e0;
+            flex-shrink: 0;
+            background: #f8f9fa;
+        }
+        .rpt-finding-body { flex: 1; }
+        .rpt-finding-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.58em;
+            color: #1a1a2e;
+            margin-bottom: 6px;
+        }
+        .rpt-finding-text {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8em;
+            color: #555;
+            line-height: 1.7;
+        }
+        .rpt-finding-meta {
+            font-size: 0.72em;
+            color: #aaa;
+            margin-top: 5px;
+            font-family: 'Space Mono', monospace;
+        }
+        .rpt-finding.f-urban .rpt-finding-icon { border-color: #F5A623; background: #FFF8E1; }
+        .rpt-finding.f-vegetation .rpt-finding-icon { border-color: #D32F2F; background: #FFEBEE; }
+        .rpt-finding.f-key .rpt-finding-icon { border-color: #B2E600; background: #F9FBE7; }
+        .rpt-finding.f-none .rpt-finding-icon { border-color: #00B8A9; background: #E0F7FA; }
+
+        /* Cloud quality grid */
+        .cloud-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .cloud-chip {
+            padding: 6px 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72em;
+            border: 2px solid;
+        }
+        .cloud-chip-ok { border-color: #B2E600; color: #5a7a00; background: #F9FBE7; }
+        .cloud-chip-warn { border-color: #F5A623; color: #a05000; background: #FFF8E1; }
+        .cloud-chip-bad { border-color: #FF7070; color: #b00020; background: #FFEBEE; }
+
+        /* Method expandable */
+        .rpt-method-summary {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.78em;
+            color: #555;
+            line-height: 1.8;
+        }
+        .rpt-method-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .rpt-method-key { color: #888; }
+        .rpt-method-val { color: #1a1a2e; font-weight: bold; }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 900px) {
+            .rpt-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .report-view { padding: 16px; }
         }
 
         /* ── Animation View ── */
@@ -1110,16 +1434,17 @@
             justify-content: center;
             height: 100%;
             gap: 16px;
-            color: #00B8A9;
+            color: #2f3c45;
         }
 
         .anim-loading .spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid rgba(0, 184, 169, 0.2);
-            border-top-color: #00B8A9;
+            border: 4px solid rgba(47, 60, 69, 0.18);
+            border-top-color: #2f3c45;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
+            box-shadow: none;
         }
 
         @keyframes spin {
@@ -1191,6 +1516,7 @@
         <button class="tab-btn" onclick="switchView('slider')">⟷ Slider Compare</button>
         <button class="tab-btn" onclick="switchView('map')">🗺️ Unified Map</button>
         <button class="tab-btn" onclick="switchView('animate')">🎬 Temporal Animation</button>
+        <button class="tab-btn" id="report-tab-btn" onclick="switchView('report')" style="border-color:#B2E600;color:#B2E600;">📊 Analysis Report</button>
     </div>
 
     <div class="comparison-container">
@@ -1236,11 +1562,14 @@
                 </div>
             </div>
 
-            <!-- Analysis Insights Panel -->
+            <!-- Quick Insights Strip (below side-by-side images) -->
             <div class="insights-panel" id="insights-panel">
                 <div class="insights-header">
                     <h3>📊 Analysis Insights</h3>
-                    <span class="time-range" id="insights-time-range"></span>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <span class="time-range" id="insights-time-range"></span>
+                        <button id="open-report-btn" onclick="switchView('report');document.getElementById('report-tab-btn').classList.add('active');" style="display:none;padding:6px 14px;background:#B2E600;color:#1a1a1a;border:none;font-family:'Press Start 2P',cursive;font-size:0.5em;cursor:pointer;box-shadow:3px 3px 0 rgba(178,230,0,0.3);">📄 Full Report</button>
+                    </div>
                 </div>
                 <div class="stat-cards" id="insights-stat-cards"></div>
                 <div class="findings-list" id="insights-findings"></div>
@@ -1285,6 +1614,17 @@
             </div>
         </div>
 
+        <!-- Full Analysis Report View -->
+        <div class="report-view" id="report-view">
+            <div class="report-empty" id="report-empty">
+                <div class="report-empty-icon">📊</div>
+                <div class="report-empty-title">No Report Yet</div>
+                <div class="report-empty-sub">Click <strong>Run Unified Map Analysis</strong> to generate a comprehensive analysis report for this region.</div>
+                <button onclick="runUnifiedAnalysisOnMap()" class="report-run-btn">▶ Run Analysis Now</button>
+            </div>
+            <div id="report-content" style="display:none;"></div>
+        </div>
+
         <div class="map-view" id="map-view">
             <div class="map-status" id="map-status">
                 Unified map view is ready. Click "Run Unified Map Analysis" to load overlays.
@@ -1321,7 +1661,7 @@
                     <h3>📊 Live Metrics</h3>
                     <div id="anim-metrics"></div>
                     <div class="anim-chart-wrap">
-                        <div class="anim-chart-title">NDVI & NDBI Over Time</div>
+                        <div class="anim-chart-title">NDVI, NDBI & NDWI Over Time</div>
                         <canvas id="anim-chart" width="560" height="320"></canvas>
                     </div>
                 </div>
@@ -1372,7 +1712,7 @@
             const W = 44;
             const H = 18;
             const RAMP = '.,-~:;=!*#$@';
-            const COLORS = ['#00B8A9', '#5555FF', '#B2E600', '#FF7070', '#00A192', '#3333CC'];
+            const COLORS = ['#0B4F4A', '#2E3F86', '#5E6E12', '#7A3232', '#0A3E3A', '#253067'];
 
             const renderFrame = () => {
                 const screen = new Array(W * H).fill(' ');
@@ -1602,14 +1942,15 @@
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            if (event && event.target) event.target.classList.add('active');
 
-            // Update views
-            document.getElementById('side-by-side-view').classList.remove('active');
-            document.getElementById('slider-view').classList.remove('active');
-            document.getElementById('map-view').classList.remove('active');
-
+            // Hide all views
+            ['side-by-side-view','slider-view','map-view'].forEach(id => {
+                document.getElementById(id)?.classList.remove('active');
+            });
             document.getElementById('animate-view')?.classList.remove('active');
+            document.getElementById('report-view')?.classList.remove('active');
+
             if (view === 'side-by-side') {
                 document.getElementById('side-by-side-view').classList.add('active');
             } else if (view === 'slider') {
@@ -1617,6 +1958,8 @@
             } else if (view === 'animate') {
                 document.getElementById('animate-view').classList.add('active');
                 if (!window._animFrames) loadAnimationFrames();
+            } else if (view === 'report') {
+                document.getElementById('report-view').classList.add('active');
             } else {
                 document.getElementById('map-view').classList.add('active');
                 if (unifiedMap) {
@@ -2017,36 +2360,46 @@
         }
 
         // ============================================================
-        // ANALYSIS INSIGHTS PANEL
+        // ANALYSIS INSIGHTS — quick strip (side-by-side tab)
         // ============================================================
         function populateInsightsPanel(results) {
             const panel = document.getElementById('insights-panel');
             if (!panel) return;
 
-            const summary = results.change_summary || {};
-            const trend = results.trend_summary || {};
-            const classified = results.classified_changes || {};
-            const temporal = results.temporal_windows || {};
-            const clouds = results.cloud_percent_by_year || {};
+            const summary   = results.change_summary   || {};
+            const trend     = results.trend_summary    || {};
+            const classified= results.classified_changes || {};
+            const temporal  = results.temporal_windows || {};
+            const clouds    = results.cloud_percent_by_year || {};
             const yearsUsed = results.years_used || [];
+            const pixelAreaM2  = summary.pixel_area_m2 ?? 100;
+            const changePct    = summary.change_percent ?? 0;
+            const areaHa       = summary.change_area_hectares ?? 0;
+            const totalAreaHa  = summary.total_area_hectares ?? 0;
+            const severity     = summary.severity || 'Low';
+            const confidence   = summary.confidence ?? 0;
 
             // Time range
             const timeRange = document.getElementById('insights-time-range');
-            timeRange.textContent = `${temporal.before_year || beforeDate?.split('-')[0] || '?'} → ${temporal.after_year || afterDate?.split('-')[0] || '?'}`;
+            if (timeRange) timeRange.textContent =
+                `${temporal.before_year || beforeDate?.split('-')[0] || '?'} → ${temporal.after_year || afterDate?.split('-')[0] || '?'}`;
 
-            // Stat cards
-            const cardsEl = document.getElementById('insights-stat-cards');
-            const changePct = summary.change_percent ?? 0;
-            const areaHa = summary.change_area_hectares ?? 0;
-            const totalAreaHa = summary.total_area_hectares ?? 0;
-            const pixelAreaM2 = summary.pixel_area_m2 ?? 100;
+            // Show the "Full Report" shortcut button
+            document.getElementById('open-report-btn').style.display = 'inline-block';
+
+            // Severity colour
+            const sevColor = {Critical:'#FF5555',High:'#FF7070',Moderate:'#F5A623',Low:'#B2E600'}[severity] || '#00B8A9';
+
+            // Urban expansion ha
             const urbanPx = trend.urban_expansion_pixels ?? 0;
-            const urbanHaRaw = ((urbanPx * pixelAreaM2) / 1e4).toFixed(1);
-            const urbanHa = totalAreaHa > 0 ? Math.min(parseFloat(urbanHaRaw), totalAreaHa).toFixed(1) : urbanHaRaw;
+            const urbanHaRaw = ((urbanPx * pixelAreaM2) / 1e4);
+            const urbanHa = Math.min(urbanHaRaw, totalAreaHa).toFixed(1);
 
+            // Stat cards (7-card strip)
+            const cardsEl = document.getElementById('insights-stat-cards');
             cardsEl.innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-value">${changePct}%</div>
+                    <div class="stat-value" style="color:${sevColor};">${changePct}%</div>
                     <div class="stat-label">Total Changed</div>
                 </div>
                 <div class="stat-card">
@@ -2054,89 +2407,403 @@
                     <div class="stat-label">Changed Area</div>
                 </div>
                 <div class="stat-card">
+                    <div class="stat-value" style="color:${sevColor};">${severity}</div>
+                    <div class="stat-label">Severity</div>
+                </div>
+                <div class="stat-card">
                     <div class="stat-value">${urbanHa} ha</div>
                     <div class="stat-label">Urban Expansion</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${totalAreaHa > 0 ? totalAreaHa + ' ha' : yearsUsed.length}</div>
-                    <div class="stat-label">${totalAreaHa > 0 ? 'Study Area' : 'Years Analyzed'}</div>
+                    <div class="stat-label">${totalAreaHa > 0 ? 'Study Area' : 'Years'}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${confidence}%</div>
+                    <div class="stat-label">Confidence</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${summary.change_rate_ha_per_year ?? 0} ha/yr</div>
+                    <div class="stat-label">Change Rate</div>
                 </div>
             `;
 
-            // Findings
+            // Quick findings
             const findingsEl = document.getElementById('insights-findings');
-            const findings = [];
-
-            // Construction finding
+            const fns = [];
             const consPx = classified.construction?.pixels ?? 0;
             if (consPx > 0) {
-                const consHaRaw = ((consPx * pixelAreaM2) / 1e4).toFixed(1);
-                const consHa = totalAreaHa > 0 ? Math.min(parseFloat(consHaRaw), totalAreaHa).toFixed(1) : consHaRaw;
-                const consPct = classified.construction?.percent ?? 0;
-                findings.push(`<div class="finding-item urban">
-                    <span>🏗️</span>
-                    <span><strong>New construction detected:</strong> ${consHa} hectares (${consPct}% of area). CNN+ConvLSTM identified change zones, then classified as built-up via spectral verification (NDBI > 0.15, NDVI < 0.25).</span>
-                </div>`);
+                const consHa = Math.min(((consPx * pixelAreaM2) / 1e4), totalAreaHa).toFixed(1);
+                fns.push(`<div class="finding-item urban"><span>🏗️</span><span><strong>Construction detected:</strong> ${consHa} ha — NDBI > 0.15 , NDVI < 0.25 (CNN+ConvLSTM)</span></div>`);
             }
-
-            // Urban expansion trend
             if (urbanPx > 0) {
-                findings.push(`<div class="finding-item urban">
-                    <span>🏙️</span>
-                    <span><strong>Urban expansion trend:</strong> ${urbanHa} hectares (${urbanPx.toLocaleString()} pixels) show consistent year-over-year increase in built-up index. Detected from per-pixel linear trend on yearly Sentinel-2 NDBI values over ${yearsUsed.length} years (NDBI slope > 0.015/year).</span>
-                </div>`);
+                fns.push(`<div class="finding-item urban"><span>🏙️</span><span><strong>Urban expansion:</strong> ${urbanHa} ha over ${yearsUsed.length} years (NDBI slope > 0.015/year)</span></div>`);
             }
-
-            // Vegetation loss trend
             const vegPx = trend.gradual_deforestation_pixels ?? 0;
             if (vegPx > 0) {
-                const vegHaRaw = ((vegPx * pixelAreaM2) / 1e4).toFixed(1);
-                const vegHa = totalAreaHa > 0 ? Math.min(parseFloat(vegHaRaw), totalAreaHa).toFixed(1) : vegHaRaw;
-                findings.push(`<div class="finding-item vegetation">
-                    <span>🌳</span>
-                    <span><strong>Vegetation declining:</strong> ${vegHa} hectares show gradual loss over ${yearsUsed.length} years. Detected from per-pixel linear trend on yearly Sentinel-2 NDVI values (slope < -0.02/year). Possible causes: land clearing, construction prep.</span>
-                </div>`);
+                const vegHa = Math.min(((vegPx * pixelAreaM2) / 1e4), totalAreaHa).toFixed(1);
+                fns.push(`<div class="finding-item vegetation"><span>🌳</span><span><strong>Vegetation loss:</strong> ${vegHa} ha gradual decline (NDVI slope < −0.02/year)</span></div>`);
             }
-
-            // Key finding summary
-            if (changePct > 0) {
-                const beforeYr = temporal.before_year || '?';
-                const afterYr = temporal.after_year || '?';
-                let keyMsg = '';
-                if (changePct > 15) {
-                    keyMsg = `Major land use changes detected. ${areaHa} hectares (${changePct}%) of the ${totalAreaHa > 0 ? totalAreaHa + ' ha ' : ''}study area transformed between ${beforeYr} and ${afterYr}. Unified multi-temporal analysis over ${yearsUsed.length} years (ConvLSTM probability + spectral trend rules) confirms significant development activity.`;
-                } else if (changePct > 5) {
-                    keyMsg = `Moderate development activity detected. ${areaHa} hectares (${changePct}%) changed between ${beforeYr} and ${afterYr}. Unified multi-temporal analysis (ConvLSTM probability + spectral trend rules) identified construction and infrastructure development across multiple zones.`;
-                } else if (changePct > 0) {
-                    keyMsg = `Minor changes detected covering ${areaHa} hectares (${changePct}%) between ${beforeYr} and ${afterYr}. Unified multi-temporal analysis flagged small-scale construction or land modifications.`;
-                }
-                if (keyMsg) {
-                    findings.push(`<div class="finding-item key">
-                        <span>💡</span>
-                        <span><strong>Key Finding:</strong> ${keyMsg}</span>
-                    </div>`);
-                }
+            if (fns.length === 0) {
+                fns.push(`<div class="finding-item"><span>✅</span><span>No significant changes detected. Region appears stable.</span></div>`);
             }
+            findingsEl.innerHTML = fns.join('');
 
-            if (findings.length === 0) {
-                findings.push(`<div class="finding-item">
-                    <span>✅</span>
-                    <span>No significant construction or urban changes detected in this region during the study period.</span>
-                </div>`);
-            }
-
-            findingsEl.innerHTML = findings.join('');
-
-            // Cloud info
+            // Cloud footer
             const cloudEl = document.getElementById('insights-cloud');
             const cloudEntries = Object.entries(clouds);
             if (cloudEntries.length > 0) {
                 const cloudStr = cloudEntries.map(([y, c]) => `${y}: ${c}%`).join(' · ');
-                cloudEl.innerHTML = `☁️ Cloud cover by year — ${cloudStr}<br>
-                    📡 Method: ${results.method || 'CNN + ConvLSTM'} · Data: Sentinel-2 (10m) · Bands: B02, B03, B04, B08, B11 + SCL`;
+                cloudEl.innerHTML = `☁️ Cloud cover — ${cloudStr} · 📡 Sentinel-2 (10 m) · ${results.method || 'CNN+ConvLSTM'}`;
             }
 
             panel.classList.add('show');
+        }
+
+        // ============================================================
+        // FULL ANALYSIS REPORT (dedicated Report tab)
+        // ============================================================
+        function renderAnalysisReport(results) {
+            const container = document.getElementById('report-content');
+            const empty     = document.getElementById('report-empty');
+            if (!container) return;
+
+            const summary    = results.change_summary    || {};
+            const spectral   = results.spectral_stats    || {};
+            const landCover  = results.land_cover        || {};
+            const trend      = results.trend_summary     || {};
+            const classified = results.classified_changes || {};
+            const temporal   = results.temporal_windows  || {};
+            const clouds     = results.cloud_percent_by_year || {};
+            const yearsUsed  = results.years_used || [];
+            const indices    = results.spectral_indices  || {};
+            const yearlySpectral = results.yearly_spectral_stats || {};
+
+            // ── Helpers ──
+            const px2ha  = (px) => ((px * (summary.pixel_area_m2 ?? 100)) / 1e4);
+            const capHa  = (ha) => Math.min(ha, summary.total_area_hectares ?? ha);
+            const fmtHa  = (ha) => capHa(ha).toFixed(2);
+            const fmtPct = (n)  => (typeof n === 'number' ? n.toFixed(1) : n);
+            const signedDelta = (d) => {
+                const n = parseFloat(d);
+                if (n > 0.003) return `<span class="delta-positive">▲ +${n.toFixed(4)}</span>`;
+                if (n < -0.003) return `<span class="delta-negative">▼ ${n.toFixed(4)}</span>`;
+                return `<span class="delta-neutral">≈ ${n.toFixed(4)}</span>`;
+            };
+            const lcDelta = (after, before) => {
+                const d = (parseFloat(after) - parseFloat(before)).toFixed(1);
+                if (d > 0) return `<span style="color:#D32F2F;font-weight:bold;">+${d}%</span>`;
+                if (d < 0) return `<span style="color:#2E7D32;font-weight:bold;">${d}%</span>`;
+                return `<span style="color:#888;">0%</span>`;
+            };
+
+            const changePct   = summary.change_percent          ?? 0;
+            const areaHa      = summary.change_area_hectares     ?? 0;
+            const totalAreaHa = summary.total_area_hectares      ?? 0;
+            const severity    = summary.severity                 || 'Low';
+            const confidence  = summary.confidence              ?? 0;
+            const rate        = summary.change_rate_ha_per_year ?? 0;
+            const nYears      = summary.n_years                 ?? 1;
+            const beforeYr    = temporal.before_year            || beforeDate?.split('-')[0] || '?';
+            const afterYr     = temporal.after_year             || afterDate?.split('-')[0]  || '?';
+
+            const sevColor   = {Critical:'#FF5555',High:'#FF7070',Moderate:'#F5A623',Low:'#B2E600'}[severity] || '#00B8A9';
+            const sevBadge   = `<span class="rpt-badge rpt-badge-${severity.toLowerCase()}">${severity}</span>`;
+            const urbanPx    = trend.urban_expansion_pixels ?? 0;
+            const urbanHa    = fmtHa(px2ha(urbanPx));
+            const vegPx      = trend.gradual_deforestation_pixels ?? 0;
+            const vegHa      = fmtHa(px2ha(vegPx));
+            const consPx     = classified.construction?.pixels ?? 0;
+            const consHa     = fmtHa(px2ha(consPx));
+
+            // ── SECTION 1: report header ──
+            const lcAfter  = landCover.after  || {};
+            const lcBefore = landCover.before || {};
+
+            const execSummary = changePct > 15
+                ? `Significant land-use transformation detected. ${areaHa} ha (${changePct}%) of the ${totalAreaHa} ha study area changed between ${beforeYr} and ${afterYr}. The region shows strong urbanisation signals with vegetation displacement.`
+                : changePct > 5
+                ? `Moderate development activity. ${areaHa} ha (${changePct}%) transformed over ${nYears} years. Spectral indices confirm built-up expansion in parts of the study area.`
+                : changePct > 0
+                ? `Minor land-use modifications (${areaHa} ha, ${changePct}%) detected across the study period. Changes are localised and may represent small-scale construction or agricultural activity.`
+                : `No significant change detected over the study period. The region appears stable across all monitored spectral indices.`;
+
+            // ── NDVI / NDBI / NDWI spectral rows ──
+            const ndvi = spectral.ndvi || {};
+            const ndbi = spectral.ndbi || {};
+            const ndwi = spectral.ndwi || {};
+
+            const spectralRows = [
+                { name:'NDVI', emoji:'🌿', what:'Vegetation health', before: ndvi.before, after: ndvi.after, delta: ndvi.delta, interp: ndvi.interpretation },
+                { name:'NDBI', emoji:'🏗️', what:'Built-up intensity', before: ndbi.before, after: ndbi.after, delta: ndbi.delta, interp: ndbi.interpretation },
+                { name:'NDWI', emoji:'💧', what:'Water presence',   before: ndwi.before, after: ndwi.after, delta: ndwi.delta, interp: ndwi.interpretation },
+            ].map(r => `
+                <tr>
+                    <td><strong>${r.emoji} ${r.name}</strong><br><small style="color:#aaa;">${r.what}</small></td>
+                    <td>${(r.before ?? 0).toFixed(4)}</td>
+                    <td>${(r.after  ?? 0).toFixed(4)}</td>
+                    <td>${signedDelta(r.delta ?? 0)}</td>
+                    <td><em>${r.interp || '—'}</em></td>
+                </tr>`).join('');
+
+            const annualSpectralRows = yearsUsed.map((year) => {
+                const y = yearlySpectral[String(year)] || {};
+                return `
+                <tr>
+                    <td><strong>${year}</strong></td>
+                    <td>${Number(y.ndvi_mean ?? 0).toFixed(4)}</td>
+                    <td>${Number(y.ndbi_mean ?? 0).toFixed(4)}</td>
+                    <td>${Number(y.ndwi_mean ?? 0).toFixed(4)}</td>
+                    <td>${Number(y.cloud_percent ?? clouds[String(year)] ?? 0).toFixed(1)}%</td>
+                    <td><em>${y.source || 'spectral'}</em></td>
+                </tr>`;
+            }).join('');
+
+            // ── Land cover bars ──
+            const lcCategories = [
+                { name:'🌿 Vegetation', color:'#4CAF50', before: lcBefore.vegetation_pct, after: lcAfter.vegetation_pct },
+                { name:'🏗️ Built-up',   color:'#F5A623', before: lcBefore.builtup_pct,    after: lcAfter.builtup_pct    },
+                { name:'💧 Water',      color:'#2196F3', before: lcBefore.water_pct,      after: lcAfter.water_pct      },
+                { name:'🪨 Bare/Other', color:'#9E9E9E', before: lcBefore.bare_pct,       after: lcAfter.bare_pct       },
+            ];
+            const lcRows = lcCategories.map(c => `
+                <div style="margin-bottom:18px;">
+                    <div style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:#555;margin-bottom:6px;">${c.name}</div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+                        <span class="lc-label" style="font-size:0.68em;color:#aaa;">Before</span>
+                        <div class="lc-bar-wrap"><div class="lc-bar" style="width:${c.before ?? 0}%;background:${c.color};opacity:0.45;"></div></div>
+                        <span class="lc-pct">${fmtPct(c.before)}%</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <span class="lc-label" style="font-size:0.68em;color:#333;">After</span>
+                        <div class="lc-bar-wrap"><div class="lc-bar" style="width:${c.after ?? 0}%;background:${c.color};"></div></div>
+                        <span class="lc-pct">${fmtPct(c.after)}%</span>
+                        <span class="lc-delta">${lcDelta(c.after, c.before)}</span>
+                    </div>
+                </div>`).join('');
+
+            // ── Findings ──
+            const findings = [];
+            if (consPx > 0) {
+                findings.push(`
+                    <div class="rpt-finding f-urban">
+                        <div class="rpt-finding-icon">🏗️</div>
+                        <div class="rpt-finding-body">
+                            <div class="rpt-finding-title">New Construction Detected</div>
+                            <div class="rpt-finding-text">${consHa} ha (${classified.construction?.percent ?? 0}% of study area) classified as new built-up land. The CNN+ConvLSTM model flagged these pixels as high-probability change zones, then spectral verification confirmed NDBI > 0.15 and NDVI < 0.25 in the after image.</div>
+                            <div class="rpt-finding-meta">Detection method: ConvLSTM (prob > 0.55) + spectral thresholding · NDBI delta > 0.05</div>
+                        </div>
+                    </div>`);
+            }
+            if (urbanPx > 0) {
+                findings.push(`
+                    <div class="rpt-finding f-urban">
+                        <div class="rpt-finding-icon">🏙️</div>
+                        <div class="rpt-finding-body">
+                            <div class="rpt-finding-title">Urban Expansion Trend</div>
+                            <div class="rpt-finding-text">${urbanHa} ha (${urbanPx.toLocaleString()} pixels) show a statistically significant year-over-year increase in built-up land index over ${yearsUsed.length} years. This indicates ongoing, sustained urbanisation rather than a one-off event.</div>
+                            <div class="rpt-finding-meta">Detection method: Per-pixel OLS regression on annual NDBI · threshold: slope > 0.015/year</div>
+                        </div>
+                    </div>`);
+            }
+            if (vegPx > 0) {
+                findings.push(`
+                    <div class="rpt-finding f-vegetation">
+                        <div class="rpt-finding-icon">🌿</div>
+                        <div class="rpt-finding-body">
+                            <div class="rpt-finding-title">Vegetation Decline Trend</div>
+                            <div class="rpt-finding-text">${vegHa} ha show progressive vegetation loss across ${yearsUsed.length} years. NDVI has been declining steadily in these areas, consistent with land clearing, construction preparation, or prolonged drought stress.</div>
+                            <div class="rpt-finding-meta">Detection method: Per-pixel OLS regression on annual NDVI · threshold: slope < −0.02/year</div>
+                        </div>
+                    </div>`);
+            }
+            if (ndvi.delta < -0.05) {
+                findings.push(`
+                    <div class="rpt-finding f-vegetation">
+                        <div class="rpt-finding-icon">📉</div>
+                        <div class="rpt-finding-body">
+                            <div class="rpt-finding-title">Significant NDVI Drop</div>
+                            <div class="rpt-finding-text">Mean NDVI fell from ${(ndvi.before ?? 0).toFixed(3)} to ${(ndvi.after ?? 0).toFixed(3)} (Δ = ${(ndvi.delta ?? 0).toFixed(3)}). This substantial decrease across the entire study area indicates broad-scale vegetation loss or land degradation beyond isolated construction sites.</div>
+                            <div class="rpt-finding-meta">Threshold: |ΔNDVI| > 0.05 · Bands used: B08 (NIR), B04 (Red)</div>
+                        </div>
+                    </div>`);
+            }
+            if (ndbi.delta > 0.03) {
+                findings.push(`
+                    <div class="rpt-finding f-urban">
+                        <div class="rpt-finding-icon">📈</div>
+                        <div class="rpt-finding-body">
+                            <div class="rpt-finding-title">Built-up Signal Increase</div>
+                            <div class="rpt-finding-text">Mean NDBI rose from ${(ndbi.before ?? 0).toFixed(3)} to ${(ndbi.after ?? 0).toFixed(3)} (Δ = +${(ndbi.delta ?? 0).toFixed(3)}). Rising NDBI across the study area confirms increasing impervious surface coverage — rooftops, roads, and concrete.</div>
+                            <div class="rpt-finding-meta">Threshold: ΔNDBI > 0.03 · Bands used: B11 (SWIR), B08 (NIR)</div>
+                        </div>
+                    </div>`);
+            }
+            if (findings.length === 0) {
+                findings.push(`
+                    <div class="rpt-finding f-none">
+                        <div class="rpt-finding-icon">✅</div>
+                        <div class="rpt-finding-body">
+                            <div class="rpt-finding-title">No Significant Changes Detected</div>
+                            <div class="rpt-finding-text">All spectral indices (NDVI, NDBI, NDWI) remain stable between ${beforeYr} and ${afterYr}. No construction, urban expansion, or vegetation loss trends exceeded detection thresholds. The region appears environmentally stable over the study period.</div>
+                            <div class="rpt-finding-meta">ConvLSTM change probability below threshold · No linear NDVI/NDBI trends detected</div>
+                        </div>
+                    </div>`);
+            }
+
+            // ── Cloud quality chips ──
+            const cloudChips = Object.entries(clouds).map(([y, c]) => {
+                const cls = c < 20 ? 'cloud-chip-ok' : c < 50 ? 'cloud-chip-warn' : 'cloud-chip-bad';
+                return `<div class="cloud-chip ${cls}">${y}: ${c}% ☁️</div>`;
+            }).join('');
+            const realYears  = summary.real_data_years      ?? yearsUsed.length;
+            const synthYears = summary.synthetic_data_years ?? 0;
+            const avgCloud   = summary.avg_cloud_percent    ?? 0;
+
+            // ── Assemble the report ──
+            container.innerHTML = `
+                <!-- Report Header -->
+                <div class="rpt-header">
+                    <div class="rpt-title">📊 Land-Use Change Analysis Report</div>
+                    <div class="rpt-subtitle">
+                        Study area: ${totalAreaHa} ha &nbsp;|&nbsp; Period: ${beforeYr} → ${afterYr} (${nYears} year${nYears !== 1 ? 's' : ''})
+                        &nbsp;|&nbsp; Sentinel-2 L2A · ${yearsUsed.length} annual scenes
+                    </div>
+                    ${sevBadge}
+                    <span class="rpt-badge" style="background:#00B8A9;color:white;">Confidence: ${confidence}%</span>
+                    <span class="rpt-badge" style="background:#5555FF;color:white;">${realYears}/${yearsUsed.length} real data years</span>
+                </div>
+
+                <!-- Executive Summary -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">📝 Executive Summary</div>
+                    <p style="font-family:'Space Mono',monospace;font-size:0.85em;line-height:1.9;color:#333;">${execSummary}</p>
+                </div>
+
+                <!-- KPI Dashboard -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">📐 Key Metrics</div>
+                    <div class="rpt-kpi-grid">
+                        <div class="rpt-kpi accent-red">
+                            <div class="rpt-kpi-label">Total Area Changed</div>
+                            <div class="rpt-kpi-value" style="color:${sevColor};">${changePct}%</div>
+                            <div class="rpt-kpi-note">${areaHa} ha of ${totalAreaHa} ha study area</div>
+                        </div>
+                        <div class="rpt-kpi accent-orange">
+                            <div class="rpt-kpi-label">Severity</div>
+                            <div class="rpt-kpi-value" style="color:${sevColor};">${severity}</div>
+                            <div class="rpt-kpi-note">Based on % area changed</div>
+                        </div>
+                        <div class="rpt-kpi accent-green">
+                            <div class="rpt-kpi-label">Confidence Score</div>
+                            <div class="rpt-kpi-value">${confidence}%</div>
+                            <div class="rpt-kpi-note">${realYears} real · ${synthYears} synthetic years</div>
+                        </div>
+                        <div class="rpt-kpi accent-orange">
+                            <div class="rpt-kpi-label">Urban Expansion</div>
+                            <div class="rpt-kpi-value">${urbanHa} ha</div>
+                            <div class="rpt-kpi-note">Consistent NDBI rise trend</div>
+                        </div>
+                        <div class="rpt-kpi accent-red">
+                            <div class="rpt-kpi-label">Vegetation Loss</div>
+                            <div class="rpt-kpi-value">${vegHa} ha</div>
+                            <div class="rpt-kpi-note">Consistent NDVI decline trend</div>
+                        </div>
+                        <div class="rpt-kpi accent-blue">
+                            <div class="rpt-kpi-label">Change Rate</div>
+                            <div class="rpt-kpi-value">${rate} ha/yr</div>
+                            <div class="rpt-kpi-note">Average over ${nYears} year${nYears !== 1 ? 's' : ''}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spectral Index Comparison -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">🔬 Spectral Index Comparison</div>
+                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:14px;">Mean values computed from cloud-masked Sentinel-2 pixels in detected change zones (aligned with findings and map overlays).</p>
+                    <table class="rpt-spectral-table">
+                        <thead>
+                            <tr>
+                                <th>Index</th>
+                                <th>Before (${beforeYr})</th>
+                                <th>After (${afterYr})</th>
+                                <th>Δ Change</th>
+                                <th>Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody>${spectralRows}</tbody>
+                    </table>
+                    <div style="margin-top:12px;font-family:'Space Mono',monospace;font-size:0.7em;color:#aaa;">
+                        Formulas: NDVI = (B08−B04)/(B08+B04) &nbsp;·&nbsp; NDBI = (B11−B08)/(B11+B08) &nbsp;·&nbsp; NDWI = (B03−B08)/(B03+B08)
+                    </div>
+                    <div style="margin-top:6px;font-family:'Space Mono',monospace;font-size:0.68em;color:#8b8b8b;">
+                        Scene-wide context: NDVI Δ ${(ndvi.scene_delta ?? ndvi.delta ?? 0).toFixed(4)} · NDBI Δ ${(ndbi.scene_delta ?? ndbi.delta ?? 0).toFixed(4)} · NDWI Δ ${(ndwi.scene_delta ?? ndwi.delta ?? 0).toFixed(4)}
+                    </div>
+                </div>
+
+                <div class="rpt-section">
+                    <div class="rpt-section-title">📅 Annual Spectral Values</div>
+                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:14px;">Per-year means are computed from each year's cloud-masked spectral composite and match the temporal animation values.</p>
+                    <table class="rpt-spectral-table">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>NDVI</th>
+                                <th>NDBI</th>
+                                <th>NDWI</th>
+                                <th>Cloud</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>${annualSpectralRows || '<tr><td colspan="6" style="text-align:center;color:#888;">No yearly spectral values available</td></tr>'}</tbody>
+                    </table>
+                </div>
+
+                <!-- Land Cover Change -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">🗺️ Land Cover Before vs After</div>
+                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:18px;">Pixel-classified fractions from cloud-masked spectral data. NDVI > 0.25 → vegetation · NDBI > 0.10 → built-up · NDWI > 0.10 → water · remainder → bare/other.</p>
+                    ${lcRows}
+                </div>
+
+                <!-- Detailed Findings -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">🔍 Detailed Findings</div>
+                    ${findings.join('')}
+                </div>
+
+                <!-- Data Quality -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">☁️ Data Quality</div>
+                    <div style="margin-bottom:16px;">
+                        <div style="font-family:'Space Mono',monospace;font-size:0.78em;color:#555;margin-bottom:8px;">Analysis Confidence: <strong>${confidence}%</strong> (${realYears} real Sentinel-2 years · ${synthYears} synthetic fallback years · avg cloud ${avgCloud}%)</div>
+                        <div class="confidence-bar-wrap"><div class="confidence-bar-fill" style="width:${confidence}%;"></div></div>
+                        <div class="confidence-label">${confidence < 40 ? '⚠️ Low confidence — check Copernicus credentials' : confidence < 70 ? '🟡 Moderate — some years used synthetic estimates' : '✅ High confidence — real satellite data'}</div>
+                    </div>
+                    <div class="rpt-section-title" style="font-size:0.55em;margin-top:18px;">Cloud Cover by Year</div>
+                    <div class="cloud-grid">${cloudChips || '<span style="color:#aaa;font-family:Space Mono,monospace;font-size:0.8em;">No cloud data available</span>'}</div>
+                    ${synthYears > 0 ? `<div style="margin-top:14px;padding:10px 14px;background:#FFF8E1;border:2px solid #F5A623;font-family:'Space Mono',monospace;font-size:0.76em;color:#a05000;">⚠️ ${synthYears} year(s) used synthetic NDVI/NDBI/NDWI estimates because the Sentinel-2 API returned no data. These years may reduce accuracy. Fix: verify Copernicus credentials in <code>.env</code> and restart.</div>` : ''}
+                </div>
+
+                <!-- Methodology -->
+                <div class="rpt-section">
+                    <div class="rpt-section-title">⚙️ Methodology</div>
+                    <div class="rpt-method-summary">
+                        <div class="rpt-method-row"><span class="rpt-method-key">Satellite Source</span><span class="rpt-method-val">Sentinel-2 L2A (Copernicus Dataspace)</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Spatial Resolution</span><span class="rpt-method-val">10 m/pixel (processed at 512×512 grid)</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Bands Used</span><span class="rpt-method-val">B02(Blue) · B03(Green) · B04(Red) · B08(NIR) · B11(SWIR) · SCL</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Cloud Masking</span><span class="rpt-method-val">SCL classes {2,4,5,6,7,11} — vegetation, bare, water, snow</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Composite Strategy</span><span class="rpt-method-val">Cloud-masked temporal median over ≤2 years per period</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Change Model</span><span class="rpt-method-val">CNN encoder + ConvLSTM temporal cell + period-prior fusion</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Trend Detection</span><span class="rpt-method-val">Per-pixel OLS linear regression on ${yearsUsed.length} annual NDVI/NDBI values</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Years Analysed</span><span class="rpt-method-val">${yearsUsed.join(', ')}</span></div>
+                        <div class="rpt-method-row"><span class="rpt-method-key">Report Generated</span><span class="rpt-method-val">${new Date().toLocaleString()}</span></div>
+                    </div>
+                </div>
+            `;
+
+            container.style.display = 'block';
+            if (empty) empty.style.display = 'none';
         }
 
         // Shortcut: run analysis and stay on side-by-side tab
@@ -2193,9 +2860,10 @@
                     [bbox.north, bbox.east]
                 );
 
-                // ── Populate changes panel + insights (side-by-side) ──
+                // ── Populate changes panel + insights (side-by-side) + full report ──
                 populateChangesPanel(results);
                 populateInsightsPanel(results);
+                renderAnalysisReport(results);
 
                 clearUnifiedOverlays();
 
@@ -2362,7 +3030,7 @@
                         banner.innerHTML = `
                             <div class="banner-title">
                                 ⚠️ ${synth} of ${data.frame_count} years could not retrieve real Sentinel-2 data
-                                — those frames show <strong>synthetic NDVI estimates</strong>, not actual satellite measurements.
+                                — those frames show <strong>synthetic NDVI/NDBI/NDWI estimates</strong>, not actual satellite measurements.
                             </div>
                             <ul class="banner-errors">${errItems}</ul>
                             <div style="margin-top:6px;opacity:0.7;">
@@ -2373,7 +3041,7 @@
                     } else {
                         banner.className = 'anim-data-banner banner-ok';
                         banner.innerHTML = `✅ All ${data.frame_count} years loaded with real Sentinel-2 spectral data
-                            &nbsp;|&nbsp; NDVI values are computed from B08 (NIR) and B04 (Red) bands.`;
+                            &nbsp;|&nbsp; NDVI/NDBI/NDWI are computed from B08, B04, B11 and B03 bands.`;
                         banner.style.display = 'block';
                     }
                 }
@@ -2558,12 +3226,13 @@
             if (!previous) {
                 return {
                     headline: 'Baseline frame loaded. Use Play to see year-to-year change.',
-                    detail: 'NDVI tracks vegetation health, NDBI tracks built-up intensity.'
+                    detail: 'NDVI tracks vegetation, NDBI tracks built-up, NDWI tracks water signal.'
                 };
             }
 
             const ndviDelta = current.ndvi_mean - previous.ndvi_mean;
             const ndbiDelta = current.ndbi_mean - previous.ndbi_mean;
+            const ndwiDelta = (current.ndwi_mean || 0) - (previous.ndwi_mean || 0);
             const changeDelta = (current.change_area_ha || 0) - (previous.change_area_ha || 0);
 
             let vegetationMsg = 'Vegetation stable';
@@ -2574,13 +3243,17 @@
             if (ndbiDelta >= 0.02) builtUpMsg = 'Built-up signal increasing';
             else if (ndbiDelta <= -0.02) builtUpMsg = 'Built-up signal decreasing';
 
+            let waterMsg = 'Water signal stable';
+            if (ndwiDelta >= 0.02) waterMsg = 'Water signal increasing';
+            else if (ndwiDelta <= -0.02) waterMsg = 'Water signal decreasing';
+
             let activityMsg = 'Change intensity is steady';
             if (changeDelta >= 1.0) activityMsg = 'Change intensity is increasing';
             else if (changeDelta <= -1.0) activityMsg = 'Change intensity is decreasing';
 
             return {
-                headline: `${vegetationMsg}. ${builtUpMsg}.`,
-                detail: `${activityMsg}. ΔNDVI ${formatSigned(ndviDelta, 3)}, ΔNDBI ${formatSigned(ndbiDelta, 3)}, ΔArea ${formatSigned(changeDelta, 2)} ha.`
+                headline: `${vegetationMsg}. ${builtUpMsg}. ${waterMsg}.`,
+                detail: `${activityMsg}. ΔNDVI ${formatSigned(ndviDelta, 3)}, ΔNDBI ${formatSigned(ndbiDelta, 3)}, ΔNDWI ${formatSigned(ndwiDelta, 3)}, ΔArea ${formatSigned(changeDelta, 2)} ha.`
             };
         }
 
@@ -2589,7 +3262,7 @@
             const progressBadge = segmentText ? `<span class="hud-chip">${segmentText}</span>` : '';
             document.getElementById('anim-hud').innerHTML = `
                 <div><strong>${frame.year}</strong> ${progressBadge}</div>
-                <div class="hud-row">NDVI: <strong>${frame.ndvi_mean.toFixed(2)}</strong> | NDBI: <strong>${frame.ndbi_mean.toFixed(2)}</strong></div>
+                <div class="hud-row">NDVI: <strong>${frame.ndvi_mean.toFixed(2)}</strong> | NDBI: <strong>${frame.ndbi_mean.toFixed(2)}</strong> | NDWI: <strong>${Number(frame.ndwi_mean || 0).toFixed(2)}</strong></div>
                 <div class="hud-row">Changed Area: <strong>${(frame.change_area_ha || 0).toFixed(2)} ha</strong> | Cloud: <strong>${(frame.cloud_pct || 0).toFixed(1)}%</strong></div>
                 <div class="hud-row" style="font-size:0.82em;color:#c4f5e8;">${summary.headline}</div>
             `;
@@ -2723,6 +3396,7 @@
                 year: yearValue,
                 ndvi_mean: lerp(a.ndvi_mean, b.ndvi_mean, easedT),
                 ndbi_mean: lerp(a.ndbi_mean, b.ndbi_mean, easedT),
+                ndwi_mean: lerp(a.ndwi_mean ?? 0, b.ndwi_mean ?? 0, easedT),
                 ndvi_min: lerp(a.ndvi_min ?? a.ndvi_mean, b.ndvi_min ?? b.ndvi_mean, easedT),
                 ndvi_max: lerp(a.ndvi_max ?? a.ndvi_mean, b.ndvi_max ?? b.ndvi_mean, easedT),
                 ndvi_std: lerp(a.ndvi_std ?? 0, b.ndvi_std ?? 0, easedT),
@@ -2835,6 +3509,10 @@
                     <span class="value" style="color:${f.ndbi_mean > 0.1 ? '#FF9800' : '#aaa'}">${f.ndbi_mean.toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
+                    <span class="label">💧 NDWI (Mean)</span>
+                    <span class="value" style="color:${(f.ndwi_mean ?? 0) > 0.1 ? '#4FC3F7' : '#aaa'}">${Number(f.ndwi_mean ?? 0).toFixed(3)}</span>
+                </div>
+                <div class="anim-metric">
                     <span class="label">📐 Changed Area</span>
                     <span class="value orange">${(f.change_area_ha ?? 0).toFixed(2)} ha</span>
                 </div>
@@ -2890,6 +3568,7 @@
                 const f = frames[i];
                 spectralVals.push(f.ndvi_mean ?? 0);
                 spectralVals.push(f.ndbi_mean ?? 0);
+                spectralVals.push(f.ndwi_mean ?? 0);
                 spectralVals.push(f.ndvi_min ?? f.ndvi_mean ?? 0);
                 spectralVals.push(f.ndvi_max ?? f.ndvi_mean ?? 0);
             }
@@ -2959,7 +3638,7 @@
             ctx.font = '10px "Space Mono"';
             ctx.fillStyle = 'rgba(140, 215, 196, 0.95)';
             ctx.textAlign = 'left';
-            ctx.fillText('Spectral index (NDVI/NDBI)', pad.left, 11);
+            ctx.fillText('Spectral index (NDVI/NDBI/NDWI)', pad.left, 11);
             ctx.fillStyle = 'rgba(255, 176, 128, 0.95)';
             ctx.textAlign = 'right';
             ctx.fillText('Changed area (ha)', W - 2, 11);
@@ -3016,6 +3695,20 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
+            // NDWI line
+            ctx.strokeStyle = '#62B5FF';
+            ctx.lineWidth = 2.0;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            for (let i = 0; i < drawN; i++) {
+                const x = xAt(i);
+                const y = spectralToY(frames[i].ndwi_mean ?? 0);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
             // Dots + current marker
             for (let i = 0; i < drawN; i++) {
                 const x = xAt(i);
@@ -3054,6 +3747,7 @@
             const legendItems = [
                 { color: '#58D06F', label: 'NDVI mean' },
                 { color: '#FFB347', label: 'NDBI mean' },
+                { color: '#62B5FF', label: 'NDWI mean' },
                 { color: 'rgba(244,85,85,0.65)', label: 'Change (ha)' },
             ];
             let lx = pad.left;
@@ -3069,7 +3763,7 @@
             // Current point summary chip
             const current = frames[focusIdx];
             const chipPrefix = isHovering ? 'Hover' : 'Current';
-            const chip = `${chipPrefix}: ${current.year}  NDVI ${Number(current.ndvi_mean || 0).toFixed(2)}  NDBI ${Number(current.ndbi_mean || 0).toFixed(2)}  Change ${Number(current.change_area_ha || 0).toFixed(1)} ha`;
+            const chip = `${chipPrefix}: ${current.year}  NDVI ${Number(current.ndvi_mean || 0).toFixed(2)}  NDBI ${Number(current.ndbi_mean || 0).toFixed(2)}  NDWI ${Number(current.ndwi_mean || 0).toFixed(2)}  Change ${Number(current.change_area_ha || 0).toFixed(1)} ha`;
             ctx.fillStyle = 'rgba(8, 14, 20, 0.72)';
             const chipW = Math.min(chartW, ctx.measureText(chip).width + 18);
             ctx.fillRect(pad.left, pad.top + 4, chipW, 16);
@@ -3082,7 +3776,7 @@
                 const xHover = xAt(focusIdx);
                 const yHover = spectralToY(current.ndvi_mean);
                 const t1 = `Year ${current.year}`;
-                const t2 = `NDVI ${Number(current.ndvi_mean || 0).toFixed(2)} | NDBI ${Number(current.ndbi_mean || 0).toFixed(2)}`;
+                const t2 = `NDVI ${Number(current.ndvi_mean || 0).toFixed(2)} | NDBI ${Number(current.ndbi_mean || 0).toFixed(2)} | NDWI ${Number(current.ndwi_mean || 0).toFixed(2)}`;
                 const t3 = `Change ${Number(current.change_area_ha || 0).toFixed(1)} ha`;
 
                 ctx.font = '10px "Space Mono"';

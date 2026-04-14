@@ -6,14 +6,14 @@ const PI = Math.PI;
 const RAMP = ".,-~:;=!*#$@";
 
 const GEO_WATCH_PALETTE = [
-  "#00B8A9",
-  "#5555FF",
-  "#B2E600",
-  "#FF7070",
-  "#00A192",
-  "#3333CC",
-  "#8FC500",
-  "#FF5555"
+  "#0B4F4A",
+  "#2E3F86",
+  "#5E6E12",
+  "#7A3232",
+  "#0A3E3A",
+  "#253067",
+  "#4D5B0F",
+  "#642A2A"
 ];
 
 type Vec3 = { x: number; y: number; z: number };

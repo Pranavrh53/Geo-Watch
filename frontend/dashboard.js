@@ -16,7 +16,7 @@ let currentUser = localStorage.getItem('username');
 const KNOT_W = 56;
 const KNOT_H = 24;
 const KNOT_RAMP = '.,-~:;=!*#$@';
-const KNOT_COLORS = ['#00F5FF', '#FF2D95', '#F7FF33', '#FF6A00', '#9BFF00', '#FFFFFF'];
+const KNOT_COLORS = ['#0B4F4A', '#4A1230', '#5A5E16', '#6E2F00', '#315000', '#6E6E6E'];
 const GEO_TARGET_ACCURACY_M = 150;
 const GEO_RELIABLE_ACCURACY_M = 5000;
 const GEO_MAX_ACCEPTABLE_ACCURACY_M = 25000;

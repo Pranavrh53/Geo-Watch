@@ -1047,11 +1047,26 @@ class UnifiedTemporalChangeDetector:
         trend_layer = self._build_trend_overlay(trend_map, after_rgb)
         changes_panel = self._build_changes_panel_image(trend_map, after_rgb)
 
-        # Count changed pixels as the union of classified + trend detections.
-        # This matches what is actually shown in the visual output.
-        # (Previously used `final_prob > 0.45` which was far too permissive,
-        #  catching seasonal/agricultural noise and inflating area stats.)
+        # Count changed pixels from the visible detections + a conservative
+        # spectrally-consistent probability mask so totals better reflect
+        # actual, contiguous changed regions seen in the map.
         detected_mask = (class_map != 0) | (trend_map != 0)
+
+        pair_valid = valid_before & valid_after
+        ndvi_delta = ndvi_after - ndvi_before
+        ndbi_delta = ndbi_after - ndbi_before
+
+        probable_model_change = final_prob > 0.52
+        spectral_consistent_change = (
+            (
+                (ndbi_after > 0.08)
+                & (ndbi_delta > 0.04)
+                & (ndwi_after < 0.30)
+            )
+            | (ndvi_delta < -0.08)
+        )
+        supplemental_change = probable_model_change & spectral_consistent_change & pair_valid
+        detected_mask = detected_mask | supplemental_change
         changed_pixels = int(np.sum(detected_mask))
         total_pixels = int(prob.size)
         total_change_pct = round((changed_pixels / max(1, total_pixels)) * 100.0, 2)
@@ -1073,6 +1088,115 @@ class UnifiedTemporalChangeDetector:
 
         yearly_cloud = {str(x.year): round(x.cloud_percent, 2) for x in yearly}
 
+        yearly_spectral_stats = {
+            str(y.year): {
+                "ndvi_mean": round(float(np.nanmean(y.ndvi[y.valid_mask])) if np.any(y.valid_mask) else float(np.nanmean(y.ndvi)), 4),
+                "ndbi_mean": round(float(np.nanmean(y.ndbi[y.valid_mask])) if np.any(y.valid_mask) else float(np.nanmean(y.ndbi)), 4),
+                "ndwi_mean": round(float(np.nanmean(y.ndwi[y.valid_mask])) if np.any(y.valid_mask) else float(np.nanmean(y.ndwi)), 4),
+                "cloud_percent": round(float(y.cloud_percent), 2),
+                "source": "synthetic" if y.is_synthetic else "spectral",
+            }
+            for y in yearly
+        }
+
+        # ── Rich spectral statistics for before/after comparison ──
+        # Use a common valid mask so before/after means are directly comparable.
+        common_valid = valid_before & valid_after
+
+        def _safe_mean(arr: np.ndarray, mask: np.ndarray) -> float:
+            vals = arr[mask] if np.any(mask) else arr.ravel()
+            return round(float(np.nanmean(vals)), 4) if vals.size > 0 else 0.0
+
+        # Scene-level means over comparable pixels (supporting context).
+        ndvi_before_scene_mean = _safe_mean(ndvi_before, common_valid)
+        ndvi_after_scene_mean = _safe_mean(ndvi_after, common_valid)
+        ndbi_before_scene_mean = _safe_mean(ndbi_before, common_valid)
+        ndbi_after_scene_mean = _safe_mean(ndbi_after, common_valid)
+        ndwi_before_scene_mean = _safe_mean(ndwi_before, common_valid)
+        ndwi_after_scene_mean = _safe_mean(ndwi_after, common_valid)
+
+        # Change-focused means align summary indices with detected change regions.
+        change_focus_mask = detected_mask & common_valid
+        if int(np.sum(change_focus_mask)) < 64:
+            change_focus_mask = common_valid
+
+        ndvi_before_mean = _safe_mean(ndvi_before, change_focus_mask)
+        ndvi_after_mean = _safe_mean(ndvi_after, change_focus_mask)
+        ndbi_before_mean = _safe_mean(ndbi_before, change_focus_mask)
+        ndbi_after_mean = _safe_mean(ndbi_after, change_focus_mask)
+        ndwi_before_mean = _safe_mean(ndwi_before, change_focus_mask)
+        ndwi_after_mean = _safe_mean(ndwi_after, change_focus_mask)
+
+        # Land cover fractions (computed on AFTER image, cloud-masked)
+        total_valid_after = max(1, float(np.sum(valid_after)))
+        veg_pct     = round(float(np.sum((ndvi_after > 0.25) & (ndwi_after < 0.1) & valid_after)) / total_valid_after * 100, 1)
+        builtup_pct = round(float(np.sum((ndbi_after > 0.10) & (ndvi_after < 0.25) & valid_after)) / total_valid_after * 100, 1)
+        water_pct   = round(float(np.sum((ndwi_after > 0.10) & valid_after)) / total_valid_after * 100, 1)
+        bare_pct    = round(max(0.0, 100.0 - veg_pct - builtup_pct - water_pct), 1)
+
+        # ── Same fractions for BEFORE image ──
+        total_valid_before = max(1, float(np.sum(valid_before)))
+        veg_before_pct     = round(float(np.sum((ndvi_before > 0.25) & (ndwi_before < 0.1) & valid_before)) / total_valid_before * 100, 1)
+        builtup_before_pct = round(float(np.sum((ndbi_before > 0.10) & (ndvi_before < 0.25) & valid_before)) / total_valid_before * 100, 1)
+        water_before_pct   = round(float(np.sum((ndwi_before > 0.10) & valid_before)) / total_valid_before * 100, 1)
+        bare_before_pct    = round(max(0.0, 100.0 - veg_before_pct - builtup_before_pct - water_before_pct), 1)
+
+        # ── Confidence score (0–100) ──
+        synth_count = sum(1 for y in yearly if y.is_synthetic)
+        real_count  = len(yearly) - synth_count
+        avg_cloud   = float(np.mean([y.cloud_percent for y in yearly])) if yearly else 0.0
+        data_quality_ratio = real_count / max(1, len(yearly))
+
+        valid_prob = final_prob[pair_valid]
+        if valid_prob.size == 0:
+            valid_prob = final_prob.reshape(-1)
+
+        detected_vals = final_prob[detected_mask]
+        if detected_vals.size == 0:
+            detected_vals = np.array([0.0], dtype=np.float32)
+
+        unchanged_mask = pair_valid & (~detected_mask)
+        unchanged_vals = final_prob[unchanged_mask]
+        if unchanged_vals.size == 0:
+            unchanged_vals = np.array([0.0], dtype=np.float32)
+
+        # Model separation between changed and unchanged regions.
+        separation = float(np.clip(np.mean(detected_vals) - np.mean(unchanged_vals), 0.0, 1.0))
+
+        # 4p(1-p) in [0,1], where 1 means maximum uncertainty around p=0.5.
+        uncertainty = float(np.mean(4.0 * valid_prob * (1.0 - valid_prob)))
+
+        # Agreement between explicit rule detections and model confidence regions.
+        rule_detected = (class_map != 0) | (trend_map != 0)
+        model_detected = final_prob > 0.55
+        agreement_union = np.sum(rule_detected | model_detected)
+        agreement_iou = float(np.sum(rule_detected & model_detected) / max(1, agreement_union))
+
+        confidence = round(max(0.0, min(100.0,
+            data_quality_ratio * 45.0
+            + (100.0 - avg_cloud) * 0.20
+            + separation * 25.0
+            + (1.0 - uncertainty) * 8.0
+            + agreement_iou * 22.0
+        )), 1)
+
+        # ── Change rate per year ──
+        n_years = max(1, after_year - before_year)
+        change_rate_ha_per_year = round(area_hectares / n_years, 2)
+
+        # ── Severity classification ──
+        construction_pixels = int(np.sum(class_map == 3))
+        construction_share = construction_pixels / max(1, changed_pixels)
+
+        if total_change_pct >= 18.0 or (total_change_pct >= 12.0 and change_rate_ha_per_year >= 25.0):
+            severity = "Critical"
+        elif total_change_pct >= 10.0 or change_rate_ha_per_year >= 20.0 or construction_share >= 0.35:
+            severity = "High"
+        elif total_change_pct >= 4.0 or change_rate_ha_per_year >= 8.0:
+            severity = "Moderate"
+        else:
+            severity = "Low"
+
         result = {
             "status": "success",
             "method": "Unified Multi-Temporal CNN+ConvLSTM + Period-Median Smoothing",
@@ -1087,6 +1211,7 @@ class UnifiedTemporalChangeDetector:
                 "strategy": "period_median_2_year",
             },
             "cloud_percent_by_year": yearly_cloud,
+            "yearly_spectral_stats": yearly_spectral_stats,
             "spectral_indices": {
                 "ndvi_formula": "(B08-B04)/(B08+B04)",
                 "ndbi_formula": "(B11-B08)/(B11+B08)",
@@ -1100,6 +1225,73 @@ class UnifiedTemporalChangeDetector:
                 "change_area_hectares": area_hectares,
                 "total_area_hectares": total_area_hectares,
                 "pixel_area_m2": round(pixel_area_m2, 4),
+                "severity": severity,
+                "confidence": confidence,
+                "change_rate_ha_per_year": change_rate_ha_per_year,
+                "n_years": n_years,
+                "real_data_years": real_count,
+                "synthetic_data_years": synth_count,
+                "avg_cloud_percent": round(avg_cloud, 1),
+                "supplemental_change_pixels": int(np.sum(supplemental_change)),
+                "construction_share_of_change": round(construction_share * 100.0, 1),
+            },
+            "spectral_stats": {
+                "ndvi": {
+                    "before": ndvi_before_mean,
+                    "after":  ndvi_after_mean,
+                    "delta":  round(ndvi_after_mean - ndvi_before_mean, 4),
+                    "scene_before": ndvi_before_scene_mean,
+                    "scene_after": ndvi_after_scene_mean,
+                    "scene_delta": round(ndvi_after_scene_mean - ndvi_before_scene_mean, 4),
+                    "scope": "change_focus",
+                    "interpretation": (
+                        "Vegetation declining" if ndvi_after_mean - ndvi_before_mean < -0.05
+                        else "Vegetation recovering" if ndvi_after_mean - ndvi_before_mean > 0.05
+                        else "Vegetation stable"
+                    ),
+                },
+                "ndbi": {
+                    "before": ndbi_before_mean,
+                    "after":  ndbi_after_mean,
+                    "delta":  round(ndbi_after_mean - ndbi_before_mean, 4),
+                    "scene_before": ndbi_before_scene_mean,
+                    "scene_after": ndbi_after_scene_mean,
+                    "scene_delta": round(ndbi_after_scene_mean - ndbi_before_scene_mean, 4),
+                    "scope": "change_focus",
+                    "interpretation": (
+                        "Built-up area increasing" if ndbi_after_mean - ndbi_before_mean > 0.03
+                        else "Built-up area decreasing" if ndbi_after_mean - ndbi_before_mean < -0.03
+                        else "Built-up signal stable"
+                    ),
+                },
+                "ndwi": {
+                    "before": ndwi_before_mean,
+                    "after":  ndwi_after_mean,
+                    "delta":  round(ndwi_after_mean - ndwi_before_mean, 4),
+                    "scene_before": ndwi_before_scene_mean,
+                    "scene_after": ndwi_after_scene_mean,
+                    "scene_delta": round(ndwi_after_scene_mean - ndwi_before_scene_mean, 4),
+                    "scope": "change_focus",
+                    "interpretation": (
+                        "Water presence increasing" if ndwi_after_mean - ndwi_before_mean > 0.03
+                        else "Water presence decreasing" if ndwi_after_mean - ndwi_before_mean < -0.03
+                        else "Water signal stable"
+                    ),
+                },
+            },
+            "land_cover": {
+                "before": {
+                    "vegetation_pct": veg_before_pct,
+                    "builtup_pct":    builtup_before_pct,
+                    "water_pct":      water_before_pct,
+                    "bare_pct":       bare_before_pct,
+                },
+                "after": {
+                    "vegetation_pct": veg_pct,
+                    "builtup_pct":    builtup_pct,
+                    "water_pct":      water_pct,
+                    "bare_pct":       bare_pct,
+                },
             },
             "classified_changes": class_stats,
             "trend_summary": trend_stats,
@@ -1153,8 +1345,8 @@ class UnifiedTemporalChangeDetector:
         """
         Generate per-year animation frames with spectral metrics.
 
-        Returns a dict with ordered frames, each containing:
-          - year, image (base64), ndvi_mean, ndbi_mean,
+                Returns a dict with ordered frames, each containing:
+                    - year, image (base64), ndvi_mean, ndbi_mean, ndwi_mean,
             vegetation_pct, urban_pct, change_area_ha, cumulative_change_ha
         Also returns `fetch_errors` — a list of any years that fell back to
         synthetic data, so the frontend can surface a clear warning.
@@ -1204,12 +1396,14 @@ class UnifiedTemporalChangeDetector:
             # ── Per-year spectral metrics (NDVI-focused) ──
             ndvi_valid = ndvi[valid] if np.any(valid) else ndvi.ravel()
             ndbi_valid = ndbi[valid] if np.any(valid) else ndbi.ravel()
+            ndwi_valid = ndwi[valid] if np.any(valid) else ndwi.ravel()
 
             ndvi_mean = round(float(np.mean(ndvi_valid)), 4)
             ndvi_min = round(float(np.min(ndvi_valid)), 4) if ndvi_valid.size > 0 else 0.0
             ndvi_max = round(float(np.max(ndvi_valid)), 4) if ndvi_valid.size > 0 else 0.0
             ndvi_std = round(float(np.std(ndvi_valid)), 4) if ndvi_valid.size > 0 else 0.0
             ndbi_mean = round(float(np.mean(ndbi_valid)), 4)
+            ndwi_mean = round(float(np.mean(ndwi_valid)), 4)
 
             # Year-to-year spectral fallback change area.
             if prev_ndvi is not None and prev_ndbi is not None and prev_ndwi is not None and prev_valid is not None:
@@ -1300,6 +1494,7 @@ class UnifiedTemporalChangeDetector:
                 "ndvi_max": ndvi_max,
                 "ndvi_std": ndvi_std,
                 "ndbi_mean": ndbi_mean,
+                "ndwi_mean": ndwi_mean,
                 "cloud_pct": cloud_pct,
                 "change_area_ha": change_ha,
                 "source": "synthetic" if yd.is_synthetic else "spectral",
