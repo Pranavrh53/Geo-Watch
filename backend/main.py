@@ -26,7 +26,7 @@ from config import (
 )
 
 # Import auth and database modules
-from backend.database import get_db, init_db, User, AnalysisHistory
+from backend.database import get_db, init_db, User, AnalysisHistory, SessionLocal
 from backend.auth import (
     UserCreate, UserLogin, Token, UserResponse,
     get_current_active_user, authenticate_user, create_access_token,
@@ -34,6 +34,14 @@ from backend.auth import (
 )
 from backend.tile_fetcher import get_tile_fetcher
 from backend.unified_change_detector import get_unified_detector
+
+# Alert system
+from backend.alerts import (
+    MonitoringAlert, create_alert, get_alerts_for_user,
+    get_alert, get_all_active_alerts, update_alert_status,
+    delete_alert, alert_to_dict,
+)
+from backend.scheduler import start_scheduler, stop_scheduler, run_alert_check
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -267,10 +275,16 @@ task_status = {}
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle handler."""
     # --- startup ---
+    from backend.database import Base, engine
+    from backend.alerts import MonitoringAlert  # ensure table is registered
+    Base.metadata.create_all(bind=engine)       # create alert table if missing
     init_db()
     logger.info("\u2713 Database initialized")
+    start_scheduler(db_factory=SessionLocal, detector_factory=get_unified_detector)
+    logger.info("\u2713 Alert scheduler started")
     yield
-    # --- shutdown (add cleanup here if needed) ---
+    # --- shutdown ---
+    stop_scheduler()
 
 
 # Create FastAPI app
@@ -1285,12 +1299,342 @@ async def run_analysis_pipeline(task_id: str, request: AnalysisRequest):
         task_status[task_id]["error"] = str(e)
 
 
+# ═══════════════════════════════════════════════════════════════
+# MONITORING ALERTS ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+class AlertThresholds(BaseModel):
+    ndvi_drop:   Optional[float] = None  # trigger if NDVI drops >= this
+    ndbi_rise:   Optional[float] = None  # trigger if NDBI rises >= this
+    ndwi_change: Optional[float] = None  # trigger if |ΔNDWI| >= this
+    area_ha:     Optional[float] = None  # trigger if changed area >= this ha
+
+class CreateAlertRequest(BaseModel):
+    name:       str
+    bbox:       Dict[str, float]
+    thresholds: AlertThresholds
+    email:      str
+    frequency:  str = "weekly"   # "daily" | "weekly" | "monthly"
+
+class UpdateAlertStatusRequest(BaseModel):
+    status: str   # "active" | "paused"
+
+
+class UpdateAlertRequest(BaseModel):
+    name: Optional[str] = None
+    bbox: Optional[Dict[str, float]] = None
+    thresholds: Optional[AlertThresholds] = None
+    email: Optional[str] = None
+    frequency: Optional[str] = None
+
+
+def _normalize_alert_frequency(value: Optional[str]) -> str:
+    freq = (value or "weekly").strip().lower()
+    if freq not in ("daily", "weekly", "monthly"):
+        raise HTTPException(status_code=400, detail="frequency must be daily, weekly, or monthly")
+    return freq
+
+
+def _validate_threshold_values(thresholds: AlertThresholds) -> None:
+    fields = {
+        "ndvi_drop": thresholds.ndvi_drop,
+        "ndbi_rise": thresholds.ndbi_rise,
+        "ndwi_change": thresholds.ndwi_change,
+        "area_ha": thresholds.area_ha,
+    }
+    for name, value in fields.items():
+        if value is not None and value < 0:
+            raise HTTPException(status_code=400, detail=f"{name} cannot be negative")
+
+    if all(v is None for v in fields.values()):
+        raise HTTPException(status_code=400, detail="Set at least one threshold")
+
+
+@app.get("/api/alerts")
+async def list_alerts(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """List all monitoring alerts for the current user."""
+    alerts = get_alerts_for_user(db, current_user.id)
+    return {"alerts": [alert_to_dict(a) for a in alerts]}
+
+
+@app.post("/api/alerts")
+async def create_new_alert(
+    request: CreateAlertRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new monitoring alert and immediately fetch baseline spectral values."""
+    import numpy as np
+    from datetime import datetime as dt, timedelta
+
+    # Validate bbox
+    bbox = request.bbox
+    if not all(k in bbox for k in ["west", "south", "east", "north"]):
+        raise HTTPException(status_code=400, detail="Invalid bbox")
+    if bbox["west"] >= bbox["east"] or bbox["south"] >= bbox["north"]:
+        raise HTTPException(status_code=400, detail="Invalid bbox coordinates")
+
+    _validate_threshold_values(request.thresholds)
+    freq = _normalize_alert_frequency(request.frequency)
+
+    # Seed baseline from the prior rolling window for the selected frequency.
+    try:
+        detector = get_unified_detector()
+        window_days_by_frequency = {"daily": 1, "weekly": 7, "monthly": 30}
+        window_days = window_days_by_frequency.get(freq, 7)
+        now_utc = dt.utcnow()
+        baseline_end = now_utc - timedelta(days=window_days)
+        baseline_start = baseline_end - timedelta(days=window_days)
+
+        yearly = detector._fetch_window_data(bbox, baseline_start, baseline_end, detector.model_size)
+        valid = yearly.valid_mask
+        ndvi_vals = yearly.ndvi[valid] if np.any(valid) else yearly.ndvi.ravel()
+        ndbi_vals = yearly.ndbi[valid] if np.any(valid) else yearly.ndbi.ravel()
+        ndwi_vals = yearly.ndwi[valid] if np.any(valid) else yearly.ndwi.ravel()
+        baseline = {
+            "ndvi": round(float(np.nanmean(ndvi_vals)), 4),
+            "ndbi": round(float(np.nanmean(ndbi_vals)), 4),
+            "ndwi": round(float(np.nanmean(ndwi_vals)), 4),
+            "window": {
+                "from": baseline_start.isoformat() + "Z",
+                "to": baseline_end.isoformat() + "Z",
+                "days": window_days,
+                "frequency": freq,
+            },
+        }
+    except Exception as exc:
+        logger.warning("Could not fetch baseline for new alert: %s", exc)
+        baseline = {"ndvi": 0.0, "ndbi": 0.0, "ndwi": 0.0}
+
+    alert = create_alert(
+        db=db,
+        user_id=current_user.id,
+        name=request.name,
+        bbox=bbox,
+        thresholds=request.thresholds.dict(),
+        email=request.email,
+        frequency=freq,
+        baseline=baseline,
+    )
+    return {"status": "created", "alert": alert_to_dict(alert), "baseline": baseline}
+
+
+@app.get("/api/alerts/{alert_id}")
+async def get_single_alert(
+    alert_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    alert = get_alert(db, alert_id, current_user.id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return alert_to_dict(alert)
+
+
+@app.patch("/api/alerts/{alert_id}/status")
+async def update_alert_status_endpoint(
+    alert_id: int,
+    request: UpdateAlertStatusRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Pause or re-activate an alert."""
+    alert = get_alert(db, alert_id, current_user.id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    if request.status not in ("active", "paused"):
+        raise HTTPException(status_code=400, detail="status must be 'active' or 'paused'")
+    update_alert_status(db, alert, request.status)
+    return {"status": "updated", "alert_id": alert_id, "new_status": request.status}
+
+
+@app.patch("/api/alerts/{alert_id}")
+async def edit_alert(
+    alert_id: int,
+    request: UpdateAlertRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Edit alert settings (name, email, frequency, thresholds, bbox)."""
+    import numpy as np
+    from datetime import datetime as dt, timedelta
+    import json as _json
+
+    alert = get_alert(db, alert_id, current_user.id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    if request.name is not None:
+        if not request.name.strip():
+            raise HTTPException(status_code=400, detail="name cannot be empty")
+        alert.name = request.name.strip()
+
+    if request.email is not None:
+        if not request.email.strip():
+            raise HTTPException(status_code=400, detail="email cannot be empty")
+        alert.email = request.email.strip()
+
+    if request.frequency is not None:
+        alert.frequency = _normalize_alert_frequency(request.frequency)
+
+    if request.thresholds is not None:
+        _validate_threshold_values(request.thresholds)
+        t = request.thresholds
+        alert.thr_ndvi_drop = t.ndvi_drop
+        alert.thr_ndbi_rise = t.ndbi_rise
+        alert.thr_ndwi_change = t.ndwi_change
+        alert.thr_area_ha = t.area_ha
+
+    if request.bbox is not None:
+        bbox = request.bbox
+        if not all(k in bbox for k in ["west", "south", "east", "north"]):
+            raise HTTPException(status_code=400, detail="Invalid bbox")
+        if bbox["west"] >= bbox["east"] or bbox["south"] >= bbox["north"]:
+            raise HTTPException(status_code=400, detail="Invalid bbox coordinates")
+
+        alert.bbox_west = bbox["west"]
+        alert.bbox_south = bbox["south"]
+        alert.bbox_east = bbox["east"]
+        alert.bbox_north = bbox["north"]
+
+        # Region changed: refresh baseline using prior rolling window by alert frequency.
+        try:
+            detector = get_unified_detector()
+            freq = (alert.frequency or "weekly").lower()
+            window_days_by_frequency = {"daily": 1, "weekly": 7, "monthly": 30}
+            window_days = window_days_by_frequency.get(freq, 7)
+            now_utc = dt.utcnow()
+            baseline_end = now_utc - timedelta(days=window_days)
+            baseline_start = baseline_end - timedelta(days=window_days)
+
+            yearly = detector._fetch_window_data(bbox, baseline_start, baseline_end, detector.model_size)
+            valid = yearly.valid_mask
+            ndvi_vals = yearly.ndvi[valid] if np.any(valid) else yearly.ndvi.ravel()
+            ndbi_vals = yearly.ndbi[valid] if np.any(valid) else yearly.ndbi.ravel()
+            ndwi_vals = yearly.ndwi[valid] if np.any(valid) else yearly.ndwi.ravel()
+            baseline = {
+                "ndvi": round(float(np.nanmean(ndvi_vals)), 4),
+                "ndbi": round(float(np.nanmean(ndbi_vals)), 4),
+                "ndwi": round(float(np.nanmean(ndwi_vals)), 4),
+                "window": {
+                    "from": baseline_start.isoformat() + "Z",
+                    "to": baseline_end.isoformat() + "Z",
+                    "days": window_days,
+                    "frequency": freq,
+                },
+            }
+            alert.baseline_json = _json.dumps(baseline)
+        except Exception as exc:
+            logger.warning("Could not refresh baseline while editing alert %s: %s", alert_id, exc)
+
+    db.commit()
+    db.refresh(alert)
+    return {"status": "updated", "alert": alert_to_dict(alert)}
+
+
+@app.delete("/api/alerts/{alert_id}")
+async def remove_alert(
+    alert_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    alert = get_alert(db, alert_id, current_user.id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    delete_alert(db, alert)
+    return {"status": "deleted", "alert_id": alert_id}
+
+
+@app.post("/api/alerts/{alert_id}/run-check")
+async def run_alert_check_now(
+    alert_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Immediately run a check for the alert — bypasses schedule.
+    For demo: hit this and watch the email land in real-time.
+    Returns the check result synchronously (runs in the request, not background).
+    """
+    alert = get_alert(db, alert_id, current_user.id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    # Run synchronously so the API response contains the result
+    result = run_alert_check(
+        alert_id=alert_id,
+        db_factory=SessionLocal,
+        detector_factory=get_unified_detector,
+    )
+    return {
+        "status": "check_complete",
+        "alert_id": alert_id,
+        "breached": result["breached"],
+        "current_values": result["current"],
+        "changed_area_ha": result["area_ha"],
+        "email_sent": result["email_sent"],
+        "error": result["error"],
+    }
+
+
+@app.post("/api/alerts/{alert_id}/test-email")
+async def send_test_alert_email(
+    alert_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Send a test email for this alert regardless of thresholds.
+    Use this during a demo to show the email immediately.
+    """
+    import json as _json
+    alert = get_alert(db, alert_id, current_user.id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    from backend.email_sender import send_alert_email
+    baseline = _json.loads(alert.baseline_json) if alert.baseline_json else {}
+    bbox = {
+        "west": alert.bbox_west, "south": alert.bbox_south,
+        "east": alert.bbox_east, "north": alert.bbox_north,
+    }
+
+    # Use baseline as "current" so the email is populated even without a live fetch
+    current = dict(baseline) or {"ndvi": 0.3, "ndbi": 0.05, "ndwi": -0.4}
+    sample_breach = [{
+        "metric": "NDVI (vegetation health)",
+        "baseline": current.get("ndvi", 0.3),
+        "current": current.get("ndvi", 0.3) - 0.12,
+        "delta": -0.12,
+        "threshold": f"drop ≥ {alert.thr_ndvi_drop or 0.05}",
+    }]
+
+    try:
+        send_alert_email(
+            to_email=alert.email,
+            alert_name=alert.name,
+            bbox=bbox,
+            baseline=baseline,
+            current=current,
+            breached=sample_breach,
+            area_ha=12.5,
+            is_test=True,
+        )
+        return {"status": "test_email_sent", "to": alert.email}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 if __name__ == "__main__":
     import uvicorn
-    
+
     logger.info(f"Starting API server on {API_HOST}:{API_PORT}")
     logger.info(f"Documentation available at http://{API_HOST}:{API_PORT}/docs")
-    
+
     uvicorn.run(
         app,
         host=API_HOST,

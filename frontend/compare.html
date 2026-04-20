@@ -1092,6 +1092,102 @@
             background: radial-gradient(circle at 20% 20%, #0e2230 0%, #090d14 45%, #05060a 100%);
         }
 
+        /* ── Alerts View ── */
+        .alerts-view {
+            display: none;
+            flex: 1;
+            padding: 24px 30px;
+            overflow-y: auto;
+        }
+        .alerts-view.active { display: block; }
+        .alerts-cols { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+        @media (max-width: 900px) { .alerts-cols { grid-template-columns: 1fr; } }
+        .alerts-panel {
+            background: white; border: 4px solid #00B8A9;
+            box-shadow: 6px 6px 0 rgba(0,184,169,0.2); padding: 20px;
+        }
+        .alerts-panel-title {
+            font-family: 'Press Start 2P', cursive; font-size: 0.6em;
+            color: #00B8A9; margin-bottom: 14px;
+            padding-bottom: 10px; border-bottom: 2px solid #eee;
+        }
+        .alert-card-item {
+            background: #f9f9f9; border: 2px solid #eee; padding: 14px 16px;
+            margin-bottom: 12px; position: relative; transition: border-color .2s;
+        }
+        .alert-card-item:hover { border-color: #00B8A9; }
+        .alert-card-item.st-triggered { border-left: 4px solid #FF5555; }
+        .alert-card-item.st-paused { border-left: 4px solid #aaa; opacity: .7; }
+        .alert-card-item.st-active { border-left: 4px solid #B2E600; }
+        .alert-card-name { font-family: 'Press Start 2P', cursive; font-size: 0.48em; color: #2f3c45; margin-bottom: 6px; }
+        .alert-card-meta { font-size: 0.78em; color: #666; line-height: 1.9; }
+        .alert-card-meta b { color: #2f3c45; }
+        .alert-card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .abtn {
+            font-family: 'Press Start 2P', cursive; font-size: 0.38em;
+            padding: 6px 12px; cursor: pointer; border: 2px solid;
+            transition: all .15s; letter-spacing: 0.5px;
+        }
+        .abtn-run { background: #FF5555; color: #fff; border-color: #FF5555; }
+        .abtn-run:hover { background: #ff7070; }
+        .abtn-mail { background: #f5a623; color: #fff; border-color: #f5a623; }
+        .abtn-mail:hover { background: #ffc04d; }
+        .abtn-pause { background: #eee; color: #666; border-color: #ccc; }
+        .abtn-pause:hover { background: #ddd; }
+        .abtn-del { background: #fff; color: #FF5555; border-color: #FF5555; }
+        .abtn-del:hover { background: #FF5555; color: #fff; }
+        .abtn:disabled { opacity: .45; cursor: not-allowed; }
+        .abadge {
+            display: inline-block; padding: 2px 8px;
+            font-family: 'Press Start 2P', cursive; font-size: 0.35em;
+            font-weight: bold; letter-spacing: 1px;
+        }
+        .abadge-active   { background: #e8f5e9; color: #388e3c; border: 1px solid #81c784; }
+        .abadge-paused   { background: #f5f5f5; color: #999; border: 1px solid #ccc; }
+        .abadge-triggered{ background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .alerts-form-group { margin-bottom: 14px; }
+        .alerts-form-group label {
+            display: block; font-size: 0.72em; color: #666;
+            margin-bottom: 5px; font-weight: 600;
+        }
+        .alerts-form-group input, .alerts-form-group select {
+            width: 100%; background: #f9f9f9; border: 2px solid #ddd;
+            color: #333; padding: 8px 10px; font-family: 'Space Mono', monospace;
+            font-size: 0.82em; outline: none; transition: border-color .2s;
+        }
+        .alerts-form-group input:focus, .alerts-form-group select:focus { border-color: #00B8A9; }
+        .alerts-thr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        #alerts-map-draw {
+            width: 100%; height: 260px; border: 2px solid #ddd; background: #eee;
+        }
+        .alerts-bbox-display {
+            background: #f0f0f0; border: 1px solid #ddd; padding: 6px 10px;
+            font-size: 0.72em; color: #888; margin-bottom: 8px; min-height: 28px;
+        }
+        .alerts-empty {
+            text-align: center; padding: 40px 20px; color: #999;
+            border: 2px dashed #ddd;
+        }
+        .alerts-empty .ae-icon { font-size: 2em; margin-bottom: 10px; }
+        .alerts-toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: white; border: 3px solid #00B8A9;
+            box-shadow: 4px 4px 0 rgba(0,184,169,0.2);
+            font-family: 'Press Start 2P', cursive; font-size: 0.42em;
+            padding: 12px 18px; opacity: 0; transition: opacity .3s;
+            pointer-events: none; z-index: 9999; max-width: 340px;
+            line-height: 1.8; color: #2f3c45;
+        }
+        .alerts-toast.show { opacity: 1; }
+        .alerts-toast.error { border-color: #FF5555; color: #FF5555; }
+        .alerts-demo-box {
+            background: #e3f2fd; border: 2px solid #5555FF;
+            box-shadow: 4px 4px 0 rgba(85,85,255,0.15);
+            padding: 14px 16px; margin-bottom: 20px;
+            font-size: 0.76em; line-height: 1.9; color: #333;
+        }
+        .alerts-demo-box strong { color: #00B8A9; }
+
         .anim-layout {
             display: flex;
             flex: 1;
@@ -1506,8 +1602,6 @@
                 style="background: linear-gradient(135deg, #5555FF, #3333CC); border-color: #3333CC;">
                 🗺️ Run Unified Map Analysis
             </button>
-
-
         </div>
     </div>
 
@@ -1517,6 +1611,7 @@
         <button class="tab-btn" onclick="switchView('map')">🗺️ Unified Map</button>
         <button class="tab-btn" onclick="switchView('animate')">🎬 Temporal Animation</button>
         <button class="tab-btn" id="report-tab-btn" onclick="switchView('report')" style="border-color:#B2E600;color:#B2E600;">📊 Analysis Report</button>
+        <button class="tab-btn" onclick="switchView('alerts')" style="border-color:#FF5555;color:#FF5555;">🚨 Alerts</button>
     </div>
 
     <div class="comparison-container">
@@ -1667,6 +1762,84 @@
                 </div>
             </div>
         </div>
+
+        <!-- Alerts View -->
+        <div class="alerts-view" id="alerts-view">
+            <div class="alerts-demo-box">
+                <strong>🎬 Demo tip:</strong> Create an alert for any region you know has changed, set low thresholds (NDVI drop ≥ 0.01),
+                then click <strong>Run Check Now</strong>. The system fetches live Sentinel-2 data and emails you within seconds.
+                Use <strong>📧 Test Email</strong> to send a sample email instantly without any threshold check.
+            </div>
+            <div class="alerts-cols">
+                <!-- Left: alert list -->
+                <div>
+                    <div class="alerts-panel">
+                        <div class="alerts-panel-title">📋 Your Monitoring Alerts</div>
+                        <div id="alerts-list-wrap">
+                            <div class="alerts-empty">
+                                <div class="ae-icon">🛰️</div>
+                                <p>No alerts yet.<br>Create one using the form →</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Right: create form -->
+                <div>
+                    <div class="alerts-panel">
+                        <div class="alerts-panel-title">➕ New Alert</div>
+                        <div class="alerts-form-group">
+                            <label>Alert Name</label>
+                            <input type="text" id="af-name" placeholder="e.g. Hyderabad Wetland Zone" />
+                        </div>
+                        <div class="alerts-form-group">
+                            <label>Notification Email</label>
+                            <input type="email" id="af-email" placeholder="you@example.com" />
+                        </div>
+                        <div class="alerts-form-group">
+                            <label>Check Frequency</label>
+                            <select id="af-frequency">
+                                <option value="daily">Daily</option>
+                                <option value="weekly" selected>Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="alerts-form-group">
+                            <label>📍 Region — draw rectangle on map below</label>
+                            <div class="alerts-bbox-display" id="alerts-bbox-display">No region selected — draw on map</div>
+                            <div id="alerts-map-draw"></div>
+                            <div style="font-size:0.7em;color:#999;margin-top:4px;">Click and drag to draw a bounding box.</div>
+                        </div>
+                        <div class="alerts-form-group">
+                            <label>⚙️ Alert Thresholds (leave blank to skip)</label>
+                            <div class="alerts-thr-grid">
+                                <div>
+                                    <label>🌿 NDVI drop ≥</label>
+                                    <input type="number" id="af-ndvi" placeholder="e.g. 0.05" step="0.01" min="0" max="2" />
+                                </div>
+                                <div>
+                                    <label>🏗️ NDBI rise ≥</label>
+                                    <input type="number" id="af-ndbi" placeholder="e.g. 0.05" step="0.01" min="0" max="2" />
+                                </div>
+                                <div>
+                                    <label>💧 |ΔNDWI| ≥</label>
+                                    <input type="number" id="af-ndwi" placeholder="e.g. 0.10" step="0.01" min="0" max="2" />
+                                </div>
+                                <div>
+                                    <label>📐 Area changed ≥ ha</label>
+                                    <input type="number" id="af-area" placeholder="e.g. 10" step="1" min="0" />
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="alert-create-btn" onclick="alertsCreateAlert()" style="font-size:0.5em;">
+                            🚨 Create Alert
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="alerts-toast" class="alerts-toast"></div>
+
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1945,7 +2118,7 @@
             if (event && event.target) event.target.classList.add('active');
 
             // Hide all views
-            ['side-by-side-view','slider-view','map-view'].forEach(id => {
+            ['side-by-side-view','slider-view','map-view','alerts-view'].forEach(id => {
                 document.getElementById(id)?.classList.remove('active');
             });
             document.getElementById('animate-view')?.classList.remove('active');
@@ -1960,6 +2133,10 @@
                 if (!window._animFrames) loadAnimationFrames();
             } else if (view === 'report') {
                 document.getElementById('report-view').classList.add('active');
+            } else if (view === 'alerts') {
+                document.getElementById('alerts-view').classList.add('active');
+                alertsInitMap();
+                alertsLoadAll();
             } else {
                 document.getElementById('map-view').classList.add('active');
                 if (unifiedMap) {
@@ -2720,7 +2897,7 @@
                 <!-- Spectral Index Comparison -->
                 <div class="rpt-section">
                     <div class="rpt-section-title">🔬 Spectral Index Comparison</div>
-                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:14px;">Mean values computed from cloud-masked Sentinel-2 pixels in detected change zones (aligned with findings and map overlays).</p>
+                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:14px;">Scene-wide mean values computed from all cloud-masked Sentinel-2 pixels (same scope as land-cover classification).</p>
                     <table class="rpt-spectral-table">
                         <thead>
                             <tr>
@@ -2737,7 +2914,7 @@
                         Formulas: NDVI = (B08−B04)/(B08+B04) &nbsp;·&nbsp; NDBI = (B11−B08)/(B11+B08) &nbsp;·&nbsp; NDWI = (B03−B08)/(B03+B08)
                     </div>
                     <div style="margin-top:6px;font-family:'Space Mono',monospace;font-size:0.68em;color:#8b8b8b;">
-                        Scene-wide context: NDVI Δ ${(ndvi.scene_delta ?? ndvi.delta ?? 0).toFixed(4)} · NDBI Δ ${(ndbi.scene_delta ?? ndbi.delta ?? 0).toFixed(4)} · NDWI Δ ${(ndwi.scene_delta ?? ndwi.delta ?? 0).toFixed(4)}
+                        In detected-change zones only — NDVI Δ ${(ndvi.change_focus_delta ?? ndvi.delta ?? 0).toFixed(4)} · NDBI Δ ${(ndbi.change_focus_delta ?? ndbi.delta ?? 0).toFixed(4)} · NDWI Δ ${(ndwi.change_focus_delta ?? ndwi.delta ?? 0).toFixed(4)}
                     </div>
                 </div>
 
@@ -2762,7 +2939,7 @@
                 <!-- Land Cover Change -->
                 <div class="rpt-section">
                     <div class="rpt-section-title">🗺️ Land Cover Before vs After</div>
-                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:18px;">Pixel-classified fractions from cloud-masked spectral data. NDVI > 0.25 → vegetation · NDBI > 0.10 → built-up · NDWI > 0.10 → water · remainder → bare/other.</p>
+                    <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:18px;">Pixel-classified fractions from cloud-masked spectral data — same pixel set as spectral index means above. NDVI > 0.25 → vegetation · NDBI > 0.10 → built-up · NDWI > 0.10 → water · remainder → bare/other.</p>
                     ${lcRows}
                 </div>
 
@@ -2869,31 +3046,34 @@
 
                 let hasDefaultLayer = false;
 
+                // Register classified map in the layer control but DON'T add to map by default.
                 if (layers.classified_change_map?.image) {
                     const layer = L.imageOverlay(
                         layers.classified_change_map.image,
                         bounds,
                         { opacity: layers.classified_change_map.opacity || 0.9 }
                     );
-                    layer.addTo(unifiedMap);
-                    hasDefaultLayer = true;
                     unifiedLayerRefs.classified = layer;
                     if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Classified Change Map');
                 }
 
+                // Heatmap is the default visible layer on open.
                 if (layers.change_probability_heatmap?.image) {
                     const layer = L.imageOverlay(
                         layers.change_probability_heatmap.image,
                         bounds,
                         { opacity: layers.change_probability_heatmap.opacity || 0.75 }
                     );
+                    layer.addTo(unifiedMap);
+                    hasDefaultLayer = true;
                     unifiedLayerRefs.probability = layer;
                     if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Change Probability Heatmap');
+                }
 
-                    if (!hasDefaultLayer) {
-                        layer.addTo(unifiedMap);
-                        hasDefaultLayer = true;
-                    }
+                // Fallback: if no heatmap, show classified map.
+                if (!hasDefaultLayer && unifiedLayerRefs.classified) {
+                    unifiedLayerRefs.classified.addTo(unifiedMap);
+                    hasDefaultLayer = true;
                 }
 
                 if (layers.temporal_trend_visualization?.image) {
@@ -2924,7 +3104,7 @@
                     setTimeout(() => unifiedMap.invalidateSize(), 120);
                 }
 
-                setMapStatus('Classified overlay loaded. Use map layer controls to enable heatmap/trend if needed.');
+                setMapStatus('Change probability heatmap loaded. Use layer controls to toggle classified / trend overlays.');
 
             } catch (error) {
                 console.error('Unified analysis failed:', error);
@@ -3797,6 +3977,274 @@
                 ctx.fillText(t2, bx + 7, by + 26);
                 ctx.fillText(t3, bx + 7, by + 39);
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // ALERTS MODULE (inline — uses API_URL and access_token)
+        // ═══════════════════════════════════════════════════════════
+        let _alertsMap = null, _alertsRect = null, _alertsBbox = null, _alertsDrawStart = null;
+        let _alertsToastTimer = null;
+        let _alertsById = {};
+
+        function alertsToast(msg, isError) {
+            const el = document.getElementById('alerts-toast');
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'alerts-toast show' + (isError ? ' error' : '');
+            clearTimeout(_alertsToastTimer);
+            _alertsToastTimer = setTimeout(() => el.className = 'alerts-toast', 3500);
+        }
+
+        function alertsInitMap() {
+            if (_alertsMap) {
+                setTimeout(() => _alertsMap.invalidateSize(), 150);
+                return;
+            }
+            const container = document.getElementById('alerts-map-draw');
+            if (!container) return;
+            _alertsMap = L.map('alerts-map-draw').setView([20.5937, 78.9629], 5);
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri', maxZoom: 19
+            }).addTo(_alertsMap);
+            _alertsMap.on('mousedown', function(e) {
+                if (e.originalEvent.button !== 0) return;
+                _alertsDrawStart = e.latlng;
+                _alertsMap.dragging.disable();
+                _alertsMap.on('mousemove', _alertsOnMove);
+                _alertsMap.once('mouseup', _alertsOnUp);
+            });
+            // If bbox is already set from compare, use it
+            if (bbox) {
+                _alertsBbox = { west: bbox.west, south: bbox.south, east: bbox.east, north: bbox.north };
+                const bounds = L.latLngBounds([_alertsBbox.south, _alertsBbox.west], [_alertsBbox.north, _alertsBbox.east]);
+                _alertsRect = L.rectangle(bounds, { color: '#B2E600', weight: 2, fillOpacity: 0.12 }).addTo(_alertsMap);
+                _alertsMap.fitBounds(bounds);
+                document.getElementById('alerts-bbox-display').textContent =
+                    `N ${_alertsBbox.north.toFixed(5)}  S ${_alertsBbox.south.toFixed(5)}  E ${_alertsBbox.east.toFixed(5)}  W ${_alertsBbox.west.toFixed(5)}`;
+            }
+        }
+
+        function _alertsOnMove(e) {
+            if (!_alertsDrawStart) return;
+            const bounds = L.latLngBounds(_alertsDrawStart, e.latlng);
+            if (_alertsRect) _alertsRect.setBounds(bounds);
+            else _alertsRect = L.rectangle(bounds, { color: '#B2E600', weight: 2, fillOpacity: 0.12 }).addTo(_alertsMap);
+        }
+
+        function _alertsOnUp(e) {
+            _alertsMap.dragging.enable();
+            _alertsMap.off('mousemove', _alertsOnMove);
+            if (!_alertsDrawStart) return;
+            const bounds = L.latLngBounds(_alertsDrawStart, e.latlng);
+            const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+            if (Math.abs(ne.lat - sw.lat) < 0.001 || Math.abs(ne.lng - sw.lng) < 0.001) {
+                alertsToast('Region too small — drag a larger box', true);
+                return;
+            }
+            _alertsBbox = { west: sw.lng, south: sw.lat, east: ne.lng, north: ne.lat };
+            document.getElementById('alerts-bbox-display').textContent =
+                `N ${_alertsBbox.north.toFixed(5)}  S ${_alertsBbox.south.toFixed(5)}  E ${_alertsBbox.east.toFixed(5)}  W ${_alertsBbox.west.toFixed(5)}`;
+            _alertsDrawStart = null;
+        }
+
+        async function _alertsAPI(path, options) {
+            const token = localStorage.getItem('access_token') || '';
+            const res = await fetch(API_URL + path, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(options?.headers || {}) }
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || res.statusText);
+            }
+            return res.json();
+        }
+
+        async function alertsLoadAll() {
+            const wrap = document.getElementById('alerts-list-wrap');
+            if (!wrap) return;
+            try {
+                const data = await _alertsAPI('/api/alerts');
+                _alertsRender(data.alerts || []);
+            } catch (e) {
+                wrap.innerHTML = `<div class="alerts-empty"><div class="ae-icon">⚠️</div><p>${e.message}</p></div>`;
+            }
+        }
+
+        function _alertsRender(alerts) {
+            const wrap = document.getElementById('alerts-list-wrap');
+            _alertsById = Object.fromEntries((alerts || []).map(a => [a.id, a]));
+            if (!alerts.length) {
+                wrap.innerHTML = `<div class="alerts-empty"><div class="ae-icon">🛰️</div><p>No alerts yet.<br>Create one using the form →</p></div>`;
+                return;
+            }
+            const cards = alerts.map(a => {
+                const badge = `<span class="abadge abadge-${a.status}">${a.status.toUpperCase()}</span>`;
+                const thr = a.thresholds || {};
+                const thrStr = [
+                    thr.ndvi_drop != null ? `NDVI drop ≥ ${thr.ndvi_drop}` : null,
+                    thr.ndbi_rise != null ? `NDBI rise ≥ ${thr.ndbi_rise}` : null,
+                    thr.ndwi_change != null ? `|ΔNDWI| ≥ ${thr.ndwi_change}` : null,
+                    thr.area_ha != null ? `Area ≥ ${thr.area_ha} ha` : null,
+                ].filter(Boolean).join(' · ') || 'No thresholds';
+                const base = a.baseline || {};
+                const lastCheck = a.last_checked ? new Date(a.last_checked).toLocaleString() : 'Never';
+                const lastTrig = a.last_triggered ? new Date(a.last_triggered).toLocaleString() : 'Never';
+                return `<div class="alert-card-item st-${a.status}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                        <div class="alert-card-name">${a.name}</div>${badge}
+                    </div>
+                    <div class="alert-card-meta">
+                        📧 <b>${a.email}</b> · 🔄 <b>${a.frequency}</b> · 🎯 <b>${thrStr}</b><br>
+                        🌿 Baseline NDVI <b>${(base.ndvi||0).toFixed(4)}</b> ·
+                        🏗️ NDBI <b>${(base.ndbi||0).toFixed(4)}</b> ·
+                        💧 NDWI <b>${(base.ndwi||0).toFixed(4)}</b><br>
+                        🕐 Last checked: <b>${lastCheck}</b> · 🚨 Triggered: <b>${lastTrig}</b> (${a.trigger_count}×)
+                    </div>
+                    <div class="alert-card-actions">
+                        <button class="abtn abtn-run" id="acheck-${a.id}" onclick="alertsRunCheck(${a.id})">🔴 Run Check Now</button>
+                        <button class="abtn abtn-pause" onclick="alertsEdit(${a.id})">✏️ Edit</button>
+                        <button class="abtn abtn-mail" onclick="alertsTestEmail(${a.id})">📧 Test Email</button>
+                        ${a.status === 'active' || a.status === 'triggered'
+                            ? `<button class="abtn abtn-pause" onclick="alertsToggle(${a.id},'paused')">⏸ Pause</button>`
+                            : `<button class="abtn abtn-pause" onclick="alertsToggle(${a.id},'active')">▶ Resume</button>`}
+                        <button class="abtn abtn-del" onclick="alertsDelete(${a.id})">🗑 Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+            wrap.innerHTML = cards;
+        }
+
+        async function alertsCreateAlert() {
+            const btn = document.getElementById('alert-create-btn');
+            const name = document.getElementById('af-name').value.trim();
+            const email = document.getElementById('af-email').value.trim();
+            const freq = document.getElementById('af-frequency').value;
+            if (!name) return alertsToast('Alert name is required', true);
+            if (!email) return alertsToast('Email is required', true);
+            if (!_alertsBbox) return alertsToast('Draw a region on the map first', true);
+            const ndvi = parseFloat(document.getElementById('af-ndvi').value);
+            const ndbi = parseFloat(document.getElementById('af-ndbi').value);
+            const ndwi = parseFloat(document.getElementById('af-ndwi').value);
+            const area = parseFloat(document.getElementById('af-area').value);
+            const thresholds = {
+                ndvi_drop: isNaN(ndvi) ? null : ndvi,
+                ndbi_rise: isNaN(ndbi) ? null : ndbi,
+                ndwi_change: isNaN(ndwi) ? null : ndwi,
+                area_ha: isNaN(area) ? null : area,
+            };
+            if (Object.values(thresholds).every(v => v === null)) return alertsToast('Set at least one threshold', true);
+            btn.disabled = true; btn.textContent = 'Fetching baseline…';
+            try {
+                const res = await _alertsAPI('/api/alerts', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, bbox: _alertsBbox, thresholds, email, frequency: freq }),
+                });
+                alertsToast(`✅ Alert created! Baseline NDVI ${res.baseline?.ndvi?.toFixed(4) ?? '?'}`);
+                document.getElementById('af-name').value = '';
+                document.getElementById('af-email').value = '';
+                ['af-ndvi','af-ndbi','af-ndwi','af-area'].forEach(id => document.getElementById(id).value = '');
+                alertsLoadAll();
+            } catch (e) { alertsToast(`Error: ${e.message}`, true); }
+            finally { btn.disabled = false; btn.textContent = '🚨 Create Alert'; }
+        }
+
+        function _alertsParseOptionalNumber(raw, label) {
+            const s = (raw || '').trim();
+            if (!s) return null;
+            const n = parseFloat(s);
+            if (Number.isNaN(n)) throw new Error(`${label} must be a number`);
+            if (n < 0) throw new Error(`${label} cannot be negative`);
+            return n;
+        }
+
+        async function alertsEdit(id) {
+            const a = _alertsById[id];
+            if (!a) return alertsToast('Alert not found in current list', true);
+
+            const name = prompt('Alert name:', a.name ?? '');
+            if (name === null) return;
+
+            const email = prompt('Notification email:', a.email ?? '');
+            if (email === null) return;
+
+            const freqInput = prompt('Frequency (daily / weekly / monthly):', a.frequency ?? 'weekly');
+            if (freqInput === null) return;
+            const frequency = freqInput.trim().toLowerCase();
+            if (!['daily', 'weekly', 'monthly'].includes(frequency)) {
+                return alertsToast('Frequency must be daily, weekly, or monthly', true);
+            }
+
+            const thr = a.thresholds || {};
+            const ndviRaw = prompt('NDVI drop threshold (blank = disable):', thr.ndvi_drop ?? '');
+            if (ndviRaw === null) return;
+            const ndbiRaw = prompt('NDBI rise threshold (blank = disable):', thr.ndbi_rise ?? '');
+            if (ndbiRaw === null) return;
+            const ndwiRaw = prompt('|ΔNDWI| threshold (blank = disable):', thr.ndwi_change ?? '');
+            if (ndwiRaw === null) return;
+            const areaRaw = prompt('Area changed threshold in ha (blank = disable):', thr.area_ha ?? '');
+            if (areaRaw === null) return;
+
+            let bboxPayload;
+            if (confirm('Use currently drawn map rectangle as new region? Click Cancel to keep current region.')) {
+                if (!_alertsBbox) return alertsToast('Draw a region on the map first', true);
+                bboxPayload = _alertsBbox;
+            }
+
+            try {
+                const thresholds = {
+                    ndvi_drop: _alertsParseOptionalNumber(ndviRaw, 'NDVI drop'),
+                    ndbi_rise: _alertsParseOptionalNumber(ndbiRaw, 'NDBI rise'),
+                    ndwi_change: _alertsParseOptionalNumber(ndwiRaw, 'NDWI change'),
+                    area_ha: _alertsParseOptionalNumber(areaRaw, 'Area'),
+                };
+                await _alertsAPI(`/api/alerts/${id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ name: name.trim(), email: email.trim(), frequency, thresholds, bbox: bboxPayload }),
+                });
+                alertsToast('✅ Alert updated');
+                alertsLoadAll();
+            } catch (e) {
+                alertsToast(`Update failed: ${e.message}`, true);
+            }
+        }
+
+        async function alertsRunCheck(id) {
+            const btn = document.getElementById(`acheck-${id}`);
+            if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+            try {
+                const res = await _alertsAPI(`/api/alerts/${id}/run-check`, { method: 'POST' });
+                const count = res.breached?.length || 0;
+                if (count > 0) alertsToast(`🚨 ${count} threshold(s) breached! Email sent: ${res.email_sent ? 'YES ✓' : 'NO'}`);
+                else alertsToast(`✅ No thresholds breached. NDVI ${res.current_values?.ndvi?.toFixed(4) ?? '?'}`);
+                if (res.error) alertsToast(`⚠️ ${res.error}`, true);
+                alertsLoadAll();
+            } catch (e) { alertsToast(`Check failed: ${e.message}`, true); }
+            finally { if (btn) { btn.disabled = false; btn.textContent = '🔴 Run Check Now'; } }
+        }
+
+        async function alertsTestEmail(id) {
+            try {
+                const res = await _alertsAPI(`/api/alerts/${id}/test-email`, { method: 'POST' });
+                alertsToast(`📧 Test email sent to ${res.to}`);
+            } catch (e) { alertsToast(`Email failed: ${e.message}`, true); }
+        }
+
+        async function alertsToggle(id, newStatus) {
+            try {
+                await _alertsAPI(`/api/alerts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+                alertsToast(`Alert ${newStatus === 'paused' ? 'paused' : 'resumed'}`);
+                alertsLoadAll();
+            } catch (e) { alertsToast(e.message, true); }
+        }
+
+        async function alertsDelete(id) {
+            if (!confirm('Delete this alert permanently?')) return;
+            try {
+                await _alertsAPI(`/api/alerts/${id}`, { method: 'DELETE' });
+                alertsToast('Alert deleted');
+                alertsLoadAll();
+            } catch (e) { alertsToast(e.message, true); }
         }
 
     </script>

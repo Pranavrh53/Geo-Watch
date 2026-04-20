@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoring Alerts — Geo-Watch</title>
+  <meta name="description" content="Set up automated satellite monitoring alerts for any region. Get email notifications when NDVI, NDBI or land-cover thresholds are exceeded." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #111;
+      --border: #1f1f1f;
+      --accent: #b2e600;
+      --red: #ff5555;
+      --orange: #f5a623;
+      --blue: #5555ff;
+      --text: #e0e0e0;
+      --muted: #888;
+      --mono: 'Space Mono', monospace;
+      --pixel: 'Press Start 2P', cursive;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; }
+
+    /* ── Navbar ── */
+    nav {
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 28px; border-bottom: 2px solid var(--accent);
+      background: #0d0d0d; flex-wrap: wrap;
+    }
+    .nav-brand { font-family: var(--pixel); font-size: 0.65em; color: var(--accent); text-decoration: none; }
+    .nav-link {
+      font-family: var(--pixel); font-size: 0.45em; color: var(--muted);
+      text-decoration: none; padding: 6px 10px; border: 1px solid transparent;
+      transition: all .2s;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Layout ── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .page-title { font-family: var(--pixel); font-size: 0.8em; color: var(--accent); margin-bottom: 6px; }
+    .page-sub { font-size: 0.78em; color: var(--muted); margin-bottom: 32px; line-height: 1.7; }
+
+    /* ── Two-column layout ── */
+    .cols { display: grid; grid-template-columns: 1fr 420px; gap: 28px; align-items: start; }
+    @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+
+    /* ── Panel ── */
+    .panel { background: var(--panel); border: 1px solid var(--border); padding: 24px; }
+    .panel-title {
+      font-family: var(--pixel); font-size: 0.55em; color: var(--accent);
+      margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Map ── */
+    #alert-map { width: 100%; height: 340px; background: #0a0a0a; border: 1px solid var(--border); }
+    .map-hint { font-size: 0.72em; color: var(--muted); margin-top: 8px; }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.68em; color: var(--muted); margin-bottom: 6px; }
+    input[type=text], input[type=email], input[type=number], select {
+      width: 100%; background: #0d0d0d; border: 1px solid #2a2a2a;
+      color: var(--text); padding: 9px 12px; font-family: var(--mono); font-size: 0.82em;
+      outline: none; transition: border-color .2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    .threshold-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Buttons ── */
+    .btn {
+      font-family: var(--pixel); font-size: 0.48em; padding: 10px 18px;
+      cursor: pointer; border: 2px solid; transition: all .15s; letter-spacing: 1px;
+    }
+    .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn-primary:hover { background: #c8ff00; }
+    .btn-danger { background: transparent; color: var(--red); border-color: var(--red); }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+    .btn-warn { background: transparent; color: var(--orange); border-color: var(--orange); }
+    .btn-warn:hover { background: var(--orange); color: #000; }
+    .btn-blue { background: transparent; color: var(--blue); border-color: var(--blue); }
+    .btn-blue:hover { background: var(--blue); color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 0.38em; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Alerts table ── */
+    .alerts-list { display: flex; flex-direction: column; gap: 14px; }
+    .alert-card {
+      background: #0f0f0f; border: 1px solid var(--border);
+      padding: 16px 18px; position: relative;
+      transition: border-color .2s;
+    }
+    .alert-card:hover { border-color: #2a2a2a; }
+    .alert-card.status-triggered { border-left: 3px solid var(--red); }
+    .alert-card.status-paused { border-left: 3px solid var(--muted); opacity: .75; }
+    .alert-card.status-active { border-left: 3px solid var(--accent); }
+
+    .alert-name { font-family: var(--pixel); font-size: 0.52em; color: var(--text); margin-bottom: 8px; }
+    .alert-meta { font-size: 0.72em; color: var(--muted); line-height: 1.9; }
+    .alert-meta span { color: var(--text); }
+    .badge {
+      display: inline-block; padding: 2px 8px; font-family: var(--pixel); font-size: 0.4em;
+      font-weight: bold; letter-spacing: 1px;
+    }
+    .badge-active   { background: #1a2a00; color: var(--accent); border: 1px solid var(--accent); }
+    .badge-paused   { background: #222; color: var(--muted); border: 1px solid #444; }
+    .badge-triggered{ background: #2a0000; color: var(--red); border: 1px solid var(--red); }
+
+    .alert-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+    .last-result {
+      margin-top: 12px; padding: 10px 12px; background: #0a0a0a;
+      border: 1px solid #1a1a1a; font-size: 0.72em; color: var(--muted);
+      display: none;
+    }
+    .last-result.show { display: block; }
+    .result-breach { color: var(--red); }
+    .result-ok { color: var(--accent); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: #111; border: 1px solid var(--accent); color: var(--accent);
+      font-family: var(--pixel); font-size: 0.45em; padding: 12px 20px;
+      opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9999;
+      max-width: 340px; line-height: 1.8;
+    }
+    #toast.show { opacity: 1; }
+    #toast.error { border-color: var(--red); color: var(--red); }
+
+    /* ── Spinner ── */
+    .spinner { display: inline-block; width: 12px; height: 12px;
+      border: 2px solid #333; border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 52px 24px; color: var(--muted);
+      border: 1px dashed #2a2a2a;
+    }
+    .empty-state .icon { font-size: 2.4em; margin-bottom: 14px; }
+    .empty-state p { font-size: 0.78em; line-height: 1.8; }
+
+    /* ── Demo box ── */
+    .demo-box {
+      background: #0d0d1a; border: 1px solid var(--blue); padding: 16px 18px;
+      margin-bottom: 24px; font-size: 0.76em; line-height: 1.9; color: #aab;
+    }
+    .demo-box strong { color: var(--accent); }
+
+    .bbox-display {
+      background: #0d0d0d; border: 1px solid #2a2a2a; padding: 8px 12px;
+      font-size: 0.75em; color: var(--muted); margin-bottom: 12px;
+      min-height: 32px;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/frontend/index.html" class="nav-brand">📡 GEO-WATCH</a>
+  <a href="/frontend/index.html" class="nav-link">🏠 Home</a>
+  <a href="/frontend/compare.html" class="nav-link">🗺️ Compare</a>
+  <a href="/frontend/alerts.html" class="nav-link active">🚨 Alerts</a>
+</nav>
+
+<div class="page">
+  <div class="page-title">🚨 Monitoring Alerts</div>
+  <p class="page-sub">
+    Define a region and thresholds. The system checks spectral indices on a schedule and emails you when change is detected.
+    Use <strong style="color:var(--accent)">Run Check Now</strong> to trigger an instant check for demos.
+  </p>
+
+  <div class="demo-box">
+    <strong>🎬 Demo tip:</strong> Create an alert for any region you know has changed, set low thresholds (NDVI drop ≥ 0.01),
+    then click <strong>Run Check Now</strong>. The system fetches live Sentinel-2 data and emails you within seconds —
+    no waiting for the scheduler. Use <strong>📧 Test Email</strong> to send a sample email instantly without any threshold check.
+  </div>
+
+  <div class="cols">
+    <!-- Left: alert list -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">📋 Your Monitoring Alerts</div>
+        <div id="alerts-list-wrap">
+          <div class="empty-state">
+            <div class="icon">📡</div>
+            <p>Loading alerts…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: create form -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">➕ New Alert</div>
+
+        <div class="form-group">
+          <label>Alert Name</label>
+          <input type="text" id="f-name" placeholder="e.g. Hyderabad Wetland Zone" />
+        </div>
+
+        <div class="form-group">
+          <label>Notification Email</label>
+          <input type="email" id="f-email" placeholder="you@example.com" />
+        </div>
+
+        <div class="form-group">
+          <label>Check Frequency</label>
+          <select id="f-frequency">
+            <option value="daily">Daily</option>
+            <option value="weekly" selected>Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>📍 Region — draw rectangle on map below</label>
+          <div class="bbox-display" id="bbox-display">No region selected — draw on map</div>
+          <div id="alert-map"></div>
+          <div class="map-hint">Click and drag to draw a bounding box.</div>
+        </div>
+
+        <div class="form-group">
+          <label>⚙️ Alert Thresholds (leave blank to skip)</label>
+          <div class="threshold-grid">
+            <div>
+              <label>🌿 NDVI drop ≥</label>
+              <input type="number" id="f-ndvi" placeholder="e.g. 0.05" step="0.01" min="0" max="2" />
+            </div>
+            <div>
+              <label>🏗️ NDBI rise ≥</label>
+              <input type="number" id="f-ndbi" placeholder="e.g. 0.05" step="0.01" min="0" max="2" />
+            </div>
+            <div>
+              <label>💧 |ΔNDWI| ≥</label>
+              <input type="number" id="f-ndwi" placeholder="e.g. 0.10" step="0.01" min="0" max="2" />
+            </div>
+            <div>
+              <label>📐 Area changed ≥ ha</label>
+              <input type="number" id="f-area" placeholder="e.g. 10" step="1" min="0" />
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="create-btn" onclick="createAlert()">
+          🚨 Create Alert
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const API_URL = 'http://localhost:8000';
+
+// Read token from URL hash if opened from compare.html (file:// origin transfer)
+(function() {
+  const hash = window.location.hash.slice(1);
+  if (hash.startsWith('token=')) {
+    const tok = decodeURIComponent(hash.split('=').slice(1).join('='));
+    if (tok) {
+      localStorage.setItem('access_token', tok);
+      // Clean the hash from URL without reloading
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }
+})();
+
+const accessToken = localStorage.getItem('access_token');
+
+if (!accessToken) {
+  // Redirect back to compare (works for both file:// and http://)
+  var compareUrl = window.location.href.replace('alerts.html', 'compare.html').split('#')[0];
+  window.location.href = compareUrl;
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+// ── Map: bbox draw ────────────────────────────────────────────────────────────
+let alertMap, drawnRect = null, currentBbox = null, drawStart = null;
+
+function initMap() {
+  alertMap = L.map('alert-map').setView([20.5937, 78.9629], 5);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri', maxZoom: 19
+  }).addTo(alertMap);
+
+  // Draw bbox by click-drag
+  alertMap.on('mousedown', onMapMousedown);
+}
+
+function onMapMousedown(e) {
+  if (e.originalEvent.button !== 0) return;
+  drawStart = e.latlng;
+  alertMap.dragging.disable();
+  alertMap.on('mousemove', onMapMousemove);
+  alertMap.once('mouseup', onMapMouseup);
+}
+
+function onMapMousemove(e) {
+  if (!drawStart) return;
+  const bounds = L.latLngBounds(drawStart, e.latlng);
+  if (drawnRect) drawnRect.setBounds(bounds);
+  else drawnRect = L.rectangle(bounds, { color: '#b2e600', weight: 2, fillOpacity: 0.12 }).addTo(alertMap);
+}
+
+function onMapMouseup(e) {
+  alertMap.dragging.enable();
+  alertMap.off('mousemove', onMapMousemove);
+  if (!drawStart) return;
+  const bounds = L.latLngBounds(drawStart, e.latlng);
+  const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+  if (Math.abs(ne.lat - sw.lat) < 0.001 || Math.abs(ne.lng - sw.lng) < 0.001) {
+    toast('Region too small — drag a larger box', true);
+    return;
+  }
+  currentBbox = { west: sw.lng, south: sw.lat, east: ne.lng, north: ne.lat };
+  document.getElementById('bbox-display').textContent =
+    `N ${currentBbox.north.toFixed(5)}  S ${currentBbox.south.toFixed(5)}  E ${currentBbox.east.toFixed(5)}  W ${currentBbox.west.toFixed(5)}`;
+  drawStart = null;
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  const token = localStorage.getItem('access_token') || accessToken;
+  const res = await fetch(API_URL + path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(options.headers || {}) }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    if (res.status === 401) {
+      // Token expired — redirect back to compare to re-login
+      var compareUrl = window.location.href.replace('alerts.html', 'compare.html').split('#')[0];
+      window.location.href = compareUrl;
+      return;
+    }
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// ── Load alerts ───────────────────────────────────────────────────────────────
+let alertsById = {};
+
+async function loadAlerts() {
+  const wrap = document.getElementById('alerts-list-wrap');
+  try {
+    const data = await apiFetch('/api/alerts');
+    renderAlerts(data.alerts || []);
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+function renderAlerts(alerts) {
+  const wrap = document.getElementById('alerts-list-wrap');
+  alertsById = Object.fromEntries((alerts || []).map(a => [a.id, a]));
+  if (!alerts.length) {
+    wrap.innerHTML = `<div class="empty-state">
+      <div class="icon">🛰️</div>
+      <p>No alerts yet.<br>Create one using the form on the right.</p>
+    </div>`;
+    return;
+  }
+
+  const cards = alerts.map(a => {
+    const statusBadge = `<span class="badge badge-${a.status}">${a.status.toUpperCase()}</span>`;
+    const thr = a.thresholds || {};
+    const thrStr = [
+      thr.ndvi_drop  != null ? `NDVI drop ≥ ${thr.ndvi_drop}` : null,
+      thr.ndbi_rise  != null ? `NDBI rise ≥ ${thr.ndbi_rise}` : null,
+      thr.ndwi_change!= null ? `|ΔNDWI| ≥ ${thr.ndwi_change}` : null,
+      thr.area_ha    != null ? `Area ≥ ${thr.area_ha} ha`     : null,
+    ].filter(Boolean).join(' · ') || 'No thresholds';
+
+    const base = a.baseline || {};
+    const lastCheck = a.last_checked
+      ? new Date(a.last_checked).toLocaleString()
+      : 'Never';
+    const lastTrig = a.last_triggered
+      ? new Date(a.last_triggered).toLocaleString()
+      : 'Never';
+
+    const lr = a.last_result;
+    const lastResultHtml = lr ? `
+      <div class="last-result show" id="result-${a.id}">
+        Last check: ${new Date(lr.checked_at).toLocaleString()} ·
+        NDVI <span class="${lr.current?.ndvi < (base.ndvi||0) ? 'result-breach':'result-ok'}">${(lr.current?.ndvi||0).toFixed(4)}</span> ·
+        NDBI <span class="${lr.current?.ndbi > (base.ndbi||0) ? 'result-breach':'result-ok'}">${(lr.current?.ndbi||0).toFixed(4)}</span> ·
+        Changed ${lr.area_ha} ha ·
+        <span class="${lr.breached_count > 0 ? 'result-breach' : 'result-ok'}">${lr.breached_count > 0 ? '⚠️ BREACHED' : '✅ OK'}</span>
+      </div>` : '';
+
+    return `<div class="alert-card status-${a.status}" id="card-${a.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div class="alert-name">${a.name}</div>
+        ${statusBadge}
+      </div>
+      <div class="alert-meta">
+        📧 <span>${a.email}</span> &nbsp;·&nbsp;
+        🔄 <span>${a.frequency}</span> &nbsp;·&nbsp;
+        🎯 <span>${thrStr}</span><br>
+        🌿 Baseline NDVI <span>${(base.ndvi||0).toFixed(4)}</span> ·
+        🏗️ NDBI <span>${(base.ndbi||0).toFixed(4)}</span> ·
+        💧 NDWI <span>${(base.ndwi||0).toFixed(4)}</span><br>
+        🕐 Last checked: <span>${lastCheck}</span> &nbsp;·&nbsp;
+        🚨 Last triggered: <span>${lastTrig}</span> (${a.trigger_count}×)
+      </div>
+      ${lastResultHtml}
+      <div class="alert-actions">
+        <button class="btn btn-primary btn-sm" id="check-btn-${a.id}" onclick="runCheck(${a.id})">
+          🔴 Run Check Now
+        </button>
+        <button class="btn btn-sm" style="color:var(--accent);border-color:var(--accent);" onclick="editAlert(${a.id})">
+          ✏️ Edit
+        </button>
+        <button class="btn btn-warn btn-sm" onclick="sendTestEmail(${a.id})">
+          📧 Test Email
+        </button>
+        ${a.status === 'active' || a.status === 'triggered'
+          ? `<button class="btn btn-sm" style="color:var(--muted);border-color:#333;" onclick="togglePause(${a.id}, 'paused')">⏸ Pause</button>`
+          : `<button class="btn btn-sm" style="color:var(--accent);border-color:var(--accent);" onclick="togglePause(${a.id}, 'active')">▶ Resume</button>`
+        }
+        <button class="btn btn-danger btn-sm" onclick="deleteAlert(${a.id})">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `<div class="alerts-list">${cards}</div>`;
+}
+
+// ── Create alert ──────────────────────────────────────────────────────────────
+async function createAlert() {
+  const btn = document.getElementById('create-btn');
+  const name  = document.getElementById('f-name').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const freq  = document.getElementById('f-frequency').value;
+
+  if (!name)        return toast('Alert name is required', true);
+  if (!email)       return toast('Email is required', true);
+  if (!currentBbox) return toast('Draw a region on the map first', true);
+
+  const ndvi = parseFloat(document.getElementById('f-ndvi').value);
+  const ndbi = parseFloat(document.getElementById('f-ndbi').value);
+  const ndwi = parseFloat(document.getElementById('f-ndwi').value);
+  const area = parseFloat(document.getElementById('f-area').value);
+
+  const thresholds = {
+    ndvi_drop:   isNaN(ndvi) ? null : ndvi,
+    ndbi_rise:   isNaN(ndbi) ? null : ndbi,
+    ndwi_change: isNaN(ndwi) ? null : ndwi,
+    area_ha:     isNaN(area) ? null : area,
+  };
+
+  if (Object.values(thresholds).every(v => v === null)) {
+    return toast('Set at least one threshold', true);
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Fetching baseline…';
+
+  try {
+    const res = await apiFetch('/api/alerts', {
+      method: 'POST',
+      body: JSON.stringify({ name, bbox: currentBbox, thresholds, email, frequency: freq }),
+    });
+    toast(`✅ Alert created! Baseline NDVI ${res.baseline?.ndvi?.toFixed(4) ?? '?'}`);
+    // Reset form
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-email').value = '';
+    ['f-ndvi','f-ndbi','f-ndwi','f-area'].forEach(id => document.getElementById(id).value = '');
+    currentBbox = null;
+    document.getElementById('bbox-display').textContent = 'No region selected — draw on map';
+    if (drawnRect) { drawnRect.remove(); drawnRect = null; }
+    loadAlerts();
+  } catch (e) {
+    toast(`Error: ${e.message}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚨 Create Alert';
+  }
+}
+
+function parseOptionalNumber(raw, label) {
+  const s = (raw || '').trim();
+  if (!s) return null;
+  const n = parseFloat(s);
+  if (Number.isNaN(n)) throw new Error(`${label} must be a number`);
+  if (n < 0) throw new Error(`${label} cannot be negative`);
+  return n;
+}
+
+async function editAlert(alertId) {
+  const a = alertsById[alertId];
+  if (!a) return toast('Alert not found in current list', true);
+
+  const name = prompt('Alert name:', a.name ?? '');
+  if (name === null) return;
+
+  const email = prompt('Notification email:', a.email ?? '');
+  if (email === null) return;
+
+  const freqInput = prompt('Frequency (daily / weekly / monthly):', a.frequency ?? 'weekly');
+  if (freqInput === null) return;
+  const frequency = freqInput.trim().toLowerCase();
+  if (!['daily', 'weekly', 'monthly'].includes(frequency)) {
+    return toast('Frequency must be daily, weekly, or monthly', true);
+  }
+
+  const thr = a.thresholds || {};
+  const ndviRaw = prompt('NDVI drop threshold (blank = disable):', thr.ndvi_drop ?? '');
+  if (ndviRaw === null) return;
+  const ndbiRaw = prompt('NDBI rise threshold (blank = disable):', thr.ndbi_rise ?? '');
+  if (ndbiRaw === null) return;
+  const ndwiRaw = prompt('|ΔNDWI| threshold (blank = disable):', thr.ndwi_change ?? '');
+  if (ndwiRaw === null) return;
+  const areaRaw = prompt('Area changed threshold in ha (blank = disable):', thr.area_ha ?? '');
+  if (areaRaw === null) return;
+
+  let bbox;
+  if (confirm('Use currently drawn map rectangle as new region? Click Cancel to keep current region.')) {
+    if (!currentBbox) return toast('Draw a region on the map first', true);
+    bbox = currentBbox;
+  }
+
+  try {
+    const thresholds = {
+      ndvi_drop: parseOptionalNumber(ndviRaw, 'NDVI drop'),
+      ndbi_rise: parseOptionalNumber(ndbiRaw, 'NDBI rise'),
+      ndwi_change: parseOptionalNumber(ndwiRaw, 'NDWI change'),
+      area_ha: parseOptionalNumber(areaRaw, 'Area'),
+    };
+
+    await apiFetch(`/api/alerts/${alertId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), frequency, thresholds, bbox }),
+    });
+    toast('✅ Alert updated');
+    loadAlerts();
+  } catch (e) {
+    toast(`Update failed: ${e.message}`, true);
+  }
+}
+
+// ── Run check now ─────────────────────────────────────────────────────────────
+async function runCheck(alertId) {
+  const btn = document.getElementById(`check-btn-${alertId}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Checking…'; }
+  try {
+    const res = await apiFetch(`/api/alerts/${alertId}/run-check`, { method: 'POST' });
+    const count = res.breached?.length || 0;
+    if (count > 0) {
+      toast(`🚨 ${count} threshold(s) breached! Email sent: ${res.email_sent ? 'YES ✓' : 'NO'}`);
+    } else {
+      toast(`✅ No thresholds breached. NDVI ${res.current_values?.ndvi?.toFixed(4) ?? '?'}`);
+    }
+    if (res.error) toast(`⚠️ ${res.error}`, true);
+    loadAlerts();
+  } catch (e) {
+    toast(`Check failed: ${e.message}`, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔴 Run Check Now'; }
+  }
+}
+
+// ── Test email ────────────────────────────────────────────────────────────────
+async function sendTestEmail(alertId) {
+  try {
+    const res = await apiFetch(`/api/alerts/${alertId}/test-email`, { method: 'POST' });
+    toast(`📧 Test email sent to ${res.to}`);
+  } catch (e) {
+    toast(`Email failed: ${e.message}`, true);
+  }
+}
+
+// ── Pause / resume ────────────────────────────────────────────────────────────
+async function togglePause(alertId, newStatus) {
+  try {
+    await apiFetch(`/api/alerts/${alertId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
+    toast(`Alert ${newStatus === 'paused' ? 'paused' : 'resumed'}`);
+    loadAlerts();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteAlert(alertId) {
+  if (!confirm('Delete this alert permanently?')) return;
+  try {
+    await apiFetch(`/api/alerts/${alertId}`, { method: 'DELETE' });
+    toast('Alert deleted');
+    loadAlerts();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+initMap();
+loadAlerts();
+</script>
+</body>
+</html>

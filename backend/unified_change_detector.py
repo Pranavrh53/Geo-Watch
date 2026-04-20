@@ -454,6 +454,170 @@ class UnifiedTemporalChangeDetector:
             fetch_errors.append(err_msg)
         return self._generate_demo_year(year, size)
 
+    def _fetch_window_data(
+        self,
+        bbox: Dict[str, float],
+        start_dt: datetime,
+        end_dt: datetime,
+        size: int,
+        fetch_errors: Optional[List[str]] = None,
+    ) -> YearlyData:
+        """
+        Fetch real Sentinel-2 spectral indices for an arbitrary date window.
+        Used by alert checks for daily/weekly/monthly rolling comparisons.
+        """
+        if end_dt <= start_dt:
+            raise ValueError("end_dt must be greater than start_dt")
+
+        if self.demo_mode:
+            msg = (
+                f"{start_dt.date()}..{end_dt.date()}: running in demo mode "
+                "(no Copernicus credentials configured)"
+            )
+            logger.warning(msg)
+            if fetch_errors is not None:
+                fetch_errors.append(msg)
+            return self._generate_demo_year(end_dt.year, size)
+
+        time_from = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        time_to = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        for attempt in range(2):
+            token = self._get_access_token(force_refresh=(attempt > 0))
+            if not token:
+                break
+
+            body = {
+                "input": {
+                    "bounds": {
+                        "bbox": [bbox["west"], bbox["south"], bbox["east"], bbox["north"]],
+                        "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
+                    },
+                    "data": [{
+                        "type": "sentinel-2-l2a",
+                        "dataFilter": {
+                            "timeRange": {
+                                "from": time_from,
+                                "to": time_to,
+                            },
+                            "maxCloudCoverage": 95,
+                            "mosaickingOrder": "leastCC",
+                        },
+                    }],
+                },
+                "output": {
+                    "width": size,
+                    "height": size,
+                    "responses": [{"identifier": "default", "format": {"type": "image/png"}}],
+                },
+                "evalscript": YEARLY_INDICES_EVALSCRIPT,
+            }
+
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "image/png",
+            }
+
+            try:
+                logger.info(
+                    "Fetching Sentinel-2 spectral data for window %s..%s (attempt %d)",
+                    start_dt.date(),
+                    end_dt.date(),
+                    attempt + 1,
+                )
+                response = requests.post(
+                    PROCESS_API_URL,
+                    json=body,
+                    headers=headers,
+                    timeout=120,
+                    proxies=self.proxies,
+                )
+
+                if response.status_code == 401 and attempt == 0:
+                    logger.warning("Got 401 for window %s..%s — forcing token refresh", start_dt.date(), end_dt.date())
+                    self.access_token = None
+                    self.token_expiry = None
+                    continue
+
+                if not response.ok:
+                    body_snippet = response.text[:600]
+                    raise ValueError(f"Process API HTTP {response.status_code}: {body_snippet}")
+
+                content_type = response.headers.get("Content-Type", "")
+                if "image" not in content_type:
+                    raise ValueError(f"Process API returned non-image content-type: {content_type}")
+
+                raw_payload = response.content
+
+                arr = None
+                try:
+                    image = Image.open(io.BytesIO(raw_payload)).convert("RGBA")
+                    arr = np.array(image)
+                except Exception as pil_exc:
+                    logger.info(
+                        "PIL decode failed for window %s..%s (%s); trying rasterio.",
+                        start_dt.date(),
+                        end_dt.date(),
+                        pil_exc,
+                    )
+                    from rasterio.io import MemoryFile
+                    with MemoryFile(raw_payload) as mem:
+                        with mem.open() as ds:
+                            bands = ds.read()
+                            if bands.shape[0] < 4:
+                                raise ValueError(f"Rasterio: only {bands.shape[0]} bands returned")
+                            arr = np.stack([bands[0], bands[1], bands[2], bands[3]], axis=-1)
+
+                if arr.ndim == 2:
+                    arr = np.expand_dims(arr, axis=-1)
+                if arr.shape[-1] < 4:
+                    raise ValueError(f"Decoded array has only {arr.shape[-1]} channels (need 4)")
+
+                ndvi = (arr[:, :, 0].astype(np.float32) / 127.5) - 1.0
+                ndbi = (arr[:, :, 1].astype(np.float32) / 127.5) - 1.0
+                ndwi = (arr[:, :, 2].astype(np.float32) / 127.5) - 1.0
+                scl = arr[:, :, 3].astype(np.uint8)
+
+                valid = np.isin(scl, list(GOOD_SCL))
+                cloud_percent = float((1.0 - np.mean(valid)) * 100.0)
+
+                if np.std(ndvi) < 0.001:
+                    raise ValueError(
+                        f"NDVI std={np.std(ndvi):.5f} — image appears uniform/blank for {start_dt.date()}..{end_dt.date()}"
+                    )
+
+                return YearlyData(
+                    year=end_dt.year,
+                    ndvi=ndvi,
+                    ndbi=ndbi,
+                    ndwi=ndwi,
+                    valid_mask=valid,
+                    cloud_percent=cloud_percent,
+                    is_synthetic=False,
+                )
+
+            except Exception as exc:
+                logger.warning(
+                    "Sentinel-2 fetch attempt %d failed for window %s..%s: %s",
+                    attempt + 1,
+                    start_dt.date(),
+                    end_dt.date(),
+                    exc,
+                )
+                if attempt == 0:
+                    continue
+                break
+
+        err_msg = (
+            f"{start_dt.date()}..{end_dt.date()}: Sentinel-2 API fetch failed — using synthetic fallback. "
+            "Check Copernicus credentials and network connectivity."
+        )
+        logger.warning(err_msg)
+        if fetch_errors is not None:
+            fetch_errors.append(err_msg)
+        return self._generate_demo_year(end_dt.year, size)
+
     def _generate_demo_year(self, year: int, size: int) -> YearlyData:
         rng = np.random.RandomState(year)
         h = w = size
@@ -1107,38 +1271,50 @@ class UnifiedTemporalChangeDetector:
             vals = arr[mask] if np.any(mask) else arr.ravel()
             return round(float(np.nanmean(vals)), 4) if vals.size > 0 else 0.0
 
-        # Scene-level means over comparable pixels (supporting context).
-        ndvi_before_scene_mean = _safe_mean(ndvi_before, common_valid)
-        ndvi_after_scene_mean = _safe_mean(ndvi_after, common_valid)
-        ndbi_before_scene_mean = _safe_mean(ndbi_before, common_valid)
-        ndbi_after_scene_mean = _safe_mean(ndbi_after, common_valid)
-        ndwi_before_scene_mean = _safe_mean(ndwi_before, common_valid)
-        ndwi_after_scene_mean = _safe_mean(ndwi_after, common_valid)
+        # PRIMARY: Scene-wide means over all comparable cloud-free pixels.
+        # These are the values shown in the Spectral Index Comparison table
+        # and MUST match the land-cover classification scope (all valid pixels)
+        # so the report is internally consistent.
+        ndvi_before_mean = _safe_mean(ndvi_before, common_valid)
+        ndvi_after_mean = _safe_mean(ndvi_after, common_valid)
+        ndbi_before_mean = _safe_mean(ndbi_before, common_valid)
+        ndbi_after_mean = _safe_mean(ndbi_after, common_valid)
+        ndwi_before_mean = _safe_mean(ndwi_before, common_valid)
+        ndwi_after_mean = _safe_mean(ndwi_after, common_valid)
 
-        # Change-focused means align summary indices with detected change regions.
+        # Aliases for backward-compatible output keys.
+        ndvi_before_scene_mean = ndvi_before_mean
+        ndvi_after_scene_mean = ndvi_after_mean
+        ndbi_before_scene_mean = ndbi_before_mean
+        ndbi_after_scene_mean = ndbi_after_mean
+        ndwi_before_scene_mean = ndwi_before_mean
+        ndwi_after_scene_mean = ndwi_after_mean
+
+        # SECONDARY: Change-focused means (only detected-change pixels).
+        # These are supplementary — shown as additional context, NOT primary.
         change_focus_mask = detected_mask & common_valid
         if int(np.sum(change_focus_mask)) < 64:
             change_focus_mask = common_valid
 
-        ndvi_before_mean = _safe_mean(ndvi_before, change_focus_mask)
-        ndvi_after_mean = _safe_mean(ndvi_after, change_focus_mask)
-        ndbi_before_mean = _safe_mean(ndbi_before, change_focus_mask)
-        ndbi_after_mean = _safe_mean(ndbi_after, change_focus_mask)
-        ndwi_before_mean = _safe_mean(ndwi_before, change_focus_mask)
-        ndwi_after_mean = _safe_mean(ndwi_after, change_focus_mask)
+        ndvi_before_change = _safe_mean(ndvi_before, change_focus_mask)
+        ndvi_after_change = _safe_mean(ndvi_after, change_focus_mask)
+        ndbi_before_change = _safe_mean(ndbi_before, change_focus_mask)
+        ndbi_after_change = _safe_mean(ndbi_after, change_focus_mask)
+        ndwi_before_change = _safe_mean(ndwi_before, change_focus_mask)
+        ndwi_after_change = _safe_mean(ndwi_after, change_focus_mask)
 
-        # Land cover fractions (computed on AFTER image, cloud-masked)
-        total_valid_after = max(1, float(np.sum(valid_after)))
-        veg_pct     = round(float(np.sum((ndvi_after > 0.25) & (ndwi_after < 0.1) & valid_after)) / total_valid_after * 100, 1)
-        builtup_pct = round(float(np.sum((ndbi_after > 0.10) & (ndvi_after < 0.25) & valid_after)) / total_valid_after * 100, 1)
-        water_pct   = round(float(np.sum((ndwi_after > 0.10) & valid_after)) / total_valid_after * 100, 1)
+        # Land cover fractions — use common_valid (same mask as spectral means)
+        # so the direction of % change always agrees with the NDVI/NDBI mean deltas.
+        total_common = max(1, float(np.sum(common_valid)))
+
+        veg_pct     = round(float(np.sum((ndvi_after  > 0.25) & (ndwi_after  < 0.1) & common_valid)) / total_common * 100, 1)
+        builtup_pct = round(float(np.sum((ndbi_after  > 0.10) & (ndvi_after  < 0.25) & common_valid)) / total_common * 100, 1)
+        water_pct   = round(float(np.sum((ndwi_after  > 0.10) & common_valid))                        / total_common * 100, 1)
         bare_pct    = round(max(0.0, 100.0 - veg_pct - builtup_pct - water_pct), 1)
 
-        # ── Same fractions for BEFORE image ──
-        total_valid_before = max(1, float(np.sum(valid_before)))
-        veg_before_pct     = round(float(np.sum((ndvi_before > 0.25) & (ndwi_before < 0.1) & valid_before)) / total_valid_before * 100, 1)
-        builtup_before_pct = round(float(np.sum((ndbi_before > 0.10) & (ndvi_before < 0.25) & valid_before)) / total_valid_before * 100, 1)
-        water_before_pct   = round(float(np.sum((ndwi_before > 0.10) & valid_before)) / total_valid_before * 100, 1)
+        veg_before_pct     = round(float(np.sum((ndvi_before > 0.25) & (ndwi_before < 0.1) & common_valid)) / total_common * 100, 1)
+        builtup_before_pct = round(float(np.sum((ndbi_before > 0.10) & (ndvi_before < 0.25) & common_valid)) / total_common * 100, 1)
+        water_before_pct   = round(float(np.sum((ndwi_before > 0.10) & common_valid))                        / total_common * 100, 1)
         bare_before_pct    = round(max(0.0, 100.0 - veg_before_pct - builtup_before_pct - water_before_pct), 1)
 
         # ── Confidence score (0–100) ──
@@ -1243,7 +1419,10 @@ class UnifiedTemporalChangeDetector:
                     "scene_before": ndvi_before_scene_mean,
                     "scene_after": ndvi_after_scene_mean,
                     "scene_delta": round(ndvi_after_scene_mean - ndvi_before_scene_mean, 4),
-                    "scope": "change_focus",
+                    "change_focus_before": ndvi_before_change,
+                    "change_focus_after": ndvi_after_change,
+                    "change_focus_delta": round(ndvi_after_change - ndvi_before_change, 4),
+                    "scope": "scene_wide",
                     "interpretation": (
                         "Vegetation declining" if ndvi_after_mean - ndvi_before_mean < -0.05
                         else "Vegetation recovering" if ndvi_after_mean - ndvi_before_mean > 0.05
@@ -1257,7 +1436,10 @@ class UnifiedTemporalChangeDetector:
                     "scene_before": ndbi_before_scene_mean,
                     "scene_after": ndbi_after_scene_mean,
                     "scene_delta": round(ndbi_after_scene_mean - ndbi_before_scene_mean, 4),
-                    "scope": "change_focus",
+                    "change_focus_before": ndbi_before_change,
+                    "change_focus_after": ndbi_after_change,
+                    "change_focus_delta": round(ndbi_after_change - ndbi_before_change, 4),
+                    "scope": "scene_wide",
                     "interpretation": (
                         "Built-up area increasing" if ndbi_after_mean - ndbi_before_mean > 0.03
                         else "Built-up area decreasing" if ndbi_after_mean - ndbi_before_mean < -0.03
@@ -1271,7 +1453,10 @@ class UnifiedTemporalChangeDetector:
                     "scene_before": ndwi_before_scene_mean,
                     "scene_after": ndwi_after_scene_mean,
                     "scene_delta": round(ndwi_after_scene_mean - ndwi_before_scene_mean, 4),
-                    "scope": "change_focus",
+                    "change_focus_before": ndwi_before_change,
+                    "change_focus_after": ndwi_after_change,
+                    "change_focus_delta": round(ndwi_after_change - ndwi_before_change, 4),
+                    "scope": "scene_wide",
                     "interpretation": (
                         "Water presence increasing" if ndwi_after_mean - ndwi_before_mean > 0.03
                         else "Water presence decreasing" if ndwi_after_mean - ndwi_before_mean < -0.03
