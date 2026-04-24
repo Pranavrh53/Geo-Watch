@@ -10,7 +10,11 @@ let knotA = 0;
 let knotB = 0;
 let userLocationMarker = null;
 let userLocationAccuracyCircle = null;
-let accessToken = localStorage.getItem('access_token');
+// Token normalization: older pages used `auth_token`, newer pages use `access_token`.
+let accessToken = localStorage.getItem('access_token') || localStorage.getItem('auth_token');
+if (accessToken && !localStorage.getItem('access_token')) {
+    localStorage.setItem('access_token', accessToken);
+}
 let currentUser = localStorage.getItem('username');
 
 const KNOT_W = 56;
@@ -968,6 +972,7 @@ function showAlert(message, type = 'error') {
 
 function logout() {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('username');
     window.location.href = 'login.html';
 }

@@ -1373,6 +1373,11 @@ class UnifiedTemporalChangeDetector:
         else:
             severity = "Low"
 
+        # ══════════════════════════════════════════════════════════════
+        # TRAJECTORY PREDICTION — Linear regression on yearly means
+        # ══════════════════════════════════════════════════════════════
+        trajectory = self._compute_trajectory(years, yearly_spectral_stats, total_area_hectares)
+
         result = {
             "status": "success",
             "method": "Unified Multi-Temporal CNN+ConvLSTM + Period-Median Smoothing",
@@ -1480,6 +1485,7 @@ class UnifiedTemporalChangeDetector:
             },
             "classified_changes": class_stats,
             "trend_summary": trend_stats,
+            "trajectory": trajectory,
             "leaflet_layers": {
                 "change_probability_heatmap": {
                     "name": "Change Probability",
@@ -1518,6 +1524,164 @@ class UnifiedTemporalChangeDetector:
             }
 
         return result
+
+    def _compute_trajectory(
+        self,
+        years: List[int],
+        yearly_spectral_stats: Dict,
+        total_area_ha: float,
+    ) -> Dict:
+        """
+        Linear regression on yearly NDVI / NDBI / NDWI means.
+
+        Extrapolates forward to predict:
+        - When NDVI will drop below 0.10 (vegetation effectively gone)
+        - When NDBI will exceed 0.30 (fully urbanized)
+        - Estimated years remaining at current rate
+        """
+        if len(years) < 2:
+            return {"available": False, "reason": "Need at least 2 years of data"}
+
+        # Extract yearly means (only real data years)
+        data_years = []
+        ndvi_vals = []
+        ndbi_vals = []
+        ndwi_vals = []
+
+        for y in years:
+            stats = yearly_spectral_stats.get(str(y), {})
+            if stats.get("source") == "synthetic":
+                continue
+            ndvi_m = stats.get("ndvi_mean")
+            ndbi_m = stats.get("ndbi_mean")
+            ndwi_m = stats.get("ndwi_mean")
+            if ndvi_m is not None and ndbi_m is not None:
+                data_years.append(y)
+                ndvi_vals.append(ndvi_m)
+                ndbi_vals.append(ndbi_m)
+                ndwi_vals.append(ndwi_m if ndwi_m is not None else 0.0)
+
+        if len(data_years) < 2:
+            return {"available": False, "reason": "Need at least 2 real data years"}
+
+        x = np.array(data_years, dtype=np.float64)
+        last_year = int(x[-1])
+
+        def _regress(vals, name):
+            y_arr = np.array(vals, dtype=np.float64)
+            coeffs = np.polyfit(x, y_arr, 1)  # [slope, intercept]
+            slope = round(float(coeffs[0]), 6)
+            intercept = round(float(coeffs[1]), 4)
+
+            # R² calculation
+            y_pred = np.polyval(coeffs, x)
+            ss_res = float(np.sum((y_arr - y_pred) ** 2))
+            ss_tot = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+            r_squared = round(1.0 - ss_res / max(ss_tot, 1e-12), 4)
+
+            # Historical data points
+            historical = [
+                {"year": int(data_years[i]), "value": round(float(y_arr[i]), 4)}
+                for i in range(len(data_years))
+            ]
+
+            # Projected values (10 years forward from last data year)
+            projected = []
+            for fy in range(last_year + 1, last_year + 11):
+                proj_val = round(float(np.polyval(coeffs, fy)), 4)
+                projected.append({"year": fy, "value": proj_val})
+
+            return {
+                "slope_per_year": slope,
+                "intercept": intercept,
+                "r_squared": r_squared,
+                "historical": historical,
+                "projected": projected,
+                "current_value": round(float(y_arr[-1]), 4),
+                "trend": "declining" if slope < -0.002 else "increasing" if slope > 0.002 else "stable",
+            }
+
+        ndvi_reg = _regress(ndvi_vals, "NDVI")
+        ndbi_reg = _regress(ndbi_vals, "NDBI")
+        ndwi_reg = _regress(ndwi_vals, "NDWI")
+
+        # ── Milestone predictions ──
+        milestones = []
+
+        # When will NDVI drop below 0.10? (vegetation effectively gone)
+        if ndvi_reg["slope_per_year"] < -0.001 and ndvi_reg["current_value"] > 0.10:
+            years_to_threshold = (ndvi_reg["current_value"] - 0.10) / abs(ndvi_reg["slope_per_year"])
+            target_year = last_year + int(round(years_to_threshold))
+            milestones.append({
+                "metric": "NDVI",
+                "event": "Vegetation effectively gone",
+                "threshold": 0.10,
+                "predicted_year": target_year,
+                "years_remaining": round(years_to_threshold, 1),
+                "confidence": "high" if ndvi_reg["r_squared"] > 0.7 else "moderate" if ndvi_reg["r_squared"] > 0.4 else "low",
+                "message": f"At current rate of decline ({abs(ndvi_reg['slope_per_year']):.4f}/yr), vegetation in this region will be effectively gone by {target_year}.",
+            })
+
+        # When will NDBI exceed 0.30? (fully urbanized)
+        if ndbi_reg["slope_per_year"] > 0.001 and ndbi_reg["current_value"] < 0.30:
+            years_to_threshold = (0.30 - ndbi_reg["current_value"]) / ndbi_reg["slope_per_year"]
+            target_year = last_year + int(round(years_to_threshold))
+            milestones.append({
+                "metric": "NDBI",
+                "event": "Region fully urbanized",
+                "threshold": 0.30,
+                "predicted_year": target_year,
+                "years_remaining": round(years_to_threshold, 1),
+                "confidence": "high" if ndbi_reg["r_squared"] > 0.7 else "moderate" if ndbi_reg["r_squared"] > 0.4 else "low",
+                "message": f"At current urbanization rate ({ndbi_reg['slope_per_year']:.4f}/yr), this region will be fully urbanized by {target_year}.",
+            })
+
+        # When will all vegetation area be converted? (ha/year estimate)
+        veg_pct_first = ndvi_vals[0]
+        veg_pct_last = ndvi_vals[-1]
+        veg_decline_rate = (veg_pct_first - veg_pct_last) / max(1, len(data_years) - 1)
+
+        if veg_decline_rate > 0.002:
+            remaining_veg_fraction = max(0, veg_pct_last - 0.10) / max(veg_decline_rate, 1e-8)
+            full_loss_year = last_year + int(round(remaining_veg_fraction))
+            area_loss_per_year = round(veg_decline_rate * total_area_ha, 2)
+            milestones.append({
+                "metric": "VEGETATION_AREA",
+                "event": "Complete vegetation loss",
+                "predicted_year": full_loss_year,
+                "years_remaining": round(remaining_veg_fraction, 1),
+                "area_loss_per_year_ha": area_loss_per_year,
+                "confidence": "moderate",
+                "message": f"Approximately {area_loss_per_year} ha of vegetation lost per year. At this rate, remaining green cover will be gone by {full_loss_year}.",
+            })
+
+        # ── Narrative summary ──
+        narratives = []
+        if ndvi_reg["trend"] == "declining":
+            narratives.append(f"🌿 NDVI declining at {abs(ndvi_reg['slope_per_year']):.4f}/year — vegetation is being lost.")
+        elif ndvi_reg["trend"] == "increasing":
+            narratives.append(f"🌿 NDVI increasing at {ndvi_reg['slope_per_year']:.4f}/year — vegetation recovering.")
+        else:
+            narratives.append("🌿 NDVI stable — no significant vegetation trend.")
+
+        if ndbi_reg["trend"] == "increasing":
+            narratives.append(f"🏗️ NDBI rising at {ndbi_reg['slope_per_year']:.4f}/year — urbanization in progress.")
+        elif ndbi_reg["trend"] == "declining":
+            narratives.append(f"🏗️ NDBI declining at {abs(ndbi_reg['slope_per_year']):.4f}/year — de-urbanization or greening.")
+        else:
+            narratives.append("🏗️ NDBI stable — no significant built-up trend.")
+
+        return {
+            "available": True,
+            "data_years": data_years,
+            "n_real_years": len(data_years),
+            "ndvi": ndvi_reg,
+            "ndbi": ndbi_reg,
+            "ndwi": ndwi_reg,
+            "milestones": milestones,
+            "narratives": narratives,
+            "total_area_ha": round(total_area_ha, 2),
+        }
 
     def generate_animation_frames(
         self,

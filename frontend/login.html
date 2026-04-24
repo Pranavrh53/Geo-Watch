@@ -4,670 +4,410 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🛰️ Geo-Watch - Access Terminal</title>
-    <!-- Google Fonts - Retro Style -->
+    <!-- Google Fonts - Pixel theme -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="pixel-auth/assets/styles-_g1K9rK6.css">
     <style>
-        * {
-            margin: 0;
+        /* Small page-specific additions on top of the pixel-auth theme */
+        .page-wrap {
+            position: relative;
+            min-height: 100svh;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .alert-banner {
+            display: none;
+            font-family: var(--font-pixel-body);
+            font-size: 1.05rem;
+            letter-spacing: 0.02em;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(1, 2, 16, 0.6);
+            backdrop-filter: blur(8px);
+        }
+
+        .alert-banner.show { display: block; }
+        .alert-banner.success {
+            border-color: rgba(52, 244, 122, 0.35);
+            box-shadow: 0 0 0 3px rgba(52, 244, 122, 0.12), 0 0 30px rgba(52, 244, 122, 0.2);
+        }
+        .alert-banner.error {
+            border-color: rgba(255, 151, 125, 0.35);
+            box-shadow: 0 0 0 3px rgba(255, 151, 125, 0.12), 0 0 30px rgba(255, 151, 125, 0.18);
+        }
+
+        .helper-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .pixel-link {
+            font-family: var(--font-pixel);
+            font-size: 0.52rem;
+            letter-spacing: 0.14em;
+            color: var(--neon-green);
+        }
+        .pixel-link:hover { text-decoration: underline; }
+
+        .sr-only-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Space Mono', monospace;
-            background: 
-                radial-gradient(2px 2px at 20% 30%, white, transparent),
-                radial-gradient(2px 2px at 60% 70%, white, transparent),
-                radial-gradient(1px 1px at 50% 50%, white, transparent),
-                radial-gradient(1px 1px at 80% 10%, white, transparent),
-                radial-gradient(2px 2px at 90% 60%, white, transparent),
-                radial-gradient(1px 1px at 33% 80%, white, transparent),
-                radial-gradient(1px 1px at 15% 60%, white, transparent),
-                linear-gradient(to bottom, 
-                    #0a0a1f 0%, 
-                    #1a1a3f 30%, 
-                    #2a4a6a 60%, 
-                    #4a7a8a 75%,
-                    #8ab4a4 85%,
-                    #a0d084 92%,
-                    #70b060 100%
-                );
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
+            margin: -1px;
             overflow: hidden;
-            animation: cosmicShift 60s ease-in-out infinite;
-        }
-
-        @keyframes cosmicShift {
-            0%, 100% { background-position: 0% 0%; }
-            50% { background-position: 100% 100%; }
-        }
-
-        body::before {
-            content: '🌍';
-            position: fixed;
-            font-size: 300px;
-            opacity: 0.25;
-            bottom: -50px;
-            right: -50px;
-            z-index: 0;
-            animation: earthRotate 120s linear infinite;
-            text-shadow: 
-                0 0 50px rgba(0, 184, 169, 0.9),
-                0 0 80px rgba(178, 230, 0, 0.7),
-                0 0 100px rgba(255, 255, 255, 0.5);
-            -webkit-text-stroke: 2px rgba(255, 255, 255, 0.2);
-        }
-
-        @keyframes earthRotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        body::after {
-            content: '🛰️';
-            position: fixed;
-            font-size: 80px;
-            opacity: 0.35;
-            top: 10%;
-            left: 10%;
-            z-index: 0;
-            animation: satelliteFloat 20s ease-in-out infinite;
-            text-shadow: 
-                0 0 25px rgba(85, 85, 255, 1),
-                0 0 45px rgba(255, 255, 255, 0.8),
-                2px 2px 6px rgba(0, 0, 0, 0.5);
-            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3);
-        }
-
-        @keyframes satelliteFloat {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            50% { transform: translate(30px, -20px) rotate(15deg); }
-        }
-
-        .login-container {
-            background: rgba(255, 255, 255, 0.98);
-            border: 8px solid transparent;
-            border-image: linear-gradient(135deg, #5555FF 0%, #00B8A9 25%, #B2E600 50%, #FF7070 75%, #5555FF 100%) 1;
-            border-radius: 0;
-            box-shadow: 
-                0 0 0 2px rgba(85, 85, 255, 0.3),
-                0 0 0 4px rgba(0, 184, 169, 0.2),
-                0 0 0 6px rgba(178, 230, 0, 0.1),
-                20px 20px 40px rgba(0, 0, 0, 0.3),
-                inset 0 0 60px rgba(85, 85, 255, 0.05);
-            overflow: hidden;
-            display: flex;
-            max-width: 1000px;
-            width: 90%;
-            position: relative;
-            z-index: 10;
-            animation: fadeIn 0.5s ease-in, containerFloat 6s ease-in-out infinite;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95) translateY(20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        @keyframes containerFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .login-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 12px;
-            background: linear-gradient(90deg, 
-                #5555FF 0%, 
-                #00B8A9 20%, 
-                #B2E600 40%, 
-                #FF7070 60%, 
-                #5555FF 80%,
-                #00B8A9 100%
-            );
-            background-size: 200% 100%;
-            animation: rainbowSlide 8s linear infinite;
-        }
-
-        @keyframes rainbowSlide {
-            0% { background-position: 0% 0%; }
-            100% { background-position: 200% 0%; }
-        }
-
-        @keyframes borderGlow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-
-        .login-left {
-            flex: 1;
-            padding: 60px 50px;
-            background: 
-                linear-gradient(135deg, 
-                    rgba(85, 85, 255, 0.15) 0%, 
-                    transparent 30%
-                ),
-                linear-gradient(-45deg, 
-                    rgba(178, 230, 0, 0.2) 70%, 
-                    transparent 100%
-                ),
-                linear-gradient(135deg, #2a4a7f 0%, #1a3a6f 100%);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            border-right: 4px dashed rgba(255, 255, 255, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .login-left::before {
-            content: '🛰️';
-            position: absolute;
-            font-size: 200px;
-            opacity: 0.25;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-15deg);
-            animation: satelliteOrbit 30s linear infinite;
-            text-shadow: 
-                0 0 40px rgba(85, 85, 255, 0.9),
-                0 0 60px rgba(178, 230, 0, 0.7),
-                0 0 80px rgba(255, 255, 255, 0.5);
-            -webkit-text-stroke: 2px rgba(255, 255, 255, 0.2);
-        }
-
-        @keyframes satelliteOrbit {
-            0%, 100% { transform: translate(-50%, -50%) rotate(-15deg); }
-            50% { transform: translate(-45%, -55%) rotate(15deg); }
-        }
-
-        .login-left::after {
-            content: '🚀';
-            position: absolute;
-            font-size: 60px;
-            opacity: 0.35;
-            bottom: 10%;
-            right: 10%;
-            animation: rocketLaunch 25s ease-in-out infinite;
-            text-shadow: 
-                0 0 20px rgba(255, 112, 112, 1),
-                0 0 35px rgba(255, 255, 255, 0.8),
-                2px 2px 6px rgba(0, 0, 0, 0.5);
-            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3);
-        }
-
-        @keyframes rocketLaunch {
-            0%, 100% { transform: translateY(0) rotate(45deg); opacity: 0.2; }
-            50% { transform: translateY(-100px) rotate(60deg); opacity: 0.4; }
-        }
-
-        .login-left h1 {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 1.8em;
-            margin-bottom: 20px;
-            color: white;
-            position: relative;
-            z-index: 1;
-            text-shadow: 
-                0 0 10px rgba(178, 230, 0, 0.8),
-                0 0 20px rgba(85, 85, 255, 0.6),
-                3px 3px 0 rgba(0, 0, 0, 0.3);
-            animation: titleGlow 3s ease-in-out infinite;
-        }
-
-        @keyframes titleGlow {
-            0%, 100% { 
-                text-shadow: 
-                    0 0 10px rgba(178, 230, 0, 0.8),
-                    0 0 20px rgba(85, 85, 255, 0.6),
-                    3px 3px 0 rgba(0, 0, 0, 0.3);
-            }
-            50% { 
-                text-shadow: 
-                    0 0 20px rgba(178, 230, 0, 1),
-                    0 0 30px rgba(85, 85, 255, 0.8),
-                    3px 3px 0 rgba(0, 0, 0, 0.3);
-            }
-        }
-
-        .login-left p {
-            font-size: 1em;
-            line-height: 1.8;
-            color: rgba(255, 255, 255, 0.9);
-            position: relative;
-            z-index: 1;
-            font-weight: 600;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-        }
-
-        .feature-list {
-            margin-top: 30px;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            margin: 15px 0;
-            padding: 12px;
-            background: rgba(178, 230, 0, 0.15);
-            border-left: 5px solid #B2E600;
-            border-radius: 0;
-            backdrop-filter: blur(10px);
-            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
-            transition: all 0.3s;
-            position: relative;
-            z-index: 1;
-            font-size: 0.9em;
-            color: white;
-            font-weight: 600;
-        }
-
-        .feature-item:hover {
-            background: rgba(178, 230, 0, 0.25);
-            transform: translateX(5px);
-            border-left-color: #FF7070;
-            box-shadow: 6px 4px 0 rgba(255, 112, 112, 0.3);
-        }
-
-        .feature-icon {
-            font-size: 2.2em;
-            margin-right: 15px;
-            display: inline-block;
-            text-shadow: 
-                0 0 15px rgba(178, 230, 0, 1),
-                0 0 25px rgba(178, 230, 0, 0.8),
-                0 0 35px rgba(255, 255, 255, 0.6),
-                2px 2px 4px rgba(0, 0, 0, 0.5);
-            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3);
-        }
-
-        .login-right {
-            flex: 1;
-            padding: 60px 50px;
-            background: #ffffff;
-            position: relative;
-            z-index: 1;
-        }
-
-        .form-container h2 {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 1.5em;
-            color: #00B8A9;
-            margin-bottom: 15px;
-            text-shadow: 3px 3px 0 rgba(0, 184, 169, 0.1);
-        }
-
-        .form-container p {
-            color: #666666;
-            margin-bottom: 30px;
-            font-size: 0.95em;
-        }
-
-        .tab-buttons {
-            display: flex;
-            margin-bottom: 30px;
-            gap: 10px;
-            border: none;
-        }
-
-        .tab-button {
-            flex: 1;
-            padding: 14px 20px;
-            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
-            border: 4px solid #5555FF;
-            border-bottom-width: 6px;
-            border-radius: 0;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.65em;
-            color: #5555FF;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 0 #4444CC, 4px 4px 0 rgba(85, 85, 255, 0.2);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tab-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-            transition: left 0.5s;
-        }
-
-        .tab-button:hover::before {
-            left: 100%;
-        }
-
-        .tab-button:hover {
-            background: linear-gradient(135deg, #5555FF 0%, #4444EE 100%);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 0 #4444CC, 4px 6px 0 rgba(85, 85, 255, 0.3);
-        }
-
-        .tab-button.active {
-            background: linear-gradient(135deg, #FF7070 0%, #FF5555 100%);
-            border-color: #FF7070;
-            color: white;
-            transform: translateY(0);
-            box-shadow: 0 0 0 #FF5555, 6px 6px 0 rgba(255, 112, 112, 0.4), inset 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #00B8A9;
-            font-weight: 700;
-            font-size: 0.9em;
-            text-transform: uppercase;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 14px 16px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
-            border: 4px solid #00B8A9;
-            border-left-width: 8px;
-            border-radius: 0;
-            font-family: 'Space Mono', monospace;
-            font-size: 1em;
-            color: #1a1a1a;
-            transition: all 0.3s;
-            box-sizing: border-box;
-            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.05), 4px 4px 0 rgba(0, 184, 169, 0.2);
-            position: relative;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #B2E600;
-            border-left-color: #FF7070;
-            background: white;
-            box-shadow: 
-                inset 2px 2px 5px rgba(178, 230, 0, 0.1), 
-                0 0 0 3px rgba(178, 230, 0, 0.2),
-                6px 6px 0 rgba(178, 230, 0, 0.3);
-            transform: translateX(-2px);
-        }
-
-        .form-group input::placeholder {
-            color: #999999;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 18px 24px;
-            background: linear-gradient(135deg, #5555FF 0%, #4444DD 100%);
-            color: white;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
             border: 0;
-            border-radius: 0;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.8em;
+        }
+
+        .remember-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
             cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 
-                0 0 0 5px rgba(85, 85, 255, 0.3),
-                0 8px 0 #3333BB,
-                0 12px 20px rgba(0, 0, 0, 0.3),
-                inset 0 -3px 10px rgba(0, 0, 0, 0.2);
-            text-transform: uppercase;
-            position: relative;
-            overflow: hidden;
+            user-select: none;
+            font-family: var(--font-pixel-body);
+            font-size: 1.05rem;
+            color: rgba(224, 243, 244, 0.9);
         }
 
-        .btn::before {
+        .remember-label .pixel-check {
+            display: inline-grid;
+            place-items: center;
+            border: 2px solid rgba(0, 235, 235, 0.8);
+            width: 14px;
+            height: 14px;
+        }
+        .remember-label .pixel-check::after {
             content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transform: rotate(45deg);
-            animation: buttonShine 3s ease-in-out infinite;
+            width: 8px;
+            height: 8px;
+            background: var(--neon-green);
+            opacity: 0;
         }
+        #remember:checked + .pixel-check::after { opacity: 1; }
 
-        @keyframes buttonShine {
-            0%, 100% { transform: translateX(-100%) rotate(45deg); }
-            50% { transform: translateX(100%) rotate(45deg); }
-        }
-
-        .btn:hover {
-            background: linear-gradient(135deg, #6666FF 0%, #5555FF 100%);
-            transform: translateY(-3px);
-            box-shadow: 
-                0 0 0 5px rgba(85, 85, 255, 0.4),
-                0 11px 0 #3333BB,
-                0 15px 25px rgba(0, 0, 0, 0.4),
-                inset 0 -3px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn:active {
-            transform: translateY(5px);
-            box-shadow: 
-                0 0 0 5px rgba(85, 85, 255, 0.3),
-                0 3px 0 #3333BB,
-                0 6px 15px rgba(0, 0, 0, 0.3),
-                inset 0 3px 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .alert {
-            padding: 14px 18px;
-            border-radius: 0;
-            margin-bottom: 20px;
-            display: none;
-            font-size: 0.85em;
-            border: 4px solid;
-            animation: fadeIn 0.3s ease-in;
-            font-weight: 600;
-        }
-
-        .alert.success {
-            background: linear-gradient(135deg, #B2E600 0%, #A0D000 100%);
-            color: #1a1a1a;
-            border-color: #A0D000;
-            border-left-width: 8px;
-            box-shadow: 4px 4px 0 rgba(178, 230, 0, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.3);
-        }
-
-        .alert.error {
-            background: linear-gradient(135deg, #FF7070 0%, #FF5555 100%);
-            color: white;
-            border-color: #FF5555;
-            border-left-width: 8px;
-            box-shadow: 4px 4px 0 rgba(255, 112, 112, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @media (max-width: 768px) {
-            .login-container {
-                flex-direction: column;
-                box-shadow: 
-                    0 0 0 2px rgba(85, 85, 255, 0.3),
-                    10px 10px 30px rgba(0, 0, 0, 0.3);
-            }
-
-            .login-left {
-                padding: 40px 30px;
-                border-right: none;
-                border-bottom: 6px dashed rgba(255, 255, 255, 0.3);
-            }
-
-            .login-left h1 {
-                font-size: 1.2em;
-            }
-
-            .login-right {
-                padding: 40px 30px;
-            }
-
-            .form-container h2 {
-                font-size: 1.1em;
-            }
-
-            .tab-button {
-                font-size: 0.55em;
-                padding: 10px 15px;
-            }
-
-            .btn {
-                font-size: 0.65em;
-            }
-        }
+        .form-hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-left">
-            <h1>🛰️ Geo-Watch</h1>
-            <p>AI-powered satellite change detection platform. Monitor deforestation, urban expansion, and environmental changes worldwide.</p>
-            
-            <div class="feature-list">
-                <div class="feature-item">
-                    <span class="feature-icon">🌳</span>
-                    <span>Track deforestation in real-time</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">🏗️</span>
-                    <span>Monitor construction & development</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">💧</span>
-                    <span>Detect water body changes</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">⚡</span>
-                    <span>Instant before/after comparisons</span>
-                </div>
+    <div class="page-wrap">
+        <!-- Theme layers -->
+        <div class="aurora-bg"></div>
+        <div class="starfield"></div>
+        <div class="grid-overlay"></div>
+
+        <header class="relative z-30 flex items-center justify-between px-6 md:px-10 py-4">
+            <div class="flex items-center gap-3">
+                <div class="hud-dot"></div>
+                <span class="font-pixel text-[0.55rem] text-neon-green tracking-widest">GEO-WATCH // ORBITAL LINK ACTIVE</span>
             </div>
-        </div>
-
-        <div class="login-right">
-            <div class="form-container">
-                <h2>Welcome Back</h2>
-                <p>Login to start monitoring satellite changes</p>
-
-                <div class="tab-buttons">
-                    <button class="tab-button active" onclick="switchTab('login')">Login</button>
-                    <button class="tab-button" onclick="switchTab('register')">Register</button>
-                </div>
-
-                <div id="alert" class="alert"></div>
-
-                <!-- Login Form -->
-                <div id="login-form" class="tab-content active">
-                    <form onsubmit="handleLogin(event)">
-                        <div class="form-group">
-                            <label for="login-username">Username</label>
-                            <input type="text" id="login-username" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="login-password">Password</label>
-                            <input type="password" id="login-password" required>
-                        </div>
-                        <button type="submit" class="btn" id="login-btn">Login</button>
-                    </form>
-                </div>
-
-                <!-- Register Form -->
-                <div id="register-form" class="tab-content">
-                    <form onsubmit="handleRegister(event)">
-                        <div class="form-group">
-                            <label for="register-email">Email</label>
-                            <input type="email" id="register-email" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="register-username">Username</label>
-                            <input type="text" id="register-username" required minlength="3">
-                        </div>
-                        <div class="form-group">
-                            <label for="register-password">Password</label>
-                            <input type="password" id="register-password" required minlength="6">
-                        </div>
-                        <button type="submit" class="btn" id="register-btn">Create Account</button>
-                    </form>
-                </div>
+            <div class="hidden md:flex items-center gap-5 font-pixel text-[0.5rem] text-neon-cyan/80">
+                <span>LAT 00°00′N</span>
+                <span>LON 00°00′E</span>
+                <span>ALT 408KM</span>
+                <span class="cursor-blink text-neon-green">SCAN</span>
             </div>
-        </div>
+        </header>
+
+        <main class="relative z-20 px-4 md:px-10 pb-12">
+            <div class="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-center max-w-7xl mx-auto">
+                <!-- Left: pixel earth hero -->
+                <section class="relative flex flex-col items-center text-center lg:text-left lg:items-start">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="brand-mark">G</div>
+                        <div class="leading-none">
+                            <div class="font-pixel text-[0.55rem] text-neon-cyan tracking-[0.3em]">PIXEL ORBIT</div>
+                            <h1 class="pixel-title text-2xl md:text-4xl mt-2">GEO-WATCH</h1>
+                        </div>
+                    </div>
+
+                    <p class="font-pixel-body text-xl md:text-2xl text-neon-cyan max-w-md leading-snug mb-8">
+                        Mission telemetry from your Geo‑Watch backend, rendered live.
+                    </p>
+
+                    <div class="relative w-full max-w-[520px] aspect-square mx-auto" aria-hidden="true">
+                        <div class="orbit-ring orbit-ring-1"></div>
+                        <div class="orbit-ring orbit-ring-2"></div>
+                        <div class="orbit-ring orbit-ring-3"></div>
+                        <div class="earth-glow"></div>
+
+                        <img
+                            src="pixel-auth/assets/pixel-earth-hero-DKn8gTMs.png"
+                            alt=""
+                            class="relative z-10 w-full h-full object-contain earth-spin drop-shadow-[0_0_40px_rgba(80,255,180,0.35)]"
+                            style="image-rendering: pixelated;"
+                        />
+
+                        <div class="absolute inset-0 z-20 orbit-spin">
+                            <img
+                                src="pixel-auth/assets/pixel-satellite-Dv7Pl_E9.png"
+                                alt=""
+                                class="absolute -top-2 left-1/2 -translate-x-1/2 w-16 md:w-20"
+                                style="image-rendering: pixelated;"
+                            />
+                        </div>
+                        <div class="absolute inset-0 z-20 orbit-spin-rev">
+                            <img
+                                src="pixel-auth/assets/pixel-satellite-Dv7Pl_E9.png"
+                                alt=""
+                                class="absolute bottom-4 right-2 w-12 md:w-16 opacity-80"
+                                style="image-rendering: pixelated;"
+                            />
+                        </div>
+
+                        <div class="ping ping-warn top-[18%] left-[12%]">
+                            <span class="ping-dot"></span>
+                            <div class="ping-card">
+                                <div class="ping-label">AMAZONIA</div>
+                                <div class="ping-delta">-2.4%</div>
+                            </div>
+                        </div>
+                        <div class="ping ping-info top-[40%] right-[8%]">
+                            <span class="ping-dot"></span>
+                            <div class="ping-card">
+                                <div class="ping-label">DUBAI</div>
+                                <div class="ping-delta">+8.1%</div>
+                            </div>
+                        </div>
+                        <div class="ping ping-warn bottom-[18%] left-[22%]">
+                            <span class="ping-dot"></span>
+                            <div class="ping-card">
+                                <div class="ping-label">LAKE CHAD</div>
+                                <div class="ping-delta">-1.7%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 mt-8 w-full max-w-[520px]">
+                        <div class="chip">
+                            <div class="chip-value" id="stat-cities">—</div>
+                            <div class="chip-label">CITIES</div>
+                        </div>
+                        <div class="chip">
+                            <div class="chip-value" id="stat-results">—</div>
+                            <div class="chip-label">RESULT SETS</div>
+                        </div>
+                        <div class="chip">
+                            <div class="chip-value" id="stat-health">—</div>
+                            <div class="chip-label">STATUS</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Right: console -->
+                <section class="console-shell">
+                    <div class="console-terrain" style="background-image: url('pixel-auth/assets/pixel-terrain-D81C3cht.png');" aria-hidden="true">
+                        <div class="console-terrain-overlay"></div>
+                        <div class="absolute inset-0 flex items-end p-4">
+                            <div class="font-pixel text-[0.55rem] text-neon-green tracking-widest cursor-blink">&gt; OPERATOR CONSOLE</div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 md:p-8 space-y-6">
+                        <div>
+                            <h2 id="panel-title" class="pixel-title text-lg md:text-xl">ACCESS_TERMINAL</h2>
+                            <p id="panel-subtitle" class="font-pixel-body text-lg text-neon-cyan/90 mt-1">Resume your watch over the planet.</p>
+                        </div>
+
+                        <div class="seg-toggle" id="modeToggle" data-mode="login" role="tablist" aria-label="Access mode">
+                            <button type="button" class="seg-btn" id="tabLogin" role="tab" aria-selected="true">Login</button>
+                            <button type="button" class="seg-btn" id="tabRegister" role="tab" aria-selected="false">Register</button>
+                            <span class="seg-thumb" aria-hidden="true"></span>
+                        </div>
+
+                        <div id="alert" class="alert-banner" role="status" aria-live="polite"></div>
+
+                        <!-- Login -->
+                        <form id="loginForm" class="space-y-4" novalidate>
+                            <label class="block">
+                                <span class="field-label">Operator ID</span>
+                                <div class="field-wrap">
+                                    <span class="field-icon">@</span>
+                                    <input id="login-username" type="text" class="field-input" placeholder="operator" autocomplete="username" required>
+                                </div>
+                            </label>
+                            <label class="block">
+                                <span class="field-label">Passkey</span>
+                                <div class="field-wrap">
+                                    <span class="field-icon">✱</span>
+                                    <input id="login-password" type="password" class="field-input" placeholder="••••••••" autocomplete="current-password" required>
+                                </div>
+                            </label>
+
+                            <div class="helper-row">
+                                <label class="remember-label">
+                                    <input id="remember" type="checkbox" class="sr-only-input">
+                                    <span class="pixel-check" aria-hidden="true"></span>
+                                    <span>Remember orbit</span>
+                                </label>
+                                <a class="pixel-link" href="#" onclick="event.preventDefault(); showAlert('Passkey recovery is not wired yet.', 'error');">Lost passkey?</a>
+                            </div>
+
+                            <button type="submit" class="cta-btn" id="login-btn">
+                                <span>INITIATE LINK</span>
+                                <span class="cta-arrow">▶</span>
+                            </button>
+                        </form>
+
+                        <!-- Register -->
+                        <form id="registerForm" class="space-y-4 form-hidden" novalidate>
+                            <label class="block">
+                                <span class="field-label">Email uplink</span>
+                                <div class="field-wrap">
+                                    <span class="field-icon">@</span>
+                                    <input id="register-email" type="email" class="field-input" placeholder="you@geo.watch" autocomplete="email" required>
+                                </div>
+                            </label>
+                            <label class="block">
+                                <span class="field-label">Operator ID</span>
+                                <div class="field-wrap">
+                                    <span class="field-icon">◆</span>
+                                    <input id="register-username" type="text" class="field-input" placeholder="operator" autocomplete="username" required minlength="3">
+                                </div>
+                            </label>
+                            <label class="block">
+                                <span class="field-label">Passkey</span>
+                                <div class="field-wrap">
+                                    <span class="field-icon">✱</span>
+                                    <input id="register-password" type="password" class="field-input" placeholder="••••••••" autocomplete="new-password" required minlength="6">
+                                </div>
+                            </label>
+                            <label class="block">
+                                <span class="field-label">Confirm passkey</span>
+                                <div class="field-wrap">
+                                    <span class="field-icon">✱</span>
+                                    <input id="register-password2" type="password" class="field-input" placeholder="••••••••" autocomplete="new-password" required minlength="6">
+                                </div>
+                            </label>
+
+                            <button type="submit" class="cta-btn" id="register-btn">
+                                <span>DEPLOY OPERATOR</span>
+                                <span class="cta-arrow">▶</span>
+                            </button>
+                        </form>
+
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 h-px bg-gradient-to-r from-transparent via-neon-cyan/40 to-transparent"></div>
+                            <span class="font-pixel text-[0.5rem] text-neon-cyan/70 tracking-widest">OR</span>
+                            <div class="flex-1 h-px bg-gradient-to-r from-transparent via-neon-cyan/40 to-transparent"></div>
+                        </div>
+
+                        <button type="button" class="alt-btn" onclick="showAlert('Satellite-Link SSO is not enabled yet.', 'error');">
+                            <span class="alt-icon">⌬</span>
+                            Continue with Satellite-Link
+                        </button>
+
+                        <p class="font-pixel text-[0.45rem] text-center text-neon-cyan/50 tracking-widest pt-1">
+                            [ENC] END-TO-END • LEVEL-7 CLEARANCE
+                        </p>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <div class="crt-overlay"></div>
+        <div class="vignette"></div>
     </div>
 
     <script>
         const API_URL = 'http://localhost:8000';
-
-        function switchTab(tab) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(`${tab}-form`).classList.add('active');
-
-            // Clear alert
-            hideAlert();
-        }
+        const TOKEN_KEY_PRIMARY = 'access_token';
+        const TOKEN_KEY_COMPAT = 'auth_token'; // used elsewhere in the frontend
 
         function showAlert(message, type = 'error') {
             const alert = document.getElementById('alert');
             alert.textContent = message;
-            alert.className = `alert ${type} show`;
+            alert.className = `alert-banner ${type} show`;
         }
 
         function hideAlert() {
             const alert = document.getElementById('alert');
-            alert.classList.remove('show');
+            alert.className = 'alert-banner';
+            alert.textContent = '';
+        }
+
+        function setMode(mode) {
+            const toggle = document.getElementById('modeToggle');
+            toggle.setAttribute('data-mode', mode);
+
+            document.getElementById('tabLogin').setAttribute('aria-selected', mode === 'login' ? 'true' : 'false');
+            document.getElementById('tabRegister').setAttribute('aria-selected', mode === 'register' ? 'true' : 'false');
+
+            document.getElementById('loginForm').classList.toggle('form-hidden', mode !== 'login');
+            document.getElementById('registerForm').classList.toggle('form-hidden', mode !== 'register');
+
+            document.getElementById('panel-title').textContent = mode === 'login' ? 'ACCESS_TERMINAL' : 'NEW_OPERATOR';
+            document.getElementById('panel-subtitle').textContent = mode === 'login'
+                ? 'Resume your watch over the planet.'
+                : 'Join the network of pixel-eyed observers.';
+
+            hideAlert();
+        }
+
+        function setLoading(btnEl, loading, label) {
+            btnEl.disabled = loading;
+            btnEl.style.opacity = loading ? '0.75' : '1';
+            btnEl.querySelector('span').textContent = label;
+        }
+
+        async function loadPublicTelemetry() {
+            const elCities = document.getElementById('stat-cities');
+            const elResults = document.getElementById('stat-results');
+            const elHealth = document.getElementById('stat-health');
+            if (!elCities || !elResults || !elHealth) return;
+
+            elCities.textContent = '…';
+            elResults.textContent = '…';
+            elHealth.textContent = '…';
+
+            const healthReq = fetch(`${API_URL}/api/health`, { method: 'GET' })
+                .then(r => (r.ok ? r.json() : null))
+                .catch(() => null);
+
+            const citiesReq = fetch(`${API_URL}/api/cities`, { method: 'GET' })
+                .then(r => (r.ok ? r.json() : null))
+                .catch(() => null);
+
+            const [health, cities] = await Promise.all([healthReq, citiesReq]);
+
+            if (cities && Array.isArray(cities.cities)) {
+                elCities.textContent = String(cities.count ?? cities.cities.length);
+                const withResults = cities.cities.filter(c => !!c.has_results).length;
+                elResults.textContent = String(withResults);
+            } else {
+                elCities.textContent = '0';
+                elResults.textContent = '0';
+            }
+
+            if (health && health.status) {
+                elHealth.textContent = String(health.status).toUpperCase();
+            } else {
+                elHealth.textContent = 'OFFLINE';
+            }
         }
 
         async function handleLogin(event) {
             event.preventDefault();
-            
-            const username = document.getElementById('login-username').value;
+            hideAlert();
+
+            const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
+            const remember = document.getElementById('remember').checked;
             const btn = document.getElementById('login-btn');
 
-            btn.disabled = true;
-            btn.textContent = 'Logging in...';
+            if (!username || !password) {
+                showAlert('Please enter Operator ID and Passkey.', 'error');
+                return;
+            }
 
+            setLoading(btn, true, 'LINKING…');
             try {
                 // Create form data for OAuth2
                 const formData = new FormData();
@@ -682,11 +422,13 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Store token
-                    localStorage.setItem('access_token', data.access_token);
+                    // Store token (primary + compat for other pages)
+                    localStorage.setItem(TOKEN_KEY_PRIMARY, data.access_token);
+                    localStorage.setItem(TOKEN_KEY_COMPAT, data.access_token);
                     localStorage.setItem('username', username);
+                    localStorage.setItem('remember_orbit', remember ? '1' : '0');
                     
-                    showAlert('Login successful! Redirecting...', 'success');
+                    showAlert('Link established. Redirecting…', 'success');
                     
                     // Redirect to dashboard
                     setTimeout(() => {
@@ -699,22 +441,34 @@
                 console.error('Login error:', error);
                 showAlert('Network error. Make sure backend is running on port 8000.');
             } finally {
-                btn.disabled = false;
-                btn.textContent = 'Login';
+                setLoading(btn, false, 'INITIATE LINK');
             }
         }
 
         async function handleRegister(event) {
             event.preventDefault();
-            
-            const email = document.getElementById('register-email').value;
-            const username = document.getElementById('register-username').value;
+            hideAlert();
+
+            const email = document.getElementById('register-email').value.trim();
+            const username = document.getElementById('register-username').value.trim();
             const password = document.getElementById('register-password').value;
+            const password2 = document.getElementById('register-password2').value;
             const btn = document.getElementById('register-btn');
 
-            btn.disabled = true;
-            btn.textContent = 'Creating account...';
+            if (!email || !username || !password || !password2) {
+                showAlert('Please complete all fields.', 'error');
+                return;
+            }
+            if (password.length < 6) {
+                showAlert('Passkey must be at least 6 characters.', 'error');
+                return;
+            }
+            if (password !== password2) {
+                showAlert('Passkeys do not match.', 'error');
+                return;
+            }
 
+            setLoading(btn, true, 'DEPLOYING…');
             try {
                 const response = await fetch(`${API_URL}/api/auth/register`, {
                     method: 'POST',
@@ -731,12 +485,13 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showAlert('Account created! Please login.', 'success');
+                    showAlert('Operator deployed. Please log in.', 'success');
                     
-                    // Switch to login tab
+                    // Switch to login mode
                     setTimeout(() => {
-                        document.querySelectorAll('.tab-button')[0].click();
+                        setMode('login');
                         document.getElementById('login-username').value = username;
+                        document.getElementById('login-password').focus();
                     }, 1500);
                 } else {
                     showAlert(data.detail || 'Registration failed');
@@ -745,15 +500,29 @@
                 console.error('Registration error:', error);
                 showAlert('Network error. Make sure backend is running on port 8000.');
             } finally {
-                btn.disabled = false;
-                btn.textContent = 'Create Account';
+                setLoading(btn, false, 'DEPLOY OPERATOR');
             }
         }
 
         // Check if already logged in
-        if (localStorage.getItem('access_token')) {
+        (function normalizeAndRedirectIfLoggedIn() {
+            const token = localStorage.getItem(TOKEN_KEY_PRIMARY) || localStorage.getItem(TOKEN_KEY_COMPAT);
+            if (!token) return;
+            if (!localStorage.getItem(TOKEN_KEY_PRIMARY)) localStorage.setItem(TOKEN_KEY_PRIMARY, token);
+            if (!localStorage.getItem(TOKEN_KEY_COMPAT)) localStorage.setItem(TOKEN_KEY_COMPAT, token);
             window.location.href = 'dashboard.html';
-        }
+        })();
+
+        // Wire up UI
+        document.getElementById('tabLogin').addEventListener('click', () => setMode('login'));
+        document.getElementById('tabRegister').addEventListener('click', () => setMode('register'));
+        document.getElementById('loginForm').addEventListener('submit', handleLogin);
+        document.getElementById('registerForm').addEventListener('submit', handleRegister);
+        setMode('login');
+
+        // Live stats (public endpoints)
+        loadPublicTelemetry();
+        setInterval(loadPublicTelemetry, 15000);
     </script>
 </body>
 </html>

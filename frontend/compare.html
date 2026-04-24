@@ -7,10 +7,10 @@
     <title>🛰️ Geo-Watch - Analysis Terminal</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Google Fonts - Retro Style -->
+    <!-- Google Fonts - Pixel theme -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="pixel-auth/assets/styles-_g1K9rK6.css">
     <style>
         * {
             margin: 0;
@@ -19,17 +19,162 @@
         }
 
         body {
-            font-family: 'Space Mono', monospace;
-            background: #f5f5f5;
-            background-image:
-                repeating-linear-gradient(0deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px),
-                repeating-linear-gradient(90deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px);
-            background-size: 50px 50px;
-            color: #1a1a1a;
+            font-family: 'VT323', monospace;
+            color: #e0f3f4;
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            background: transparent;
+        }
+
+        .page-wrap {
+            position: relative;
+            min-height: 100svh;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .cmp-shell {
+            position: relative;
+            z-index: 20;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Pro-crazy overlays: subtle parallax + scan glow */
+        .cmp-scan-glow {
+            pointer-events: none;
+            position: fixed;
+            inset: 0;
+            z-index: 45;
+            background:
+                radial-gradient(circle at 20% 10%, rgba(52, 244, 122, 0.12), transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(0, 235, 235, 0.10), transparent 45%);
+            mix-blend-mode: screen;
+            animation: cmpGlowDrift 14s ease-in-out infinite alternate;
+        }
+
+        @keyframes cmpGlowDrift {
+            from { transform: translate(0px, 0px) scale(1); opacity: 0.75; }
+            to { transform: translate(18px, -14px) scale(1.04); opacity: 1; }
+        }
+
+        /* Header becomes a neon console bar */
+        .header {
+            background: rgba(1, 2, 16, 0.65);
+            border-bottom: 1px solid rgba(0, 235, 235, 0.22);
+            box-shadow: inset 0 -1px 0 rgba(52, 244, 122, 0.12);
+            backdrop-filter: blur(10px);
+        }
+
+        .header::before { opacity: 0.25; }
+
+        .header h1 {
+            color: #e0f3f4;
+            text-shadow: 2px 2px #030415, 0 0 18px rgba(52, 244, 122, 0.25);
+        }
+
+        .btn {
+            border: 1px solid rgba(0, 235, 235, 0.25);
+            box-shadow: 0 0 18px rgba(0, 0, 0, 0.55);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan)) !important;
+            color: #00010b;
+            border-color: transparent;
+            box-shadow: 0 0 28px rgba(52, 244, 122, 0.25);
+        }
+
+        .btn-secondary {
+            background: rgba(0, 235, 235, 0.14);
+            color: #e0f3f4;
+            border-color: rgba(0, 235, 235, 0.35);
+            box-shadow: 0 0 22px rgba(0, 235, 235, 0.10);
+        }
+
+        /* Tabs: sticky + glass */
+        .view-mode-tabs {
+            position: sticky;
+            top: 0;
+            z-index: 60;
+            background: linear-gradient(to bottom, rgba(1, 5, 27, 0.92), rgba(1, 5, 27, 0.50));
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 235, 235, 0.18);
+        }
+
+        .tab-btn {
+            background: rgba(1, 2, 16, 0.62);
+            color: rgba(0, 235, 235, 0.85);
+            border: 1px solid rgba(0, 235, 235, 0.25);
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 12px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+            color: #00010b;
+            border-color: transparent;
+            box-shadow: 0 0 26px rgba(52, 244, 122, 0.25);
+        }
+
+        /* Main container: cinematic depth */
+        .comparison-container {
+            flex: 1;
+            background: transparent;
+        }
+
+        .image-panel,
+        .info-panel,
+        .insights-panel,
+        .rpt-wrap,
+        .alerts-wrap {
+            background: rgba(1, 2, 16, 0.55) !important;
+            border: 1px solid rgba(0, 235, 235, 0.24) !important;
+            box-shadow: 0 0 0 1px #000005, 0 18px 60px rgba(0, 0, 0, 0.55) !important;
+            backdrop-filter: blur(10px);
+        }
+
+        .image-header {
+            background: rgba(0, 1, 11, 0.55) !important;
+            border-bottom: 1px solid rgba(0, 235, 235, 0.18) !important;
+        }
+
+        /* Slider goes “crazy” but pro: glow + animated handle */
+        .slider-container {
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65), 0 0 50px rgba(52, 244, 122, 0.10);
+        }
+
+        .slider-handle {
+            box-shadow: 0 0 0 2px rgba(0, 235, 235, 0.25), 0 0 34px rgba(0, 235, 235, 0.20);
+            animation: handlePulse 2.2s ease-in-out infinite;
+        }
+
+        @keyframes handlePulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.25); }
+        }
+
+        /* Make Leaflet controls readable on dark theme */
+        .leaflet-bar,
+        .leaflet-control-layers {
+            border: 1px solid rgba(0, 235, 235, 0.25) !important;
+            border-radius: 0 !important;
+            box-shadow: 0 0 0 1px #000005, 0 12px 30px rgba(0, 0, 0, 0.55) !important;
+            background: rgba(1, 2, 16, 0.85) !important;
+            color: #e0f3f4 !important;
+        }
+
+        .leaflet-bar a {
+            background: rgba(1, 2, 16, 0.85) !important;
+            color: rgba(0, 235, 235, 0.95) !important;
+            border-bottom: 1px solid rgba(0, 235, 235, 0.18) !important;
+        }
+
+        .leaflet-control-layers-toggle {
+            background-color: rgba(1, 2, 16, 0.85) !important;
+            filter: invert(1) hue-rotate(170deg) saturate(1.2);
         }
 
         .header {
@@ -1077,6 +1222,86 @@
             .report-view { padding: 16px; }
         }
 
+        /* ── Trajectory Prediction ── */
+        .traj-chart-wrap {
+            background: white; border: 3px solid #00B8A9;
+            box-shadow: 5px 5px 0 rgba(0,184,169,0.15);
+            padding: 20px; margin-bottom: 20px;
+        }
+        .traj-chart-title {
+            font-family: 'Press Start 2P', cursive; font-size: 0.55em;
+            color: #00B8A9; margin-bottom: 14px;
+        }
+        .traj-canvas { width: 100%; height: 320px; background: #fafafa; border: 1px solid #eee; }
+        .traj-legend {
+            display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px;
+            font-family: 'Space Mono', monospace; font-size: 0.72em; color: #666;
+        }
+        .traj-legend-dot {
+            display: inline-block; width: 12px; height: 12px;
+            border-radius: 50%; margin-right: 5px; vertical-align: middle;
+        }
+        .traj-milestones {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px; margin-bottom: 20px;
+        }
+        .traj-milestone-card {
+            background: white; border: 3px solid #FF5555;
+            box-shadow: 4px 4px 0 rgba(255,85,85,0.12);
+            padding: 16px 18px; position: relative; overflow: hidden;
+        }
+        .traj-milestone-card::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 4px; height: 100%; background: #FF5555;
+        }
+        .traj-milestone-card.conf-high { border-color: #FF5555; }
+        .traj-milestone-card.conf-high::before { background: #FF5555; }
+        .traj-milestone-card.conf-moderate { border-color: #F5A623; }
+        .traj-milestone-card.conf-moderate::before { background: #F5A623; }
+        .traj-milestone-card.conf-low { border-color: #aaa; }
+        .traj-milestone-card.conf-low::before { background: #aaa; }
+        .traj-ms-year {
+            font-family: 'Press Start 2P', cursive; font-size: 1.1em;
+            color: #FF5555; margin-bottom: 6px;
+        }
+        .traj-ms-event {
+            font-family: 'Press Start 2P', cursive; font-size: 0.45em;
+            color: #2f3c45; margin-bottom: 8px; letter-spacing: 0.5px;
+        }
+        .traj-ms-msg {
+            font-family: 'Space Mono', monospace; font-size: 0.78em;
+            color: #555; line-height: 1.7;
+        }
+        .traj-ms-conf {
+            display: inline-block; margin-top: 8px; padding: 2px 10px;
+            font-family: 'Press Start 2P', cursive; font-size: 0.32em;
+            letter-spacing: 1px; text-transform: uppercase;
+        }
+        .traj-ms-conf.high { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .traj-ms-conf.moderate { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
+        .traj-ms-conf.low { background: #f5f5f5; color: #999; border: 1px solid #ddd; }
+        .traj-narratives {
+            background: #f0faf9; border: 2px solid #00B8A9;
+            padding: 14px 18px; margin-bottom: 16px;
+            font-family: 'Space Mono', monospace; font-size: 0.82em;
+            line-height: 2; color: #333;
+        }
+        .traj-stats-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px;
+        }
+        @media (max-width: 900px) { .traj-stats-grid { grid-template-columns: 1fr; } }
+        .traj-stat-card {
+            background: #f9f9f9; border: 2px solid #eee; padding: 12px 14px; text-align: center;
+        }
+        .traj-stat-label {
+            font-family: 'Press Start 2P', cursive; font-size: 0.38em;
+            color: #888; margin-bottom: 6px; letter-spacing: 0.5px;
+        }
+        .traj-stat-value {
+            font-family: 'Press Start 2P', cursive; font-size: 0.55em; color: #2f3c45;
+        }
+        .traj-stat-sub { font-size: 0.7em; color: #aaa; margin-top: 4px; }
+
         /* ── Animation View ── */
         .animate-view {
             display: none;
@@ -1594,6 +1819,13 @@
 </head>
 
 <body>
+    <div class="page-wrap">
+        <div class="aurora-bg"></div>
+        <div class="starfield"></div>
+        <div class="grid-overlay"></div>
+        <div class="cmp-scan-glow"></div>
+
+        <div class="cmp-shell">
     <div class="header">
         <h1>🛰️ Geo-Watch - Image Comparison</h1>
         <div class="header-buttons">
@@ -1840,9 +2072,14 @@
 
         <div id="alerts-toast" class="alerts-toast"></div>
 
-    </div>
+    </div> <!-- /cmp-shell -->
+
+        <div class="crt-overlay"></div>
+        <div class="vignette"></div>
+    </div> <!-- /page-wrap -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script>
         const API_URL = 'http://localhost:8000';
         let beforeImageUrl = '';
@@ -2977,10 +3214,276 @@
                         <div class="rpt-method-row"><span class="rpt-method-key">Report Generated</span><span class="rpt-method-val">${new Date().toLocaleString()}</span></div>
                     </div>
                 </div>
+
+                <!-- Trajectory Prediction -->
+                ${(function(){
+                    const traj = results.trajectory;
+                    if (!traj || !traj.available) return '';
+                    const ms = (traj.milestones || []).map(m => `
+                        <div class="traj-milestone-card conf-${m.confidence}">
+                            <div class="traj-ms-year">${m.predicted_year}</div>
+                            <div class="traj-ms-event">${m.event}</div>
+                            <div class="traj-ms-msg">${m.message}</div>
+                            <span class="traj-ms-conf ${m.confidence}">${m.confidence} confidence (R²)</span>
+                        </div>
+                    `).join('');
+                    const narr = (traj.narratives || []).join('<br>');
+                    return `
+                    <div class="rpt-section">
+                        <div class="rpt-section-title">📈 Rate & Trajectory Prediction</div>
+                        <p style="font-family:'Space Mono',monospace;font-size:0.73em;color:#aaa;margin-bottom:14px;">
+                            Linear regression on ${traj.n_real_years} years of real Sentinel-2 data extrapolated 10 years forward.
+                            Shows when key environmental thresholds will be crossed at current rates of change.
+                        </p>
+                        <div class="traj-narratives">${narr}</div>
+                        ${ms ? '<div class="traj-milestones">' + ms + '</div>' : '<div style="font-family:Space Mono,monospace;font-size:0.8em;color:#888;margin-bottom:16px;padding:12px;background:#f9f9f9;border:2px solid #eee;">✅ No critical thresholds predicted to be crossed in the next 10 years at current rates.</div>'}
+                        <div class="traj-chart-wrap">
+                            <div class="traj-chart-title">NDVI & NDBI Trajectory — Historical + Projected</div>
+                            <canvas id="traj-chart-canvas" class="traj-canvas"></canvas>
+                            <div class="traj-legend">
+                                <span><span class="traj-legend-dot" style="background:#4CAF50;"></span> NDVI (historical)</span>
+                                <span><span class="traj-legend-dot" style="background:#4CAF50;opacity:0.4;"></span> NDVI (projected)</span>
+                                <span><span class="traj-legend-dot" style="background:#F5A623;"></span> NDBI (historical)</span>
+                                <span><span class="traj-legend-dot" style="background:#F5A623;opacity:0.4;"></span> NDBI (projected)</span>
+                                <span><span class="traj-legend-dot" style="background:#2196F3;"></span> NDWI (historical)</span>
+                            </div>
+                        </div>
+                        <div class="traj-stats-grid">
+                            <div class="traj-stat-card">
+                                <div class="traj-stat-label">🌿 NDVI Slope</div>
+                                <div class="traj-stat-value" style="color:${traj.ndvi.slope_per_year < 0 ? '#D32F2F' : '#388E3C'};">${traj.ndvi.slope_per_year > 0 ? '+' : ''}${traj.ndvi.slope_per_year}/yr</div>
+                                <div class="traj-stat-sub">R² = ${traj.ndvi.r_squared} · ${traj.ndvi.trend}</div>
+                            </div>
+                            <div class="traj-stat-card">
+                                <div class="traj-stat-label">🏗️ NDBI Slope</div>
+                                <div class="traj-stat-value" style="color:${traj.ndbi.slope_per_year > 0 ? '#D32F2F' : '#388E3C'};">${traj.ndbi.slope_per_year > 0 ? '+' : ''}${traj.ndbi.slope_per_year}/yr</div>
+                                <div class="traj-stat-sub">R² = ${traj.ndbi.r_squared} · ${traj.ndbi.trend}</div>
+                            </div>
+                            <div class="traj-stat-card">
+                                <div class="traj-stat-label">💧 NDWI Slope</div>
+                                <div class="traj-stat-value" style="color:${Math.abs(traj.ndwi.slope_per_year) > 0.002 ? '#1565C0' : '#888'};">${traj.ndwi.slope_per_year > 0 ? '+' : ''}${traj.ndwi.slope_per_year}/yr</div>
+                                <div class="traj-stat-sub">R² = ${traj.ndwi.r_squared} · ${traj.ndwi.trend}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                })()}
             `;
 
             container.style.display = 'block';
             if (empty) empty.style.display = 'none';
+
+            // Draw trajectory chart if data available
+            if (results.trajectory && results.trajectory.available) {
+                // Retry until the canvas is actually visible in the DOM
+                const _tryDraw = (retries) => {
+                    const c = document.getElementById('traj-chart-canvas');
+                    if (!c) return;
+                    const r = c.getBoundingClientRect();
+                    if ((r.width < 10 || r.height < 10) && retries > 0) {
+                        setTimeout(() => _tryDraw(retries - 1), 400);
+                        return;
+                    }
+                    drawTrajectoryChart(results.trajectory);
+                };
+                _tryDraw(8);
+            }
+        }
+
+        function drawTrajectoryChart(traj) {
+            const canvas = document.getElementById('traj-chart-canvas');
+            if (!canvas) return;
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            // Use explicit fallback if canvas not yet laid out
+            const W = rect.width > 10 ? rect.width : 900;
+            const H = rect.height > 10 ? rect.height : 320;
+            canvas.width = W * dpr;
+            canvas.height = H * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            // Collect all data points
+            const allYears = [];
+            const series = [
+                { key: 'ndvi', color: '#4CAF50', projColor: 'rgba(76,175,80,0.3)', label: 'NDVI' },
+                { key: 'ndbi', color: '#F5A623', projColor: 'rgba(245,166,35,0.3)', label: 'NDBI' },
+                { key: 'ndwi', color: '#2196F3', projColor: 'rgba(33,150,243,0.25)', label: 'NDWI' },
+            ];
+
+            series.forEach(s => {
+                const d = traj[s.key];
+                if (!d) return;
+                (d.historical || []).forEach(p => { if (!allYears.includes(p.year)) allYears.push(p.year); });
+                (d.projected || []).forEach(p => { if (!allYears.includes(p.year)) allYears.push(p.year); });
+            });
+            allYears.sort((a,b) => a - b);
+            if (allYears.length < 2) return;
+
+            // Collect all values for Y range
+            let allVals = [];
+            series.forEach(s => {
+                const d = traj[s.key];
+                if (!d) return;
+                (d.historical || []).forEach(p => allVals.push(p.value));
+                (d.projected || []).forEach(p => allVals.push(p.value));
+            });
+            // Add threshold lines
+            allVals.push(0.10, 0.30);
+
+            const minY = Math.min(...allVals) - 0.05;
+            const maxY = Math.max(...allVals) + 0.05;
+            const minX = allYears[0];
+            const maxX = allYears[allYears.length - 1];
+
+            const pad = { t: 25, r: 20, b: 40, l: 55 };
+            const cw = W - pad.l - pad.r;
+            const ch = H - pad.t - pad.b;
+
+            function xPos(year) { return pad.l + (year - minX) / (maxX - minX) * cw; }
+            function yPos(val)  { return pad.t + (1 - (val - minY) / (maxY - minY)) * ch; }
+
+            // Background
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, W, H);
+
+            // Grid lines
+            ctx.strokeStyle = '#e8e8e8';
+            ctx.lineWidth = 1;
+            const yTicks = 8;
+            for (let i = 0; i <= yTicks; i++) {
+                const v = minY + (maxY - minY) * i / yTicks;
+                const y = yPos(v);
+                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+                ctx.fillStyle = '#999';
+                ctx.font = '10px "Space Mono", monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText(v.toFixed(2), pad.l - 6, y + 3);
+            }
+
+            // X axis labels
+            const lastHistYear = traj.data_years[traj.data_years.length - 1];
+            ctx.textAlign = 'center';
+            allYears.forEach(yr => {
+                if (yr % 2 !== 0 && allYears.length > 10) return;
+                const x = xPos(yr);
+                ctx.fillStyle = '#999';
+                ctx.font = '10px "Space Mono", monospace';
+                ctx.fillText(yr, x, H - pad.b + 18);
+            });
+
+            // Divider line between historical and projected
+            ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(xPos(lastHistYear + 0.5), pad.t);
+            ctx.lineTo(xPos(lastHistYear + 0.5), H - pad.b);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Labels
+            ctx.fillStyle = '#bbb';
+            ctx.font = '9px "Press Start 2P", cursive';
+            ctx.textAlign = 'left';
+            ctx.fillText('HISTORICAL', pad.l + 4, pad.t + 14);
+            ctx.textAlign = 'right';
+            ctx.fillText('PROJECTED', W - pad.r - 4, pad.t + 14);
+
+            // Threshold lines
+            // NDVI = 0.10 threshold
+            ctx.strokeStyle = 'rgba(76,175,80,0.3)';
+            ctx.setLineDash([6, 3]);
+            ctx.beginPath();
+            ctx.moveTo(pad.l, yPos(0.10));
+            ctx.lineTo(W - pad.r, yPos(0.10));
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(76,175,80,0.5)';
+            ctx.font = '9px "Space Mono", monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('NDVI = 0.10 (veg. gone)', pad.l + 4, yPos(0.10) - 4);
+
+            // NDBI = 0.30 threshold
+            ctx.strokeStyle = 'rgba(245,166,35,0.3)';
+            ctx.beginPath();
+            ctx.moveTo(pad.l, yPos(0.30));
+            ctx.lineTo(W - pad.r, yPos(0.30));
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(245,166,35,0.5)';
+            ctx.fillText('NDBI = 0.30 (fully urban)', pad.l + 4, yPos(0.30) - 4);
+            ctx.setLineDash([]);
+
+            // Draw each series
+            series.forEach(s => {
+                const d = traj[s.key];
+                if (!d) return;
+
+                // Historical line (solid)
+                const hist = d.historical || [];
+                if (hist.length > 1) {
+                    ctx.strokeStyle = s.color;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    hist.forEach((p, i) => {
+                        const fn = i === 0 ? 'moveTo' : 'lineTo';
+                        ctx[fn](xPos(p.year), yPos(p.value));
+                    });
+                    ctx.stroke();
+                }
+
+                // Historical dots
+                hist.forEach(p => {
+                    ctx.fillStyle = s.color;
+                    ctx.beginPath();
+                    ctx.arc(xPos(p.year), yPos(p.value), 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                });
+
+                // Projected line (dashed)
+                const proj = d.projected || [];
+                if (proj.length > 0 && hist.length > 0) {
+                    ctx.strokeStyle = s.projColor;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(xPos(hist[hist.length - 1].year), yPos(hist[hist.length - 1].value));
+                    proj.forEach(p => ctx.lineTo(xPos(p.year), yPos(p.value)));
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Projected dots (smaller, faded)
+                proj.forEach(p => {
+                    ctx.fillStyle = s.projColor;
+                    ctx.beginPath();
+                    ctx.arc(xPos(p.year), yPos(p.value), 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
+
+            // Milestone markers
+            (traj.milestones || []).forEach(m => {
+                const yr = m.predicted_year;
+                if (yr < minX || yr > maxX) return;
+                const threshold = m.threshold || (m.metric === 'NDVI' ? 0.10 : 0.30);
+                const x = xPos(yr);
+                const y = yPos(threshold);
+                // Draw diamond marker
+                ctx.fillStyle = '#FF5555';
+                ctx.beginPath();
+                ctx.moveTo(x, y - 7);
+                ctx.lineTo(x + 5, y);
+                ctx.lineTo(x, y + 7);
+                ctx.lineTo(x - 5, y);
+                ctx.closePath();
+                ctx.fill();
+                // Label
+                ctx.fillStyle = '#FF5555';
+                ctx.font = 'bold 10px "Space Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(m.event.split(' ').slice(0,2).join(' '), x, y - 12);
+            });
         }
 
         // Shortcut: run analysis and stay on side-by-side tab
