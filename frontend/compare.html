@@ -67,6 +67,9 @@
             border-bottom: 1px solid rgba(0, 235, 235, 0.22);
             box-shadow: inset 0 -1px 0 rgba(52, 244, 122, 0.12);
             backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 80;
         }
 
         .header::before { opacity: 0.25; }
@@ -98,7 +101,7 @@
         /* Tabs: sticky + glass */
         .view-mode-tabs {
             position: sticky;
-            top: 0;
+            top: 72px;
             z-index: 60;
             background: linear-gradient(to bottom, rgba(1, 5, 27, 0.92), rgba(1, 5, 27, 0.50));
             backdrop-filter: blur(10px);
@@ -175,6 +178,146 @@
         .leaflet-control-layers-toggle {
             background-color: rgba(1, 2, 16, 0.85) !important;
             filter: invert(1) hue-rotate(170deg) saturate(1.2);
+        }
+
+        /* ============================
+           Pixel Pro Contrast Fixes
+           ============================ */
+        .image-date,
+        .info-label,
+        .info-row span,
+        .time-range,
+        .rpt-subtitle,
+        .report-empty-sub,
+        .rpt-method-summary,
+        .rpt-method-key,
+        .rpt-finding-text,
+        .rpt-finding-meta {
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+        }
+
+        .image-date,
+        .time-range {
+            background: rgba(1, 2, 16, 0.55) !important;
+            border: 1px solid rgba(0, 235, 235, 0.22) !important;
+            color: rgba(224, 243, 244, 0.92) !important;
+        }
+
+        /* Report view: rebuild layout visually without touching logic */
+        .report-view {
+            background: transparent !important;
+            padding: 20px 18px !important;
+        }
+
+        #report-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .report-empty-title {
+            color: rgba(224, 243, 244, 0.85) !important;
+        }
+
+        .report-empty-sub {
+            color: rgba(224, 243, 244, 0.72) !important;
+            font-family: 'VT323', monospace !important;
+            font-size: 1.1em !important;
+        }
+
+        .report-run-btn {
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan)) !important;
+            border: none !important;
+            color: #00010b !important;
+            box-shadow: 0 0 28px rgba(52, 244, 122, 0.25) !important;
+        }
+
+        .rpt-header {
+            border-left: 4px solid rgba(52, 244, 122, 0.9) !important;
+            box-shadow: 0 0 0 1px #000005, 0 18px 60px rgba(0, 0, 0, 0.55) !important;
+        }
+
+        .rpt-title {
+            color: rgba(52, 244, 122, 0.95) !important;
+            text-shadow: 2px 2px #030415, 0 0 18px rgba(52, 244, 122, 0.25);
+        }
+
+        .rpt-subtitle {
+            font-family: 'VT323', monospace !important;
+            font-size: 1.15em !important;
+            color: rgba(224, 243, 244, 0.78) !important;
+        }
+
+        .rpt-section {
+            background: rgba(1, 2, 16, 0.55) !important;
+            border: 1px solid rgba(0, 235, 235, 0.22) !important;
+            box-shadow: 0 0 0 1px #000005, 0 18px 60px rgba(0, 0, 0, 0.45) !important;
+        }
+
+        .rpt-section-title {
+            color: rgba(0, 235, 235, 0.92) !important;
+            border-bottom: 1px dashed rgba(0, 235, 235, 0.22) !important;
+        }
+
+        .rpt-kpi {
+            background: rgba(0, 1, 11, 0.55) !important;
+            border: 1px solid rgba(0, 235, 235, 0.18) !important;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+        }
+
+        .rpt-kpi-label {
+            color: rgba(0, 235, 235, 0.70) !important;
+            font-family: 'Press Start 2P', cursive !important;
+            font-size: 0.52em !important;
+        }
+
+        .rpt-kpi-value {
+            color: rgba(224, 243, 244, 0.92) !important;
+            text-shadow: 0 0 18px rgba(0, 235, 235, 0.14);
+        }
+
+        .rpt-kpi-note {
+            color: rgba(224, 243, 244, 0.70) !important;
+        }
+
+        .rpt-spectral-table th,
+        .rpt-spectral-table td {
+            border-color: rgba(0, 235, 235, 0.14) !important;
+        }
+        .rpt-spectral-table th {
+            background: rgba(0, 235, 235, 0.10) !important;
+            color: rgba(224, 243, 244, 0.92) !important;
+        }
+        .rpt-spectral-table td {
+            background: rgba(0, 1, 11, 0.35) !important;
+            color: rgba(224, 243, 244, 0.86) !important;
+        }
+        .rpt-spectral-table tr:nth-child(even) td {
+            background: rgba(0, 1, 11, 0.50) !important;
+        }
+
+        .rpt-method-val {
+            color: rgba(224, 243, 244, 0.92) !important;
+        }
+
+        .rpt-finding-title {
+            color: rgba(224, 243, 244, 0.92) !important;
+        }
+        .rpt-finding-text {
+            color: rgba(224, 243, 244, 0.80) !important;
+        }
+        .rpt-finding-meta {
+            color: rgba(0, 235, 235, 0.55) !important;
+        }
+
+        /* Tabs with inline styles: force readable state */
+        #report-tab-btn,
+        .tab-btn[onclick="switchView('alerts')"] {
+            color: rgba(224, 243, 244, 0.88) !important;
+            border-color: rgba(0, 235, 235, 0.25) !important;
+        }
+
+        @media (max-width: 900px) {
+            .view-mode-tabs { top: 84px; }
         }
 
         .header {
@@ -1815,6 +1958,517 @@
                 width: min(220px, 60vw);
             }
         }
+
+        /* ============================================================
+           FINAL THEME OVERRIDES (ensure no light-theme leaks)
+           These come last to beat earlier CSS in this file.
+           ============================================================ */
+        body .header {
+            background: rgba(1, 2, 16, 0.72) !important;
+            border-bottom: 1px solid rgba(0, 235, 235, 0.22) !important;
+            box-shadow: inset 0 -1px 0 rgba(52, 244, 122, 0.12) !important;
+        }
+
+        body .header-buttons .btn-primary#allchanges-btn {
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan)) !important;
+            border-color: transparent !important;
+            color: #00010b !important;
+        }
+
+        body .view-mode-tabs {
+            background: linear-gradient(to bottom, rgba(1, 5, 27, 0.96), rgba(1, 5, 27, 0.55)) !important;
+            border-bottom: 1px solid rgba(0, 235, 235, 0.18) !important;
+        }
+
+        body .tab-btn {
+            background: rgba(1, 2, 16, 0.70) !important;
+            color: rgba(224, 243, 244, 0.88) !important;
+            border-color: rgba(0, 235, 235, 0.25) !important;
+        }
+
+        body .tab-btn:hover:not(.active) {
+            color: rgba(224, 243, 244, 0.98) !important;
+            border-color: rgba(52, 244, 122, 0.35) !important;
+        }
+
+        /* Force Report / Alerts tabs readable even with inline styles */
+        body #report-tab-btn,
+        body .tab-btn[onclick="switchView('alerts')"] {
+            background: rgba(1, 2, 16, 0.70) !important;
+            color: rgba(224, 243, 244, 0.92) !important;
+            border-color: rgba(0, 235, 235, 0.30) !important;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.65) !important;
+        }
+
+        /* Insights panel: fully switch to terminal glass + neon */
+        body .insights-panel {
+            background: rgba(1, 2, 16, 0.62) !important;
+            border: 1px solid rgba(0, 235, 235, 0.24) !important;
+            box-shadow: 0 0 0 1px #000005, 0 18px 60px rgba(0, 0, 0, 0.55) !important;
+            color: rgba(224, 243, 244, 0.90) !important;
+        }
+
+        body .insights-header {
+            border-bottom: 1px solid rgba(0, 235, 235, 0.18) !important;
+        }
+
+        body .insights-header h3 {
+            color: rgba(0, 235, 235, 0.92) !important;
+            text-shadow: 2px 2px #030415;
+        }
+
+        body .stat-card {
+            background: rgba(0, 1, 11, 0.55) !important;
+            border: 1px solid rgba(0, 235, 235, 0.18) !important;
+        }
+
+        body .stat-card .stat-value {
+            color: rgba(224, 243, 244, 0.92) !important;
+        }
+
+        body .stat-card .stat-label {
+            color: rgba(0, 235, 235, 0.70) !important;
+        }
+
+        body .finding-item {
+            background: rgba(0, 1, 11, 0.35) !important;
+            border-color: rgba(0, 235, 235, 0.14) !important;
+            color: rgba(224, 243, 244, 0.86) !important;
+        }
+
+        /* Remove remaining white panels in slider/info */
+        body .info-panel {
+            background: rgba(1, 2, 16, 0.55) !important;
+            border: 1px solid rgba(0, 235, 235, 0.24) !important;
+            color: rgba(224, 243, 244, 0.90) !important;
+        }
+
+        body .info-row {
+            border-bottom-color: rgba(0, 235, 235, 0.14) !important;
+            font-family: 'VT323', monospace !important;
+        }
+
+        body .info-label {
+            color: rgba(0, 235, 235, 0.78) !important;
+        }
+
+        body .info-row span:last-child {
+            color: rgba(224, 243, 244, 0.92) !important;
+        }
+
+        /* ============================
+           Insights (new layout)
+           ============================ */
+        .insights-grid {
+            display: grid;
+            grid-template-columns: 1.25fr 0.75fr;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .insights-kpis {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .insights-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .kpi {
+            background: rgba(0, 1, 11, 0.55);
+            border: 1px solid rgba(0, 235, 235, 0.18);
+            padding: 12px 12px;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+            clip-path: polygon(3% 0, 100% 0, 100% 92%, 97% 100%, 0 100%, 0 8%);
+        }
+
+        .kpi-label {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.48em;
+            letter-spacing: 0.14em;
+            color: rgba(0, 235, 235, 0.72);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.85em;
+            color: rgba(224, 243, 244, 0.95);
+            text-shadow: 0 0 18px rgba(0, 235, 235, 0.14);
+        }
+
+        .kpi-sub {
+            margin-top: 8px;
+            font-size: 1.05em;
+            color: rgba(224, 243, 244, 0.70);
+            font-family: 'VT323', monospace;
+        }
+
+        .insights-signal {
+            background: rgba(0, 1, 11, 0.35);
+            border: 1px solid rgba(0, 235, 235, 0.16);
+            padding: 12px 12px;
+        }
+
+        .insights-signal-title,
+        .insights-feed-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.52em;
+            letter-spacing: 0.14em;
+            color: rgba(52, 244, 122, 0.92);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .insights-signal-bars {
+            display: grid;
+            gap: 10px;
+        }
+
+        .sig {
+            display: grid;
+            grid-template-columns: 96px 1fr 60px;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .sig-label {
+            color: rgba(0, 235, 235, 0.80);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.46em;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .sig-bar {
+            height: 10px;
+            background: rgba(1, 2, 16, 0.65);
+            border: 1px solid rgba(0, 235, 235, 0.16);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.45);
+            overflow: hidden;
+        }
+
+        .sig-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+            box-shadow: 0 0 18px rgba(52, 244, 122, 0.18);
+            transition: width 400ms cubic-bezier(.2,.9,.2,1);
+        }
+
+        .sig-val {
+            text-align: right;
+            color: rgba(224, 243, 244, 0.90);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.48em;
+        }
+
+        .insights-feed {
+            background: rgba(0, 1, 11, 0.35);
+            border: 1px solid rgba(0, 235, 235, 0.16);
+            padding: 12px 12px;
+            max-height: 260px;
+            overflow: auto;
+        }
+
+        .insights-feed-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .insight-item {
+            display: grid;
+            grid-template-columns: 26px 1fr;
+            gap: 10px;
+            padding: 10px 10px;
+            background: rgba(1, 2, 16, 0.55);
+            border: 1px solid rgba(0, 235, 235, 0.12);
+        }
+
+        .insight-icon {
+            width: 26px;
+            height: 26px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(52, 244, 122, 0.22);
+            background: rgba(52, 244, 122, 0.10);
+        }
+
+        .insight-title {
+            color: rgba(224, 243, 244, 0.92);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.50em;
+            letter-spacing: 0.12em;
+            margin-bottom: 6px;
+        }
+
+        .insight-text {
+            color: rgba(224, 243, 244, 0.78);
+            font-family: 'VT323', monospace;
+            font-size: 1.05em;
+            line-height: 1.35;
+        }
+
+        @media (max-width: 1100px) {
+            .insights-grid {
+                grid-template-columns: 1fr;
+            }
+            .insights-feed {
+                max-height: none;
+            }
+            .insights-kpi-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .sig {
+                grid-template-columns: 90px 1fr 56px;
+            }
+        }
+
+        /* --- Final theme alignment (login/dashboard style) --- */
+        .cmp-shell {
+            color: #f5efe8;
+            background:
+                radial-gradient(circle at 20% 8%, rgba(245, 154, 47, 0.12), transparent 34%),
+                radial-gradient(circle at 82% 78%, rgba(245, 154, 47, 0.08), transparent 44%),
+                linear-gradient(180deg, rgba(13, 9, 7, 0.95), rgba(10, 7, 5, 0.96));
+        }
+
+        .header {
+            background: rgba(17, 12, 9, 0.82);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+            padding: 14px 18px;
+        }
+
+        .header::before {
+            height: 3px;
+            background: linear-gradient(90deg, rgba(245,154,47,0.95) 0%, rgba(255,197,127,0.9) 45%, rgba(245,154,47,0.95) 100%);
+            opacity: 1;
+        }
+
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 44px;
+            line-height: 0.95;
+            color: #f5efe8;
+            text-shadow: none;
+        }
+
+        .header-buttons .btn {
+            border-radius: 10px;
+            border-width: 1px;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: none;
+            padding: 10px 14px;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: #f0e2d3;
+            border-color: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.26);
+        }
+
+        .btn-primary {
+            background: #f59a2f !important;
+            color: #1d140d;
+            border-color: #f59a2f;
+            box-shadow: 0 12px 24px rgba(245, 154, 47, 0.28);
+        }
+
+        .view-mode-tabs {
+            background: rgba(17, 12, 9, 0.82);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+            gap: 8px;
+            padding: 10px 18px 14px;
+            top: 0;
+            position: relative;
+        }
+
+        .tab-btn {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: none;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            color: #cbb9aa;
+            box-shadow: none;
+            padding: 10px 14px;
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f5efe8;
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: none;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.08);
+            color: #f5efe8;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .comparison-container {
+            background: transparent;
+        }
+
+        .image-panel,
+        .info-panel,
+        .insights-panel,
+        .map-status {
+            background: rgba(255, 255, 255, 0.04) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32) !important;
+            color: #f5efe8;
+        }
+
+        .image-header {
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #f5efe8;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 12px;
+        }
+
+        .image-date,
+        .time-range {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #d3c2b2 !important;
+            border-radius: 8px;
+            padding: 4px 8px;
+        }
+
+        .image-content {
+            padding: 0;
+            background: rgba(0, 0, 0, 0.22);
+        }
+
+        .image-content img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: none;
+            box-shadow: none;
+        }
+
+        .slider-view,
+        .map-view {
+            padding: 16px 24px;
+        }
+
+        .slider-container {
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+            min-height: 520px;
+        }
+
+        .image-layer {
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-color: rgba(0, 0, 0, 0.35);
+        }
+
+        .slider-handle {
+            width: 4px;
+            background: #f59a2f;
+            box-shadow: 0 0 0 2px rgba(245, 154, 47, 0.26), 0 0 20px rgba(245, 154, 47, 0.24);
+            animation: none;
+        }
+
+        .slider-handle::before {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 2px solid #1d140d;
+            background: #f59a2f;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+        }
+
+        .slider-handle::after {
+            font-size: 16px;
+            color: #1d140d;
+            font-weight: 700;
+        }
+
+        .slider-labels {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .label-before,
+        .label-after {
+            color: #d7c5b4;
+        }
+
+        .slider-info-panel .info-row {
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.14);
+        }
+
+        .info-label,
+        .info-row span:last-child {
+            color: #e9ddd2;
+        }
+
+        #unified-map {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+            min-height: 520px;
+            background: rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .leaflet-bar,
+        .leaflet-control-layers {
+            border: 1px solid rgba(75, 50, 30, 0.24) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28) !important;
+            background: rgba(255, 247, 236, 0.95) !important;
+            color: #2b1a10 !important;
+            overflow: hidden;
+        }
+
+        .leaflet-bar a {
+            background: rgba(255, 247, 236, 0.95) !important;
+            color: #2b1a10 !important;
+            border-bottom: 1px solid rgba(75, 50, 30, 0.2) !important;
+        }
+
+        .leaflet-control-layers-toggle {
+            position: relative;
+            filter: none;
+            background-color: rgba(255, 247, 236, 0.95) !important;
+        }
+
+        .leaflet-control-layers-toggle::after {
+            content: '\2261';
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font-size: 18px;
+            color: #2b1a10;
+            font-weight: 700;
+        }
     </style>
 </head>
 
@@ -1831,7 +2485,7 @@
         <div class="header-buttons">
             <button class="btn btn-secondary" onclick="goBack()">← Back to Map</button>
             <button class="btn btn-primary" onclick="runUnifiedAnalysisOnMap()" id="allchanges-btn"
-                style="background: linear-gradient(135deg, #5555FF, #3333CC); border-color: #3333CC;">
+                >
                 🗺️ Run Unified Map Analysis
             </button>
         </div>
@@ -1898,9 +2552,32 @@
                         <button id="open-report-btn" onclick="switchView('report');document.getElementById('report-tab-btn').classList.add('active');" style="display:none;padding:6px 14px;background:#B2E600;color:#1a1a1a;border:none;font-family:'Press Start 2P',cursive;font-size:0.5em;cursor:pointer;box-shadow:3px 3px 0 rgba(178,230,0,0.3);">📄 Full Report</button>
                     </div>
                 </div>
-                <div class="stat-cards" id="insights-stat-cards"></div>
-                <div class="findings-list" id="insights-findings"></div>
-                <div class="cloud-footer" id="insights-cloud"></div>
+                <div class="insights-grid">
+                    <div class="insights-kpis">
+                        <div class="insights-kpi-row" id="insights-kpi-row"></div>
+                        <div class="insights-signal">
+                            <div class="insights-signal-title">Signal</div>
+                            <div class="insights-signal-bars">
+                                <div class="sig">
+                                    <div class="sig-label">Severity</div>
+                                    <div class="sig-bar"><div class="sig-fill" id="sig-severity"></div></div>
+                                    <div class="sig-val" id="sig-severity-val">—</div>
+                                </div>
+                                <div class="sig">
+                                    <div class="sig-label">Confidence</div>
+                                    <div class="sig-bar"><div class="sig-fill" id="sig-confidence"></div></div>
+                                    <div class="sig-val" id="sig-confidence-val">—</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cloud-footer" id="insights-cloud"></div>
+                    </div>
+
+                    <div class="insights-feed">
+                        <div class="insights-feed-title">Findings</div>
+                        <div class="insights-feed-list" id="insights-findings"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -2282,6 +2959,12 @@
 
             let isDragging = false;
 
+            function applySlider(percentage) {
+                const p = Math.max(0, Math.min(100, percentage));
+                handle.style.left = p + '%';
+                afterLayer.style.clipPath = `inset(0 0 0 ${p}%)`;
+            }
+
             handle.addEventListener('mousedown', () => isDragging = true);
             document.addEventListener('mouseup', () => isDragging = false);
 
@@ -2291,11 +2974,7 @@
                 const rect = container.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const percentage = (x / rect.width) * 100;
-
-                if (percentage >= 0 && percentage <= 100) {
-                    handle.style.left = percentage + '%';
-                    afterLayer.style.clipPath = `inset(0 0 0 ${percentage}%)`;
-                }
+                applySlider(percentage);
             });
 
             // Touch support
@@ -2308,11 +2987,15 @@
                 const rect = container.getBoundingClientRect();
                 const x = e.touches[0].clientX - rect.left;
                 const percentage = (x / rect.width) * 100;
+                applySlider(percentage);
+            });
 
-                if (percentage >= 0 && percentage <= 100) {
-                    handle.style.left = percentage + '%';
-                    afterLayer.style.clipPath = `inset(0 0 0 ${percentage}%)`;
-                }
+            // Ensure slider remains correctly aligned when layout changes.
+            const initial = parseFloat(handle.style.left || '50');
+            applySlider(Number.isFinite(initial) ? initial : 50);
+            window.addEventListener('resize', () => {
+                const p = parseFloat(handle.style.left || '50');
+                applySlider(Number.isFinite(p) ? p : 50);
             });
         }
 
@@ -2809,38 +3492,46 @@
             const urbanHaRaw = ((urbanPx * pixelAreaM2) / 1e4);
             const urbanHa = Math.min(urbanHaRaw, totalAreaHa).toFixed(1);
 
-            // Stat cards (7-card strip)
-            const cardsEl = document.getElementById('insights-stat-cards');
-            cardsEl.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value" style="color:${sevColor};">${changePct}%</div>
-                    <div class="stat-label">Total Changed</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${areaHa} ha</div>
-                    <div class="stat-label">Changed Area</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" style="color:${sevColor};">${severity}</div>
-                    <div class="stat-label">Severity</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${urbanHa} ha</div>
-                    <div class="stat-label">Urban Expansion</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${totalAreaHa > 0 ? totalAreaHa + ' ha' : yearsUsed.length}</div>
-                    <div class="stat-label">${totalAreaHa > 0 ? 'Study Area' : 'Years'}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${confidence}%</div>
-                    <div class="stat-label">Confidence</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${summary.change_rate_ha_per_year ?? 0} ha/yr</div>
-                    <div class="stat-label">Change Rate</div>
-                </div>
-            `;
+            // KPI row (new layout)
+            const kpiRow = document.getElementById('insights-kpi-row');
+            if (kpiRow) {
+                const rate = summary.change_rate_ha_per_year ?? 0;
+                const studyAreaLabel = totalAreaHa > 0 ? `${totalAreaHa} ha` : `${yearsUsed.length}`;
+                const studyAreaTitle = totalAreaHa > 0 ? 'Study Area' : 'Years';
+                kpiRow.innerHTML = `
+                    <div class="kpi">
+                        <div class="kpi-label">Total Changed</div>
+                        <div class="kpi-value" style="color:${sevColor};">${changePct}%</div>
+                        <div class="kpi-sub">${areaHa} ha</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Severity</div>
+                        <div class="kpi-value" style="color:${sevColor};">${severity}</div>
+                        <div class="kpi-sub">${rate} ha/yr</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Urban Trend</div>
+                        <div class="kpi-value">${urbanHa} ha</div>
+                        <div class="kpi-sub">${studyAreaTitle}: ${studyAreaLabel}</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Method</div>
+                        <div class="kpi-value">${(results.method || 'CNN+ConvLSTM').toString().slice(0, 12)}</div>
+                        <div class="kpi-sub">10 m • Sentinel‑2</div>
+                    </div>
+                `;
+            }
+
+            // Signal bars
+            const sevBar = document.getElementById('sig-severity');
+            const sevVal = document.getElementById('sig-severity-val');
+            const confBar = document.getElementById('sig-confidence');
+            const confVal = document.getElementById('sig-confidence-val');
+            const sevPct = ({ Critical: 95, High: 75, Moderate: 55, Low: 30 }[severity] ?? 40);
+            if (sevBar) sevBar.style.width = `${sevPct}%`;
+            if (sevVal) sevVal.textContent = severity.toUpperCase();
+            if (confBar) confBar.style.width = `${Math.max(0, Math.min(100, Number(confidence) || 0))}%`;
+            if (confVal) confVal.textContent = `${confidence}%`;
 
             // Quick findings
             const findingsEl = document.getElementById('insights-findings');
@@ -2848,18 +3539,50 @@
             const consPx = classified.construction?.pixels ?? 0;
             if (consPx > 0) {
                 const consHa = Math.min(((consPx * pixelAreaM2) / 1e4), totalAreaHa).toFixed(1);
-                fns.push(`<div class="finding-item urban"><span>🏗️</span><span><strong>Construction detected:</strong> ${consHa} ha — NDBI > 0.15 , NDVI < 0.25 (CNN+ConvLSTM)</span></div>`);
+                fns.push(`
+                    <div class="insight-item">
+                        <div class="insight-icon">🏗️</div>
+                        <div>
+                            <div class="insight-title">Construction detected</div>
+                            <div class="insight-text">${consHa} ha flagged (NDBI &gt; 0.15, NDVI &lt; 0.25).</div>
+                        </div>
+                    </div>
+                `);
             }
             if (urbanPx > 0) {
-                fns.push(`<div class="finding-item urban"><span>🏙️</span><span><strong>Urban expansion:</strong> ${urbanHa} ha over ${yearsUsed.length} years (NDBI slope > 0.015/year)</span></div>`);
+                fns.push(`
+                    <div class="insight-item">
+                        <div class="insight-icon">🏙️</div>
+                        <div>
+                            <div class="insight-title">Urban expansion trend</div>
+                            <div class="insight-text">${urbanHa} ha over ${yearsUsed.length} year(s) (NDBI slope &gt; 0.015/yr).</div>
+                        </div>
+                    </div>
+                `);
             }
             const vegPx = trend.gradual_deforestation_pixels ?? 0;
             if (vegPx > 0) {
                 const vegHa = Math.min(((vegPx * pixelAreaM2) / 1e4), totalAreaHa).toFixed(1);
-                fns.push(`<div class="finding-item vegetation"><span>🌳</span><span><strong>Vegetation loss:</strong> ${vegHa} ha gradual decline (NDVI slope < −0.02/year)</span></div>`);
+                fns.push(`
+                    <div class="insight-item">
+                        <div class="insight-icon">🌳</div>
+                        <div>
+                            <div class="insight-title">Vegetation decline trend</div>
+                            <div class="insight-text">${vegHa} ha gradual decline (NDVI slope &lt; −0.02/yr).</div>
+                        </div>
+                    </div>
+                `);
             }
             if (fns.length === 0) {
-                fns.push(`<div class="finding-item"><span>✅</span><span>No significant changes detected. Region appears stable.</span></div>`);
+                fns.push(`
+                    <div class="insight-item">
+                        <div class="insight-icon">✅</div>
+                        <div>
+                            <div class="insight-title">No significant change</div>
+                            <div class="insight-text">Region appears stable across monitored indices.</div>
+                        </div>
+                    </div>
+                `);
             }
             findingsEl.innerHTML = fns.join('');
 

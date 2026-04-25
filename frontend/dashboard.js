@@ -194,10 +194,26 @@ function setPrimaryActionButtonsEnabled(enabled) {
 
 // City coordinates
 const CITIES = {
-    bangalore: { center: [12.9716, 77.5946], zoom: 11 },
-    mumbai: { center: [19.0760, 72.8777], zoom: 11 },
-    delhi: { center: [28.7041, 77.1025], zoom: 11 },
-    hyderabad: { center: [17.3850, 78.4867], zoom: 11 }
+    bangalore: {
+        center: [12.9716, 77.5946],
+        zoom: 11,
+        bbox: { north: 13.1730, south: 12.7340, east: 77.8800, west: 77.3700 }
+    },
+    mumbai: {
+        center: [19.0760, 72.8777],
+        zoom: 11,
+        bbox: { north: 19.2695, south: 18.8942, east: 72.9781, west: 72.7757 }
+    },
+    delhi: {
+        center: [28.7041, 77.1025],
+        zoom: 11,
+        bbox: { north: 28.8833, south: 28.4041, east: 77.3465, west: 76.8389 }
+    },
+    hyderabad: {
+        center: [17.3850, 78.4867],
+        zoom: 11,
+        bbox: { north: 17.5640, south: 17.2403, east: 78.6530, west: 78.2543 }
+    }
 };
 
 // Initialize
@@ -691,6 +707,33 @@ function jumpToCity() {
     if (cityId && CITIES[cityId]) {
         const city = CITIES[cityId];
         map.setView(city.center, city.zoom);
+
+        if (city.bbox) {
+            selectedBbox = {
+                north: city.bbox.north,
+                south: city.bbox.south,
+                east: city.bbox.east,
+                west: city.bbox.west
+            };
+
+            drawnItems.clearLayers();
+            const bounds = L.latLngBounds(
+                [selectedBbox.south, selectedBbox.west],
+                [selectedBbox.north, selectedBbox.east]
+            );
+            const rectangle = L.rectangle(bounds, {
+                color: '#667eea',
+                weight: 3,
+                fillOpacity: 0.1
+            });
+            drawnItems.addLayer(rectangle);
+            map.fitBounds(bounds, { padding: [20, 20] });
+
+            displayCoordinates(selectedBbox);
+            setPrimaryActionButtonsEnabled(true);
+            const analyzeBtn = document.getElementById('analyze-map-btn');
+            if (analyzeBtn) analyzeBtn.disabled = false;
+        }
     }
 }
 
