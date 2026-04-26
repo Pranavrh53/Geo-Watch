@@ -1370,83 +1370,151 @@
 
         /* ── Trajectory Prediction ── */
         .traj-chart-wrap {
-            background: white; border: 3px solid #00B8A9;
-            box-shadow: 5px 5px 0 rgba(0,184,169,0.15);
-            padding: 20px; margin-bottom: 20px;
+            padding: 18px;
+            margin-bottom: 16px;
         }
         .traj-chart-title {
-            font-family: 'Press Start 2P', cursive; font-size: 0.55em;
-            color: #00B8A9; margin-bottom: 14px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--amber);
+            margin-bottom: 12px;
         }
-        .traj-canvas { width: 100%; height: 320px; background: #fafafa; border: 1px solid #eee; }
+        .traj-canvas {
+            width: 100%;
+            height: 320px;
+            background: oklch(0.18 0.01 60 / 0.7);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
         .traj-legend {
-            display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px;
-            font-family: 'Space Mono', monospace; font-size: 0.72em; color: #666;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--muted-fg);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
         .traj-legend-dot {
-            display: inline-block; width: 12px; height: 12px;
-            border-radius: 50%; margin-right: 5px; vertical-align: middle;
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            margin-right: 6px;
+            vertical-align: middle;
+            border: 1px solid rgba(255,255,255,0.2);
         }
         .traj-milestones {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px; margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
         }
         .traj-milestone-card {
-            background: white; border: 3px solid #FF5555;
-            box-shadow: 4px 4px 0 rgba(255,85,85,0.12);
-            padding: 16px 18px; position: relative; overflow: hidden;
+            background: oklch(0.18 0.01 60 / 0.7);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
+            padding: 14px 16px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
         }
         .traj-milestone-card::before {
-            content: ''; position: absolute; top: 0; left: 0;
-            width: 4px; height: 100%; background: #FF5555;
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--amber);
         }
-        .traj-milestone-card.conf-high { border-color: #FF5555; }
-        .traj-milestone-card.conf-high::before { background: #FF5555; }
-        .traj-milestone-card.conf-moderate { border-color: #F5A623; }
-        .traj-milestone-card.conf-moderate::before { background: #F5A623; }
-        .traj-milestone-card.conf-low { border-color: #aaa; }
-        .traj-milestone-card.conf-low::before { background: #aaa; }
+        .traj-milestone-card.conf-high { border-color: oklch(0.58 0.19 28 / 0.45); }
+        .traj-milestone-card.conf-high::before { background: oklch(0.58 0.19 28); }
+        .traj-milestone-card.conf-moderate { border-color: oklch(0.76 0.16 65 / 0.45); }
+        .traj-milestone-card.conf-moderate::before { background: oklch(0.76 0.16 65); }
+        .traj-milestone-card.conf-low { border-color: oklch(0.68 0.02 70 / 0.4); }
+        .traj-milestone-card.conf-low::before { background: oklch(0.68 0.02 70); }
         .traj-ms-year {
-            font-family: 'Press Start 2P', cursive; font-size: 1.1em;
-            color: #FF5555; margin-bottom: 6px;
+            font-family: var(--font-serif);
+            font-size: 1.1rem;
+            color: var(--foreground);
+            margin-bottom: 4px;
         }
         .traj-ms-event {
-            font-family: 'Press Start 2P', cursive; font-size: 0.45em;
-            color: #2f3c45; margin-bottom: 8px; letter-spacing: 0.5px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--amber);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
         }
         .traj-ms-msg {
-            font-family: 'Space Mono', monospace; font-size: 0.78em;
-            color: #555; line-height: 1.7;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--muted-fg);
+            line-height: 1.65;
         }
         .traj-ms-conf {
-            display: inline-block; margin-top: 8px; padding: 2px 10px;
-            font-family: 'Press Start 2P', cursive; font-size: 0.32em;
-            letter-spacing: 1px; text-transform: uppercase;
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border-radius: 999px;
         }
-        .traj-ms-conf.high { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-        .traj-ms-conf.moderate { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
-        .traj-ms-conf.low { background: #f5f5f5; color: #999; border: 1px solid #ddd; }
+        .traj-ms-conf.high { background: oklch(0.58 0.19 28 / 0.2); color: var(--destructive-fg); border: 1px solid oklch(0.58 0.19 28 / 0.45); }
+        .traj-ms-conf.moderate { background: oklch(0.76 0.16 65 / 0.2); color: var(--amber-fg); border: 1px solid oklch(0.76 0.16 65 / 0.45); }
+        .traj-ms-conf.low { background: oklch(0.3 0.012 60 / 0.55); color: var(--muted-fg); border: 1px solid var(--border); }
         .traj-narratives {
-            background: #f0faf9; border: 2px solid #00B8A9;
-            padding: 14px 18px; margin-bottom: 16px;
-            font-family: 'Space Mono', monospace; font-size: 0.82em;
-            line-height: 2; color: #333;
+            background: oklch(0.18 0.01 60 / 0.68);
+            border: 1px solid var(--border);
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            line-height: 1.9;
+            color: var(--muted-fg);
+            border-radius: 8px;
         }
         .traj-stats-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 12px;
         }
         @media (max-width: 900px) { .traj-stats-grid { grid-template-columns: 1fr; } }
         .traj-stat-card {
-            background: #f9f9f9; border: 2px solid #eee; padding: 12px 14px; text-align: center;
+            background: oklch(0.18 0.01 60 / 0.68);
+            border: 1px solid var(--border);
+            padding: 12px 14px;
+            text-align: center;
+            border-radius: 8px;
         }
         .traj-stat-label {
-            font-family: 'Press Start 2P', cursive; font-size: 0.38em;
-            color: #888; margin-bottom: 6px; letter-spacing: 0.5px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--muted-fg);
+            margin-bottom: 5px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
         }
         .traj-stat-value {
-            font-family: 'Press Start 2P', cursive; font-size: 0.55em; color: #2f3c45;
+            font-family: var(--font-serif);
+            font-size: 1.1rem;
+            color: var(--foreground);
         }
-        .traj-stat-sub { font-size: 0.7em; color: #aaa; margin-top: 4px; }
+        .traj-stat-sub {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--muted-fg);
+            margin-top: 3px;
+        }
 
         /* ── Animation View ── */
         .animate-view {
@@ -1973,9 +2041,10 @@
         }
 
         body .header-buttons .btn-primary#allchanges-btn {
-            background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan)) !important;
-            border-color: transparent !important;
-            color: #00010b !important;
+            background: #f59a2f !important;
+            border-color: #f59a2f !important;
+            color: #1d140d !important;
+            box-shadow: 0 12px 24px rgba(245, 154, 47, 0.28) !important;
         }
 
         body .view-mode-tabs {
@@ -2912,6 +2981,281 @@
 
             .comparison-container {
                 padding: 0 16px 18px;
+            }
+        }
+
+        /* Analysis report refresh (Lovable-inspired, backend data preserved) */
+        .report-view {
+            background: transparent !important;
+            padding: 18px 22px 26px !important;
+        }
+
+        #report-content {
+            max-width: 1240px;
+            margin: 0 auto;
+        }
+
+        .rpt-top-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+
+        .rpt-summary-card,
+        .rpt-confidence-card,
+        .rpt-section,
+        .rpt-stat-cell,
+        .traj-chart-wrap {
+            background: oklch(0.22 0.012 60 / 0.72) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 10px;
+            box-shadow: var(--shadow-soft) !important;
+            backdrop-filter: blur(10px);
+        }
+
+        .rpt-summary-card,
+        .rpt-confidence-card {
+            padding: 20px 22px;
+        }
+
+        .rpt-title {
+            font-family: var(--font-serif) !important;
+            font-size: 1.8rem !important;
+            line-height: 1.15;
+            color: var(--foreground) !important;
+            margin-bottom: 8px;
+        }
+
+        .rpt-subtitle,
+        .rpt-summary-text,
+        .rpt-confidence-note,
+        .rpt-confidence-sub,
+        .rpt-method-summary,
+        .rpt-finding-text,
+        .rpt-finding-meta {
+            font-family: var(--font-mono) !important;
+            color: var(--muted-fg) !important;
+        }
+
+        .rpt-summary-text {
+            margin-top: 12px;
+            font-size: 0.86rem;
+            line-height: 1.75;
+        }
+
+        .rpt-badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .rpt-badge {
+            border-radius: 999px !important;
+            border: 1px solid transparent;
+            padding: 6px 11px !important;
+            font-family: var(--font-mono) !important;
+            letter-spacing: 0.08em;
+            font-size: 10px !important;
+            text-transform: uppercase;
+        }
+
+        .rpt-badge-critical { background: oklch(0.58 0.19 28 / 0.25) !important; color: var(--destructive-fg) !important; border-color: oklch(0.58 0.19 28 / 0.45); }
+        .rpt-badge-high { background: oklch(0.66 0.16 45 / 0.26) !important; color: var(--foreground) !important; border-color: oklch(0.66 0.16 45 / 0.45); }
+        .rpt-badge-moderate { background: oklch(0.72 0.14 70 / 0.22) !important; color: var(--amber-fg) !important; border-color: oklch(0.72 0.14 70 / 0.45); }
+        .rpt-badge-low { background: oklch(0.55 0.12 145 / 0.24) !important; color: var(--forest-fg) !important; border-color: oklch(0.55 0.12 145 / 0.45); }
+        .rpt-badge-confidence { background: oklch(0.55 0.12 145 / 0.26) !important; color: var(--forest-fg) !important; border-color: oklch(0.55 0.12 145 / 0.45); }
+        .rpt-badge-years { background: oklch(0.3 0.05 240 / 0.35) !important; color: var(--foreground) !important; border-color: oklch(0.48 0.08 240 / 0.45); }
+
+        .rpt-mini-grid {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .rpt-mini-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: oklch(0.18 0.01 60 / 0.6);
+            padding: 11px 12px;
+        }
+
+        .rpt-mini-value {
+            font-family: var(--font-serif);
+            font-size: 1.15rem;
+            color: var(--foreground);
+        }
+
+        .rpt-mini-label {
+            margin-top: 4px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted-fg);
+        }
+
+        .rpt-confidence-value {
+            font-family: var(--font-serif);
+            font-size: 2.2rem;
+            color: var(--amber);
+            margin: 8px 0 10px;
+        }
+
+        .rpt-confidence-note,
+        .rpt-confidence-sub {
+            font-size: 11px;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .rpt-stat-strip {
+            margin-bottom: 16px;
+            display: grid;
+            grid-template-columns: repeat(7, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .rpt-stat-cell {
+            padding: 14px 12px;
+        }
+
+        .rpt-stat-value {
+            font-family: var(--font-serif);
+            font-size: 1.28rem;
+            color: var(--foreground);
+        }
+
+        .rpt-stat-label {
+            margin-top: 4px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted-fg);
+        }
+
+        .rpt-section {
+            padding: 20px 22px !important;
+            margin-bottom: 14px !important;
+        }
+
+        .rpt-section-title {
+            font-family: var(--font-mono) !important;
+            color: var(--amber) !important;
+            font-size: 10px !important;
+            letter-spacing: 0.18em;
+            border-bottom: 1px dashed var(--border) !important;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+
+        .rpt-kpi-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+
+        .rpt-kpi {
+            background: oklch(0.18 0.01 60 / 0.66) !important;
+            border: 1px solid var(--border) !important;
+            border-left-width: 3px !important;
+            box-shadow: none !important;
+            border-radius: 8px;
+        }
+
+        .rpt-kpi-label,
+        .cloud-chip,
+        .confidence-label {
+            font-family: var(--font-mono) !important;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-size: 10px !important;
+        }
+
+        .rpt-kpi-value {
+            font-family: var(--font-serif) !important;
+            font-size: 1.2rem !important;
+            color: var(--foreground) !important;
+        }
+
+        .rpt-spectral-table {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .rpt-spectral-table th {
+            background: oklch(0.18 0.01 60 / 0.9) !important;
+            color: var(--amber) !important;
+            font-family: var(--font-mono) !important;
+            font-size: 10px !important;
+            letter-spacing: 0.12em;
+        }
+
+        .rpt-spectral-table td {
+            border-bottom: 1px solid var(--border) !important;
+            color: var(--foreground) !important;
+            background: oklch(0.22 0.012 60 / 0.45) !important;
+        }
+
+        .rpt-finding {
+            border-bottom: 1px solid var(--border) !important;
+            padding: 14px 0 !important;
+        }
+
+        .rpt-finding-title,
+        .rpt-method-val {
+            color: var(--foreground) !important;
+            font-family: var(--font-serif) !important;
+        }
+
+        .rpt-finding-icon,
+        .cloud-chip {
+            border-radius: 8px;
+        }
+
+        .cloud-chip-ok,
+        .cloud-chip-warn,
+        .cloud-chip-bad {
+            background: oklch(0.18 0.01 60 / 0.6) !important;
+            color: var(--foreground) !important;
+            border-color: var(--border) !important;
+        }
+
+        .confidence-bar-wrap {
+            height: 10px !important;
+            border-radius: 999px;
+            border: 1px solid var(--border) !important;
+            background: oklch(0.18 0.01 60 / 0.8) !important;
+        }
+
+        .confidence-bar-fill {
+            background: var(--gradient-amber) !important;
+        }
+
+        @media (max-width: 1200px) {
+            .rpt-top-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .rpt-stat-strip {
+                grid-template-columns: repeat(4, minmax(120px, 1fr));
+            }
+        }
+
+        @media (max-width: 900px) {
+            .rpt-mini-grid,
+            .rpt-kpi-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .rpt-stat-strip {
+                grid-template-columns: repeat(2, minmax(120px, 1fr));
+            }
+
+            .rpt-title {
+                font-size: 1.45rem !important;
             }
         }
     </style>
@@ -5024,62 +5368,60 @@
             const realYears  = summary.real_data_years      ?? yearsUsed.length;
             const synthYears = summary.synthetic_data_years ?? 0;
             const avgCloud   = summary.avg_cloud_percent    ?? 0;
+            const waterSignal = (ndwi.delta ?? 0) > 0.02
+                ? 'Water gain signal'
+                : (ndwi.delta ?? 0) < -0.02
+                ? 'Water loss signal'
+                : 'Water relatively stable';
 
             // ── Assemble the report ──
             container.innerHTML = `
-                <!-- Report Header -->
-                <div class="rpt-header">
-                    <div class="rpt-title">📊 Land-Use Change Analysis Report</div>
-                    <div class="rpt-subtitle">
-                        Study area: ${totalAreaHa} ha &nbsp;|&nbsp; Period: ${beforeYr} → ${afterYr} (${nYears} year${nYears !== 1 ? 's' : ''})
-                        &nbsp;|&nbsp; Sentinel-2 L2A · ${yearsUsed.length} annual scenes
-                    </div>
-                    ${sevBadge}
-                    <span class="rpt-badge" style="background:#00B8A9;color:white;">Confidence: ${confidence}%</span>
-                    <span class="rpt-badge" style="background:#5555FF;color:white;">${realYears}/${yearsUsed.length} real data years</span>
+                <div class="rpt-top-grid">
+                    <section class="rpt-summary-card">
+                        <div class="rpt-title">Land-Use Change Analysis Report</div>
+                        <div class="rpt-subtitle">
+                            Study area: ${totalAreaHa} ha | Period: ${beforeYr} -> ${afterYr} (${nYears} year${nYears !== 1 ? 's' : ''})
+                            | Sentinel-2 L2A | ${yearsUsed.length} annual scenes
+                        </div>
+                        <div class="rpt-badge-row">
+                            ${sevBadge}
+                            <span class="rpt-badge rpt-badge-confidence">Confidence: ${confidence}%</span>
+                            <span class="rpt-badge rpt-badge-years">${realYears}/${yearsUsed.length} real data years</span>
+                        </div>
+                        <p class="rpt-summary-text">${execSummary}</p>
+                        <div class="rpt-mini-grid">
+                            <div class="rpt-mini-card">
+                                <div class="rpt-mini-value">${urbanHa} ha</div>
+                                <div class="rpt-mini-label">Urban gain</div>
+                            </div>
+                            <div class="rpt-mini-card">
+                                <div class="rpt-mini-value">${vegHa} ha</div>
+                                <div class="rpt-mini-label">Vegetation loss</div>
+                            </div>
+                            <div class="rpt-mini-card">
+                                <div class="rpt-mini-value">${(ndwi.delta ?? 0).toFixed(3)}</div>
+                                <div class="rpt-mini-label">${waterSignal}</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <aside class="rpt-confidence-card">
+                        <div class="rpt-section-title">Confidence</div>
+                        <div class="rpt-confidence-value">${confidence}%</div>
+                        <div class="confidence-bar-wrap"><div class="confidence-bar-fill" style="width:${confidence}%;"></div></div>
+                        <div class="rpt-confidence-note">Median model confidence from CNN+ConvLSTM ensemble.</div>
+                        <div class="rpt-confidence-sub">${realYears} real Sentinel-2 years, ${synthYears} synthetic fallback years.</div>
+                    </aside>
                 </div>
 
-                <!-- Executive Summary -->
-                <div class="rpt-section">
-                    <div class="rpt-section-title">📝 Executive Summary</div>
-                    <p style="font-family:'Space Mono',monospace;font-size:0.85em;line-height:1.9;color:#333;">${execSummary}</p>
-                </div>
-
-                <!-- KPI Dashboard -->
-                <div class="rpt-section">
-                    <div class="rpt-section-title">📐 Key Metrics</div>
-                    <div class="rpt-kpi-grid">
-                        <div class="rpt-kpi accent-red">
-                            <div class="rpt-kpi-label">Total Area Changed</div>
-                            <div class="rpt-kpi-value" style="color:${sevColor};">${changePct}%</div>
-                            <div class="rpt-kpi-note">${areaHa} ha of ${totalAreaHa} ha study area</div>
-                        </div>
-                        <div class="rpt-kpi accent-orange">
-                            <div class="rpt-kpi-label">Severity</div>
-                            <div class="rpt-kpi-value" style="color:${sevColor};">${severity}</div>
-                            <div class="rpt-kpi-note">Based on % area changed</div>
-                        </div>
-                        <div class="rpt-kpi accent-green">
-                            <div class="rpt-kpi-label">Confidence Score</div>
-                            <div class="rpt-kpi-value">${confidence}%</div>
-                            <div class="rpt-kpi-note">${realYears} real · ${synthYears} synthetic years</div>
-                        </div>
-                        <div class="rpt-kpi accent-orange">
-                            <div class="rpt-kpi-label">Urban Expansion</div>
-                            <div class="rpt-kpi-value">${urbanHa} ha</div>
-                            <div class="rpt-kpi-note">Consistent NDBI rise trend</div>
-                        </div>
-                        <div class="rpt-kpi accent-red">
-                            <div class="rpt-kpi-label">Vegetation Loss</div>
-                            <div class="rpt-kpi-value">${vegHa} ha</div>
-                            <div class="rpt-kpi-note">Consistent NDVI decline trend</div>
-                        </div>
-                        <div class="rpt-kpi accent-blue">
-                            <div class="rpt-kpi-label">Change Rate</div>
-                            <div class="rpt-kpi-value">${rate} ha/yr</div>
-                            <div class="rpt-kpi-note">Average over ${nYears} year${nYears !== 1 ? 's' : ''}</div>
-                        </div>
-                    </div>
+                <div class="rpt-stat-strip">
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value" style="color:${sevColor};">${changePct}%</div><div class="rpt-stat-label">Total changed</div></div>
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value">${areaHa} ha</div><div class="rpt-stat-label">Changed area</div></div>
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value" style="color:${sevColor};">${severity}</div><div class="rpt-stat-label">Severity</div></div>
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value">${urbanHa} ha</div><div class="rpt-stat-label">Urban expansion</div></div>
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value">${totalAreaHa} ha</div><div class="rpt-stat-label">Study area</div></div>
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value">${confidence}%</div><div class="rpt-stat-label">Confidence</div></div>
+                    <div class="rpt-stat-cell"><div class="rpt-stat-value">${rate} ha/yr</div><div class="rpt-stat-label">Change rate</div></div>
                 </div>
 
                 <!-- Spectral Index Comparison -->
@@ -5187,32 +5529,32 @@
                             Shows when key environmental thresholds will be crossed at current rates of change.
                         </p>
                         <div class="traj-narratives">${narr}</div>
-                        ${ms ? '<div class="traj-milestones">' + ms + '</div>' : '<div style="font-family:Space Mono,monospace;font-size:0.8em;color:#888;margin-bottom:16px;padding:12px;background:#f9f9f9;border:2px solid #eee;">✅ No critical thresholds predicted to be crossed in the next 10 years at current rates.</div>'}
+                        ${ms ? '<div class="traj-milestones">' + ms + '</div>' : '<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted-fg);margin-bottom:16px;padding:12px;background:oklch(0.18 0.01 60 / 0.68);border:1px solid var(--border);border-radius:8px;">✅ No critical thresholds predicted to be crossed in the next 10 years at current rates.</div>'}
                         <div class="traj-chart-wrap">
                             <div class="traj-chart-title">NDVI & NDBI Trajectory — Historical + Projected</div>
                             <canvas id="traj-chart-canvas" class="traj-canvas"></canvas>
                             <div class="traj-legend">
-                                <span><span class="traj-legend-dot" style="background:#4CAF50;"></span> NDVI (historical)</span>
-                                <span><span class="traj-legend-dot" style="background:#4CAF50;opacity:0.4;"></span> NDVI (projected)</span>
-                                <span><span class="traj-legend-dot" style="background:#F5A623;"></span> NDBI (historical)</span>
-                                <span><span class="traj-legend-dot" style="background:#F5A623;opacity:0.4;"></span> NDBI (projected)</span>
-                                <span><span class="traj-legend-dot" style="background:#2196F3;"></span> NDWI (historical)</span>
+                                <span><span class="traj-legend-dot" style="background:rgb(121,171,107);"></span> NDVI (historical)</span>
+                                <span><span class="traj-legend-dot" style="background:rgba(121,171,107,0.45);"></span> NDVI (projected)</span>
+                                <span><span class="traj-legend-dot" style="background:rgb(213,150,73);"></span> NDBI (historical)</span>
+                                <span><span class="traj-legend-dot" style="background:rgba(213,150,73,0.45);"></span> NDBI (projected)</span>
+                                <span><span class="traj-legend-dot" style="background:rgb(102,154,188);"></span> NDWI (historical)</span>
                             </div>
                         </div>
                         <div class="traj-stats-grid">
                             <div class="traj-stat-card">
                                 <div class="traj-stat-label">🌿 NDVI Slope</div>
-                                <div class="traj-stat-value" style="color:${traj.ndvi.slope_per_year < 0 ? '#D32F2F' : '#388E3C'};">${traj.ndvi.slope_per_year > 0 ? '+' : ''}${traj.ndvi.slope_per_year}/yr</div>
+                                <div class="traj-stat-value" style="color:${traj.ndvi.slope_per_year < 0 ? 'rgb(208,108,91)' : 'rgb(121,171,107)'};">${traj.ndvi.slope_per_year > 0 ? '+' : ''}${traj.ndvi.slope_per_year}/yr</div>
                                 <div class="traj-stat-sub">R² = ${traj.ndvi.r_squared} · ${traj.ndvi.trend}</div>
                             </div>
                             <div class="traj-stat-card">
                                 <div class="traj-stat-label">🏗️ NDBI Slope</div>
-                                <div class="traj-stat-value" style="color:${traj.ndbi.slope_per_year > 0 ? '#D32F2F' : '#388E3C'};">${traj.ndbi.slope_per_year > 0 ? '+' : ''}${traj.ndbi.slope_per_year}/yr</div>
+                                <div class="traj-stat-value" style="color:${traj.ndbi.slope_per_year > 0 ? 'rgb(208,108,91)' : 'rgb(121,171,107)'};">${traj.ndbi.slope_per_year > 0 ? '+' : ''}${traj.ndbi.slope_per_year}/yr</div>
                                 <div class="traj-stat-sub">R² = ${traj.ndbi.r_squared} · ${traj.ndbi.trend}</div>
                             </div>
                             <div class="traj-stat-card">
                                 <div class="traj-stat-label">💧 NDWI Slope</div>
-                                <div class="traj-stat-value" style="color:${Math.abs(traj.ndwi.slope_per_year) > 0.002 ? '#1565C0' : '#888'};">${traj.ndwi.slope_per_year > 0 ? '+' : ''}${traj.ndwi.slope_per_year}/yr</div>
+                                <div class="traj-stat-value" style="color:${Math.abs(traj.ndwi.slope_per_year) > 0.002 ? 'rgb(102,154,188)' : 'rgb(168,161,150)'};">${traj.ndwi.slope_per_year > 0 ? '+' : ''}${traj.ndwi.slope_per_year}/yr</div>
                                 <div class="traj-stat-sub">R² = ${traj.ndwi.r_squared} · ${traj.ndwi.trend}</div>
                             </div>
                         </div>
@@ -5256,9 +5598,9 @@
             // Collect all data points
             const allYears = [];
             const series = [
-                { key: 'ndvi', color: '#4CAF50', projColor: 'rgba(76,175,80,0.3)', label: 'NDVI' },
-                { key: 'ndbi', color: '#F5A623', projColor: 'rgba(245,166,35,0.3)', label: 'NDBI' },
-                { key: 'ndwi', color: '#2196F3', projColor: 'rgba(33,150,243,0.25)', label: 'NDWI' },
+                { key: 'ndvi', color: 'rgb(121,171,107)', projColor: 'rgba(121,171,107,0.42)', label: 'NDVI' },
+                { key: 'ndbi', color: 'rgb(213,150,73)', projColor: 'rgba(213,150,73,0.42)', label: 'NDBI' },
+                { key: 'ndwi', color: 'rgb(102,154,188)', projColor: 'rgba(102,154,188,0.35)', label: 'NDWI' },
             ];
 
             series.forEach(s => {
@@ -5294,18 +5636,18 @@
             function yPos(val)  { return pad.t + (1 - (val - minY) / (maxY - minY)) * ch; }
 
             // Background
-            ctx.fillStyle = '#fafafa';
+            ctx.fillStyle = 'rgba(21, 19, 16, 0.96)';
             ctx.fillRect(0, 0, W, H);
 
             // Grid lines
-            ctx.strokeStyle = '#e8e8e8';
+            ctx.strokeStyle = 'rgba(203, 190, 171, 0.2)';
             ctx.lineWidth = 1;
             const yTicks = 8;
             for (let i = 0; i <= yTicks; i++) {
                 const v = minY + (maxY - minY) * i / yTicks;
                 const y = yPos(v);
                 ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-                ctx.fillStyle = '#999';
+                ctx.fillStyle = 'rgba(209, 194, 172, 0.7)';
                 ctx.font = '10px "Space Mono", monospace';
                 ctx.textAlign = 'right';
                 ctx.fillText(v.toFixed(2), pad.l - 6, y + 3);
@@ -5317,13 +5659,13 @@
             allYears.forEach(yr => {
                 if (yr % 2 !== 0 && allYears.length > 10) return;
                 const x = xPos(yr);
-                ctx.fillStyle = '#999';
+                ctx.fillStyle = 'rgba(209, 194, 172, 0.7)';
                 ctx.font = '10px "Space Mono", monospace';
                 ctx.fillText(yr, x, H - pad.b + 18);
             });
 
             // Divider line between historical and projected
-            ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+            ctx.strokeStyle = 'rgba(213,150,73,0.28)';
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
             ctx.moveTo(xPos(lastHistYear + 0.5), pad.t);
@@ -5332,7 +5674,7 @@
             ctx.setLineDash([]);
 
             // Labels
-            ctx.fillStyle = '#bbb';
+            ctx.fillStyle = 'rgba(121,171,107,0.8)';
             ctx.font = '9px "Press Start 2P", cursive';
             ctx.textAlign = 'left';
             ctx.fillText('HISTORICAL', pad.l + 4, pad.t + 14);
@@ -5341,24 +5683,24 @@
 
             // Threshold lines
             // NDVI = 0.10 threshold
-            ctx.strokeStyle = 'rgba(76,175,80,0.3)';
+            ctx.strokeStyle = 'rgba(121,171,107,0.45)';
             ctx.setLineDash([6, 3]);
             ctx.beginPath();
             ctx.moveTo(pad.l, yPos(0.10));
             ctx.lineTo(W - pad.r, yPos(0.10));
             ctx.stroke();
-            ctx.fillStyle = 'rgba(76,175,80,0.5)';
+            ctx.fillStyle = 'rgba(121,171,107,0.85)';
             ctx.font = '9px "Space Mono", monospace';
             ctx.textAlign = 'left';
             ctx.fillText('NDVI = 0.10 (veg. gone)', pad.l + 4, yPos(0.10) - 4);
 
             // NDBI = 0.30 threshold
-            ctx.strokeStyle = 'rgba(245,166,35,0.3)';
+            ctx.strokeStyle = 'rgba(213,150,73,0.45)';
             ctx.beginPath();
             ctx.moveTo(pad.l, yPos(0.30));
             ctx.lineTo(W - pad.r, yPos(0.30));
             ctx.stroke();
-            ctx.fillStyle = 'rgba(245,166,35,0.5)';
+            ctx.fillStyle = 'rgba(213,150,73,0.9)';
             ctx.fillText('NDBI = 0.30 (fully urban)', pad.l + 4, yPos(0.30) - 4);
             ctx.setLineDash([]);
 
@@ -5386,7 +5728,7 @@
                     ctx.beginPath();
                     ctx.arc(xPos(p.year), yPos(p.value), 4, 0, Math.PI * 2);
                     ctx.fill();
-                    ctx.strokeStyle = '#fff';
+                    ctx.strokeStyle = 'rgba(255, 247, 231, 0.95)';
                     ctx.lineWidth = 1.5;
                     ctx.stroke();
                 });
@@ -5421,7 +5763,7 @@
                 const x = xPos(yr);
                 const y = yPos(threshold);
                 // Draw diamond marker
-                ctx.fillStyle = '#FF5555';
+                ctx.fillStyle = 'rgb(208,108,91)';
                 ctx.beginPath();
                 ctx.moveTo(x, y - 7);
                 ctx.lineTo(x + 5, y);
@@ -5430,7 +5772,7 @@
                 ctx.closePath();
                 ctx.fill();
                 // Label
-                ctx.fillStyle = '#FF5555';
+                ctx.fillStyle = 'rgb(208,108,91)';
                 ctx.font = 'bold 10px "Space Mono", monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText(m.event.split(' ').slice(0,2).join(' '), x, y - 12);
@@ -5562,19 +5904,12 @@
                 }
 
                 if (stayOnSideBySide) {
-                    // Switch to side-by-side so user sees the changes panel
-                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    document.querySelector(".tab-btn[onclick=\"switchView('side-by-side')\"]")?.classList.add('active');
-                    document.getElementById('side-by-side-view').classList.add('active');
-                    document.getElementById('slider-view').classList.remove('active');
-                    document.getElementById('map-view').classList.remove('active');
+                    // Use centralized view switching so no other view stays active.
+                    switchView('side-by-side');
                 } else {
-                    document.querySelectorAll('.tab-btn').forEach(btnEl => btnEl.classList.remove('active'));
-                    const mapTabButton = document.querySelector(".tab-btn[onclick=\"switchView('map')\"]");
-                    if (mapTabButton) mapTabButton.classList.add('active');
-                    document.getElementById('side-by-side-view').classList.remove('active');
-                    document.getElementById('slider-view').classList.remove('active');
-                    document.getElementById('map-view').classList.add('active');
+                    // Use centralized view switching to avoid stacking map with
+                    // report/alerts panels, then focus the map on analyzed bounds.
+                    switchView('map');
                     unifiedMap.fitBounds(bounds, { padding: [20, 20] });
                     setTimeout(() => unifiedMap.invalidateSize(), 120);
                 }
@@ -6889,7 +7224,7 @@
 
         async function alertsDelete(id) {
             if (!confirm('Delete this alert permanently?')) return;
-            try {
+            try {rt 
                 await _alertsAPI(`/api/alerts/${id}`, { method: 'DELETE' });
                 alertsToast('Alert deleted');
                 alertsLoadAll();
