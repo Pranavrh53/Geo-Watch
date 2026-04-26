@@ -1,0 +1,2008 @@
+/*
+ * Earth Intelligence — Design System
+ * Charcoal base, amber + forest accents, topographic textures, editorial serif headings.
+ * Ported from Lovable TSX → Vanilla CSS for Geo-Watch
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --radius: 0.5rem;
+
+  /* Charcoal foundation */
+  --background: oklch(0.18 0.01 60);
+  --foreground: oklch(0.94 0.015 80);
+  --card: oklch(0.22 0.012 60);
+  --card-fg: oklch(0.94 0.015 80);
+
+  /* Amber primary (warm signal) */
+  --amber: oklch(0.76 0.16 65);
+  --amber-fg: oklch(0.18 0.02 60);
+
+  /* Forest secondary */
+  --forest: oklch(0.45 0.09 145);
+  --forest-fg: oklch(0.96 0.01 80);
+  --accent: oklch(0.55 0.12 145);
+  --accent-fg: oklch(0.96 0.01 80);
+
+  --muted: oklch(0.26 0.01 60);
+  --muted-fg: oklch(0.68 0.02 70);
+  --border: oklch(0.3 0.012 60);
+  --ink: oklch(0.14 0.01 60);
+  --clay: oklch(0.55 0.13 35);
+  --sand: oklch(0.85 0.04 80);
+  --destructive: oklch(0.58 0.19 28);
+  --destructive-fg: oklch(0.97 0.01 80);
+
+  /* Gradients & shadows */
+  --gradient-earth: linear-gradient(135deg, oklch(0.22 0.012 60) 0%, oklch(0.18 0.015 50) 100%);
+  --gradient-amber: linear-gradient(135deg, oklch(0.78 0.17 70) 0%, oklch(0.62 0.15 45) 100%);
+  --gradient-forest: linear-gradient(135deg, oklch(0.5 0.1 145) 0%, oklch(0.32 0.05 155) 100%);
+  --gradient-overlay: linear-gradient(180deg, transparent 0%, oklch(0.14 0.01 60 / 0.85) 100%);
+
+  --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.4);
+  --shadow-glow: 0 0 0 1px oklch(0.76 0.16 65 / 0.2), 0 8px 32px -8px oklch(0.76 0.16 65 / 0.3);
+
+  /* Topographic texture */
+  --topo-texture:
+    repeating-radial-gradient(
+      ellipse 800px 600px at 20% 30%,
+      transparent 0, transparent 38px,
+      oklch(0.76 0.16 65 / 0.04) 38px, oklch(0.76 0.16 65 / 0.04) 39px
+    ),
+    repeating-radial-gradient(
+      ellipse 700px 500px at 80% 70%,
+      transparent 0, transparent 44px,
+      oklch(0.55 0.12 145 / 0.05) 44px, oklch(0.55 0.12 145 / 0.05) 45px
+    );
+
+  --grid-texture:
+    linear-gradient(oklch(0.76 0.16 65 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.76 0.16 65 / 0.04) 1px, transparent 1px);
+
+  /* Font stacks */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── Base resets for Earth theme ── */
+.earth-theme * { border-color: var(--border); }
+.earth-theme { -webkit-font-smoothing: antialiased; }
+
+.earth-theme h1, .earth-theme h2, .earth-theme h3, .earth-theme h4 {
+  font-family: var(--font-serif);
+  font-feature-settings: "ss01", "ss02";
+  letter-spacing: -0.02em;
+}
+
+/* ── Panel: glassy card ── */
+.earth-theme .panel {
+  background-color: oklch(0.22 0.012 60 / 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* ── Panel header bar ── */
+.earth-theme .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+}
+.earth-theme .panel-header .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted-fg);
+}
+.earth-theme .panel-header .title {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* ── Tool button ── */
+.earth-theme .tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .tool-btn:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.earth-theme .tool-btn.active {
+  background: var(--amber);
+  color: var(--amber-fg);
+}
+
+/* ── Segmented bar (mode switcher) ── */
+.earth-theme .seg-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: oklch(0.18 0.01 60 / 0.6);
+  padding: 2px;
+}
+.earth-theme .seg-bar button {
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border: none;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .seg-bar button:hover { color: var(--foreground); }
+.earth-theme .seg-bar button.active {
+  background: var(--amber);
+  color: var(--amber-fg);
+}
+
+/* ── Data row (key-value) ── */
+.earth-theme .data-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.earth-theme .data-row dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted-fg);
+}
+.earth-theme .data-row dd {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+/* ── Stat strip (grid of stats) ── */
+.earth-theme .stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--border);
+}
+.earth-theme .stat-strip .stat-cell {
+  background: var(--card);
+  padding: 20px;
+}
+.earth-theme .stat-strip .stat-value {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+.earth-theme .stat-strip .stat-label {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted-fg);
+}
+
+/* ── Metric badge (for animations) ── */
+.earth-theme .metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.earth-theme .metric-label { color: var(--muted-fg); }
+.earth-theme .metric-value { color: var(--foreground); font-variant-numeric: tabular-nums; }
+.earth-theme .metric-delta { font-size: 10px; font-variant-numeric: tabular-nums; }
+.earth-theme .metric-delta.positive { color: var(--accent); }
+.earth-theme .metric-delta.negative { color: var(--destructive); }
+
+/* ── Color utilities ── */
+.earth-theme .text-amber { color: var(--amber); }
+.earth-theme .text-forest { color: var(--forest); }
+.earth-theme .text-accent { color: var(--accent); }
+.earth-theme .text-destructive { color: var(--destructive); }
+.earth-theme .text-muted { color: var(--muted-fg); }
+.earth-theme .text-sand { color: var(--sand); }
+
+.earth-theme .bg-amber { background-color: var(--amber); }
+.earth-theme .bg-forest { background-color: var(--forest); }
+.earth-theme .bg-accent { background-color: var(--accent); }
+.earth-theme .bg-destructive { background-color: var(--destructive); }
+.earth-theme .bg-card { background-color: var(--card); }
+.earth-theme .bg-ink { background-color: var(--ink); }
+.earth-theme .bg-gradient-amber { background-image: var(--gradient-amber); }
+.earth-theme .bg-gradient-forest { background-image: var(--gradient-forest); }
+
+/* ── Animations ── */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 oklch(0.76 0.16 65 / 0.5); }
+  100% { box-shadow: 0 0 0 18px oklch(0.76 0.16 65 / 0); }
+}
+.earth-theme .animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+
+@keyframes sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.earth-theme .animate-sweep { animation: sweep 3s linear infinite; }
+
+/* ── Scanline overlay ── */
+.earth-theme .scanline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom, transparent 0, transparent 3px,
+    oklch(0 0 0 / 0.08) 3px, oklch(0 0 0 / 0.08) 4px
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ── Legend chip ── */
+.earth-theme .legend-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  background: oklch(0.18 0.01 60 / 0.85);
+  padding: 4px 8px;
+  backdrop-filter: blur(8px);
+}
+.earth-theme .legend-chip .dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+}
+.earth-theme .legend-chip .dot.amber { background: var(--amber); }
+.earth-theme .legend-chip .dot.destructive { background: var(--destructive); }
+.earth-theme .legend-chip span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--foreground);
+}
+
+/* ── Insight row ── */
+.earth-theme .insight-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+}
+.earth-theme .insight-bar {
+  width: 4px;
+  height: 40px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.earth-theme .insight-bar.amber { background: var(--amber); }
+.earth-theme .insight-bar.destructive { background: var(--destructive); }
+
+/* ── Slider divider line ── */
+.earth-theme .slider-line {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  background: var(--amber);
+  box-shadow: var(--shadow-glow);
+  pointer-events: none;
+}
+.earth-theme .slider-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  background: var(--background);
+  box-shadow: var(--shadow-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+/* ── Floating badge ── */
+.earth-theme .float-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: oklch(0.18 0.01 60 / 0.85);
+  padding: 6px 10px;
+  backdrop-filter: blur(8px);
+}
+.earth-theme .float-badge .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.earth-theme .float-badge span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--foreground);
+}
+
+/* ── Status bar (bottom of panels) ── */
+.earth-theme .status-bar {
+  position: absolute;
+  bottom: 12px; left: 12px; right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: oklch(0.18 0.01 60 / 0.80);
+  padding: 6px 12px;
+  backdrop-filter: blur(8px);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-fg);
+}
+
+/* ── Progress bar (probability) ── */
+.earth-theme .prob-bar {
+  height: 8px;
+  flex: 1;
+  border-radius: 999px;
+  background-image: linear-gradient(90deg,
+    oklch(0.55 0.12 145),
+    oklch(0.85 0.04 80),
+    oklch(0.76 0.16 65),
+    oklch(0.58 0.19 28)
+  );
+}
+
+/* ── Playback controls ── */
+.earth-theme .playback-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  background: oklch(0.22 0.012 60 / 0.4);
+  padding: 16px;
+}
+.earth-theme .play-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--amber);
+  color: var(--amber-fg);
+  box-shadow: var(--shadow-glow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+}
+.earth-theme .play-btn:hover { transform: scale(1.05); }
+
+.earth-theme .control-btn {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+.earth-theme .control-btn:hover { color: var(--foreground); }
+
+.earth-theme .speed-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 4px;
+}
+.earth-theme .speed-bar button {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .speed-bar button.active {
+  background: var(--amber);
+  color: var(--amber-fg);
+}
+
+.earth-theme .loop-btn {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .loop-btn.active {
+  border-color: var(--amber);
+  background: oklch(0.76 0.16 65 / 0.15);
+  color: var(--amber);
+}
+
+/* ── Year frame badge ── */
+.earth-theme .year-badge {
+  position: absolute;
+  top: 16px; right: 16px;
+  border-radius: 8px;
+  border: 1px solid oklch(0.76 0.16 65 / 0.4);
+  background: oklch(0.18 0.01 60 / 0.85);
+  padding: 12px 20px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-glow);
+}
+.earth-theme .year-badge .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted-fg);
+}
+.earth-theme .year-badge .year {
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: var(--amber);
+  line-height: 1;
+}
+.earth-theme .year-badge .frame-num {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-fg);
+}
+
+/* ── Timeline bar ── */
+.earth-theme .timeline-bar {
+  position: absolute;
+  right: 16px; bottom: 16px; left: 16px;
+}
+.earth-theme .timeline-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: oklch(0.18 0.01 60 / 0.6);
+}
+.earth-theme .timeline-fill {
+  height: 100%;
+  background-image: var(--gradient-amber);
+  transition: width 0.3s;
+}
+.earth-theme .timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted-fg);
+}
+.earth-theme .timeline-labels .active {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+/* ── Range input styling ── */
+.earth-theme input[type="range"] {
+  accent-color: oklch(0.76 0.16 65);
+}
+
+/* ── Gradient overlay for map ── */
+.earth-theme .gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-overlay);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEATURE 1 — Header + Tabs + Before / After / Changes
+   Overrides existing compare.html classes
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Hide old overlays */
+.earth-theme .aurora-bg,
+.earth-theme .starfield,
+.earth-theme .grid-overlay,
+.earth-theme .cmp-scan-glow { display: none !important; }
+
+/* Body / page background */
+.earth-theme.page-wrap {
+  background-color: var(--background) !important;
+  background-image: var(--topo-texture) !important;
+  background-attachment: fixed;
+}
+
+/* ── Header bar ── */
+.earth-theme .header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(12px);
+  padding: 16px 24px !important;
+}
+.earth-theme .header::before {
+  display: none !important;
+}
+.earth-theme .brand-title {
+  font-family: var(--font-serif) !important;
+  color: var(--foreground) !important;
+  text-shadow: none !important;
+  font-size: 1.1rem !important;
+  letter-spacing: -0.02em;
+}
+.earth-theme .brand-sub {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.2em !important;
+  color: var(--amber) !important;
+  text-shadow: none !important;
+}
+.earth-theme .brand-mark {
+  background: var(--amber) !important;
+  color: var(--amber-fg) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.earth-theme .top-nav-link {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  color: var(--muted-fg) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+  transition: color 0.15s, background 0.15s;
+}
+.earth-theme .top-nav-link:hover {
+  color: var(--foreground) !important;
+  background: var(--muted) !important;
+}
+.earth-theme .top-nav-link.active {
+  color: var(--amber) !important;
+  background: oklch(0.76 0.16 65 / 0.12) !important;
+}
+.earth-theme .live-pill {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  color: var(--accent) !important;
+  background: oklch(0.55 0.12 145 / 0.12) !important;
+  border: 1px solid oklch(0.55 0.12 145 / 0.25) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  padding: 4px 10px !important;
+}
+.earth-theme .live-dot {
+  background: var(--accent) !important;
+  box-shadow: 0 0 6px var(--accent) !important;
+}
+
+/* ── Sub-header (region + title + buttons) ── */
+.earth-theme .compare-heading {
+  background: oklch(0.22 0.012 60 / 0.4) !important;
+  border-bottom: 1px solid var(--border) !important;
+  backdrop-filter: blur(8px);
+  box-shadow: none !important;
+  padding: 20px 24px !important;
+}
+.earth-theme .region-label {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.2em !important;
+  color: var(--amber) !important;
+  text-shadow: none !important;
+}
+.earth-theme .compare-title {
+  font-family: var(--font-serif) !important;
+  font-size: 1.875rem !important;
+  font-weight: 500 !important;
+  color: var(--foreground) !important;
+  text-shadow: none !important;
+  letter-spacing: -0.02em !important;
+  margin-top: 4px;
+}
+
+/* ── Buttons ── */
+.earth-theme .btn {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  text-transform: none !important;
+  transition: all 0.15s !important;
+}
+.earth-theme .btn-secondary {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  padding: 10px 16px !important;
+}
+.earth-theme .btn-secondary:hover {
+  background: var(--muted) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.earth-theme .btn-primary {
+  background: var(--gradient-amber) !important;
+  color: var(--amber-fg) !important;
+  border: none !important;
+  box-shadow: var(--shadow-soft) !important;
+  padding: 10px 20px !important;
+}
+.earth-theme .btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-glow) !important;
+}
+.earth-theme .btn-primary:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* ── Tabs ── */
+.earth-theme .view-mode-tabs {
+  background: oklch(0.22 0.012 60 / 0.4) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  padding: 0 24px 16px !important;
+  gap: 4px !important;
+  backdrop-filter: blur(8px);
+  top: auto !important;
+  position: relative !important;
+  z-index: auto !important;
+}
+.earth-theme .tab-btn {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--muted-fg) !important;
+  padding: 10px 16px !important;
+  transition: color 0.15s, border-color 0.15s !important;
+}
+.earth-theme .tab-btn:hover:not(.active) {
+  color: var(--foreground) !important;
+  background: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.earth-theme .tab-btn.active {
+  color: var(--amber) !important;
+  border-bottom-color: var(--amber) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ── Comparison container ── */
+.earth-theme .comparison-container {
+  background: transparent !important;
+}
+.earth-theme .side-by-side {
+  padding: 32px 24px !important;
+}
+
+/* ── Image panels (Before / After / Changes) ── */
+.earth-theme .image-panel {
+  background: oklch(0.22 0.012 60 / 0.7) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+.earth-theme .image-panel:nth-child(1) {
+  border-color: var(--border) !important;
+}
+.earth-theme .image-panel:nth-child(2) {
+  border-color: var(--border) !important;
+}
+.earth-theme .image-panel:nth-child(3) {
+  border-color: var(--border) !important;
+}
+
+/* ── Image panel headers ── */
+.earth-theme .image-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 12px 16px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  color: var(--foreground) !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.earth-theme .image-panel:nth-child(1) .image-header {
+  background: transparent !important;
+  color: var(--foreground) !important;
+}
+.earth-theme .image-panel:nth-child(2) .image-header {
+  background: transparent !important;
+  color: var(--foreground) !important;
+}
+.earth-theme .image-panel:nth-child(3) .image-header {
+  background: transparent !important;
+  color: var(--foreground) !important;
+}
+.earth-theme .image-header span:first-child {
+  font-family: var(--font-serif) !important;
+  font-weight: 500 !important;
+  font-size: 1rem !important;
+}
+.earth-theme .image-date {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  color: var(--muted-fg) !important;
+  background: transparent !important;
+  border: none !important;
+  text-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* ── Image content area ── */
+.earth-theme .image-content {
+  background: var(--ink);
+  padding: 0 !important;
+}
+.earth-theme .image-content img {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  image-rendering: auto !important;
+  width: 100%;
+  height: 100%;
+  object-fit: cover !important;
+}
+/* Amber inner ring on images */
+.earth-theme .image-content::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 1px oklch(0.76 0.16 65 / 0.2);
+  pointer-events: none;
+}
+
+/* ── Changes panel placeholder ── */
+.earth-theme .changes-placeholder {
+  color: var(--muted-fg) !important;
+}
+.earth-theme .changes-placeholder p {
+  color: var(--muted-fg) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+}
+.earth-theme .changes-placeholder .pulse-icon {
+  filter: none !important;
+}
+.earth-theme .run-hint {
+  background: var(--gradient-amber) !important;
+  color: var(--amber-fg) !important;
+  border: none !important;
+  box-shadow: var(--shadow-soft) !important;
+  font-family: var(--font-sans) !important;
+  border-radius: 6px !important;
+}
+.earth-theme .changes-knot-loader {
+  color: var(--amber) !important;
+  text-shadow: 0 0 4px oklch(0.76 0.16 65 / 0.3) !important;
+}
+
+/* ── Changes panel legend chips ── */
+.earth-theme #changes-panel .image-content {
+  position: relative;
+}
+
+/* ── Insights panel + info panels ── */
+.earth-theme .insights-panel,
+.earth-theme .info-panel {
+  background: oklch(0.22 0.012 60 / 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+}
+.earth-theme .info-row {
+  color: var(--foreground) !important;
+}
+.earth-theme .info-label {
+  color: var(--muted-fg) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  text-shadow: none !important;
+}
+.earth-theme .info-row span {
+  text-shadow: none !important;
+}
+
+/* ── Leaflet controls ── */
+.earth-theme .leaflet-bar,
+.earth-theme .leaflet-control-layers {
+  background: oklch(0.22 0.012 60 / 0.85) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+.earth-theme .leaflet-bar a {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.earth-theme .leaflet-bar a:hover {
+  background: var(--muted) !important;
+  color: var(--amber) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FIX 1 — Scroll: allow comparison-container to scroll
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme .cmp-shell {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}
+.earth-theme .comparison-container {
+  overflow: visible !important;
+  height: auto !important;
+  flex: none !important;
+}
+.earth-theme .side-by-side,
+.earth-theme .slider-view,
+.earth-theme .map-view,
+.earth-theme .animate-view,
+.earth-theme .report-view,
+.earth-theme .alerts-view {
+  overflow: visible !important;
+  height: auto !important;
+}
+/* Ensure the body itself can scroll */
+.earth-theme ~ body, body:has(.earth-theme) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIX 2 — Tab Colors: Analysis Report + Alerts match theme
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme #report-tab-btn,
+.earth-theme .tab-btn[onclick*="alerts"] {
+  color: var(--muted-fg) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+.earth-theme #report-tab-btn.active,
+.earth-theme .tab-btn[onclick*="alerts"].active {
+  color: var(--amber) !important;
+  border-bottom-color: var(--amber) !important;
+  background: transparent !important;
+}
+
+/* Also fix old CRT overlay interfering */
+.earth-theme ~ .crt-overlay,
+.earth-theme .crt-overlay,
+.earth-theme .vignette { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FIX 3 — Insights Panel: Professional redesign
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme .insights-panel {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 40px 24px !important;
+  color: var(--foreground) !important;
+}
+
+/* Eyebrow label */
+.earth-theme .insights-eyebrow {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.2em !important;
+  color: var(--accent) !important;
+  text-shadow: none !important;
+  margin-bottom: 4px !important;
+}
+
+/* Header row */
+.earth-theme .insights-header {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+  border: none !important;
+  padding: 0 !important;
+}
+.earth-theme .insights-header h3 {
+  font-family: var(--font-serif) !important;
+  font-size: 1.5rem !important;
+  font-weight: 500 !important;
+  color: var(--foreground) !important;
+  text-shadow: none !important;
+  letter-spacing: -0.02em !important;
+  margin: 0 !important;
+}
+
+/* Time range + Full Report button */
+.earth-theme .insights-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.earth-theme .time-range {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  color: var(--muted-fg) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  text-shadow: none !important;
+}
+.earth-theme #open-report-btn {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  background: var(--forest) !important;
+  color: var(--forest-fg) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 8px 16px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transition: opacity 0.15s !important;
+}
+.earth-theme #open-report-btn:hover { opacity: 0.85 !important; }
+
+/* ── KPI Stat Strip (grid) ── */
+.earth-theme .insights-kpi-row {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 1px !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--border) !important;
+  margin-bottom: 16px !important;
+}
+.earth-theme .insight-kpi {
+  background: var(--card) !important;
+  padding: 20px !important;
+  border: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+.earth-theme .insight-kpi-value {
+  font-family: var(--font-serif) !important;
+  font-size: 1.5rem !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+  line-height: 1.2 !important;
+}
+.earth-theme .insight-kpi-label {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  color: var(--muted-fg) !important;
+  margin-top: 4px !important;
+}
+
+/* ── Findings (insight lines) ── */
+.earth-theme .insights-findings {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin-bottom: 16px !important;
+}
+.earth-theme .insight-line {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+  padding: 16px !important;
+  background: oklch(0.22 0.012 60 / 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  border-left: 4px solid !important;
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  color: var(--foreground) !important;
+  line-height: 1.5 !important;
+  text-shadow: none !important;
+}
+.earth-theme .insight-line strong {
+  font-weight: 600 !important;
+  color: var(--foreground) !important;
+}
+
+/* ── Cloud footer ── */
+.earth-theme .cloud-footer {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  color: var(--muted-fg) !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding-top: 12px !important;
+  text-shadow: none !important;
+}
+
+/* ── Responsive: KPI strip for smaller screens ── */
+@media (max-width: 1200px) {
+  .earth-theme .insights-kpi-row {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+@media (max-width: 800px) {
+  .earth-theme .insights-kpi-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Report / Alerts / Slider / Map / Animation — earth override
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme .report-view,
+.earth-theme .alerts-view {
+  background: transparent !important;
+}
+.earth-theme .report-empty {
+  color: var(--foreground) !important;
+}
+.earth-theme .report-empty-title {
+  color: var(--foreground) !important;
+  font-family: var(--font-serif) !important;
+}
+.earth-theme .report-empty-sub {
+  color: var(--muted-fg) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+}
+.earth-theme .report-run-btn {
+  background: var(--gradient-amber) !important;
+  color: var(--amber-fg) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+/* Alerts panels */
+.earth-theme .alerts-panel,
+.earth-theme .alerts-wrap,
+.earth-theme .alerts-demo-box {
+  background: oklch(0.22 0.012 60 / 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+.earth-theme .alerts-panel-title {
+  color: var(--foreground) !important;
+  font-family: var(--font-serif) !important;
+}
+.earth-theme .alerts-demo-box {
+  color: var(--muted-fg) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+}
+.earth-theme .alerts-form-group label {
+  color: var(--foreground) !important;
+  font-family: var(--font-sans) !important;
+}
+.earth-theme .alerts-form-group input,
+.earth-theme .alerts-form-group select {
+  background: var(--ink) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  border-radius: 6px !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* Slider view */
+.earth-theme .slider-view {
+  background: transparent !important;
+}
+.earth-theme .slider-container {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+}
+.earth-theme .slider-handle {
+  background: var(--amber) !important;
+  border-color: var(--amber) !important;
+  box-shadow: var(--shadow-glow) !important;
+  animation: none !important;
+}
+.earth-theme .slider-labels {
+  font-family: var(--font-mono) !important;
+  color: var(--muted-fg) !important;
+}
+.earth-theme .label-before,
+.earth-theme .label-after {
+  font-family: var(--font-mono) !important;
+  color: var(--foreground) !important;
+  font-size: 11px !important;
+}
+.earth-theme .slider-info-panel {
+  background: oklch(0.22 0.012 60 / 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* Map view */
+.earth-theme .map-view {
+  background: transparent !important;
+}
+.earth-theme .map-status {
+  font-family: var(--font-sans) !important;
+  color: var(--muted-fg) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* Animation view */
+.earth-theme .animate-view {
+  background: transparent !important;
+}
+.earth-theme .anim-sidebar {
+  background: oklch(0.22 0.012 60 / 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+.earth-theme .anim-controls button {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  border-radius: 6px !important;
+}
+.earth-theme .anim-hud {
+  font-family: var(--font-mono) !important;
+  color: var(--foreground) !important;
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Insights Visual Enhancements — bars, donut, card layout
+   ═══════════════════════════════════════════════════════════════ */
+
+/* KPI progress bar */
+.earth-theme .insight-kpi-bar {
+  margin-top: 10px;
+  height: 4px;
+  border-radius: 999px;
+  background: oklch(0.26 0.01 60);
+  overflow: hidden;
+}
+.earth-theme .insight-kpi-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(.2,.9,.2,1);
+}
+
+/* KPI donut card */
+.earth-theme .insight-kpi-donut {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.earth-theme .insight-kpi-donut svg {
+  display: block;
+}
+
+/* Insight finding cards — enhanced layout */
+.earth-theme .insight-line {
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+.earth-theme .insight-line-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.earth-theme .insight-line-top strong {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.earth-theme .insight-line-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--foreground);
+  font-weight: 600;
+}
+.earth-theme .insight-line-pct {
+  font-weight: 400;
+  color: var(--muted-fg);
+  font-size: 11px;
+}
+.earth-theme .insight-line-desc {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--muted-fg);
+  line-height: 1.5;
+}
+.earth-theme .insight-line-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: oklch(0.26 0.01 60);
+  overflow: hidden;
+}
+.earth-theme .insight-line-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 1s cubic-bezier(.2,.9,.2,1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEATURE 2 — Slider Compare (Lovable-style)
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme .slider-layout-earth {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  width: 100%;
+  padding: 24px;
+}
+.earth-theme .slider-panel-main {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.earth-theme .slider-canvas {
+  position: relative;
+  aspect-ratio: 16 / 8;
+  overflow: hidden;
+  background: var(--ink);
+  cursor: ew-resize;
+  user-select: none;
+}
+.earth-theme .slider-canvas .image-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: filter 0.3s;
+}
+.earth-theme .slider-canvas .image-after {
+  clip-path: inset(0 0 0 50%);
+}
+
+/* Divider */
+.earth-theme .slider-divider {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+.earth-theme .slider-divider-line {
+  position: absolute;
+  inset: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--amber);
+  box-shadow: 0 0 8px oklch(0.76 0.16 65 / 0.5);
+}
+.earth-theme .slider-divider-handle {
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  background: var(--background);
+  box-shadow: var(--shadow-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  font-size: 16px;
+  color: var(--amber);
+  animation: pulse-ring 2s ease-out infinite;
+}
+.earth-theme .slider-pos-badge {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--amber);
+  color: var(--amber-fg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Zoom toolbar */
+.earth-theme .slider-zoom-toolbar {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: oklch(0.18 0.01 60 / 0.85);
+  padding: 4px;
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+
+/* Grid overlay */
+.earth-theme .slider-grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image:
+    linear-gradient(oklch(0.76 0.16 65 / 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.76 0.16 65 / 0.3) 1px, transparent 1px);
+  background-size: 10% 12.5%;
+  z-index: 4;
+}
+
+/* Sidebar */
+.earth-theme .slider-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.earth-theme .slider-presets {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.earth-theme .slider-presets button {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .slider-presets button:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.earth-theme .slider-presets button.active {
+  background: var(--amber);
+  color: var(--amber-fg);
+  border-color: var(--amber);
+}
+
+/* Export button */
+.earth-theme .slider-export-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.earth-theme .slider-export-btn:hover {
+  background: var(--muted);
+}
+
+@media (max-width: 1024px) {
+  .earth-theme .slider-layout-earth {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEATURE 3 — Unified Map (Lovable-style)
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme .map-view {
+  padding: 24px !important;
+}
+.earth-theme .map-layout-earth {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+}
+.earth-theme .map-sidebar-left,
+.earth-theme .map-sidebar-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* Layer stack items */
+.earth-theme .layer-item {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: oklch(0.16 0.01 60 / 0.4);
+  padding: 10px;
+}
+.earth-theme .layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: oklch(0.94 0.01 95);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.earth-theme .layer-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.earth-theme .layer-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: oklch(0.96 0.008 95);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.earth-theme .layer-switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--muted);
+  transition: background 0.2s;
+}
+.earth-theme .layer-switch.on { background: var(--amber); }
+.earth-theme .layer-switch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--background);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+}
+.earth-theme .layer-switch.on::after { transform: translateX(14px); }
+.earth-theme .layer-opacity {
+  width: 100%;
+  margin-top: 8px;
+  accent-color: oklch(0.76 0.16 65);
+}
+/* Basemap selector */
+.earth-theme .basemap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.earth-theme .basemap-btn {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  background: oklch(0.22 0.01 95 / 0.55);
+  color: oklch(0.93 0.01 95);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .basemap-btn:hover { color: var(--foreground); }
+.earth-theme .basemap-btn.active {
+  border-color: var(--amber);
+  background: oklch(0.76 0.16 65 / 0.15);
+  color: var(--amber);
+}
+/* Map panel */
+.earth-theme .map-panel-main {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.earth-theme .map-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  overflow: hidden;
+}
+.earth-theme #unified-map {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 420px;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+}
+.earth-theme .map-status {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px;
+  box-shadow: none !important;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--muted-fg);
+  margin-bottom: 0;
+}
+/* Probability bar at bottom */
+.earth-theme .map-prob-bar {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: oklch(0.16 0.01 60 / 0.8);
+  padding: 8px 12px;
+  backdrop-filter: blur(8px);
+  z-index: 401;
+}
+.earth-theme .prob-gradient {
+  height: 8px;
+  flex: 1;
+  border-radius: 4px;
+  background-image: linear-gradient(90deg,
+    oklch(0.55 0.12 145),
+    oklch(0.85 0.04 80),
+    oklch(0.76 0.16 65),
+    oklch(0.58 0.19 28));
+}
+/* Crosshair button */
+.earth-theme .map-crosshair {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: oklch(0.16 0.01 60 / 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--amber);
+  z-index: 401;
+}
+
+.earth-theme .map-tool-rail {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 402;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: oklch(0.16 0.01 60 / 0.9);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(8px);
+}
+
+.earth-theme .map-tool-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.earth-theme .map-tool-btn:hover {
+  border-color: oklch(0.76 0.16 65 / 0.35);
+  background: oklch(0.76 0.16 65 / 0.12);
+}
+
+.earth-theme .map-tool-btn.active {
+  border-color: var(--amber);
+  background: var(--amber);
+  color: oklch(0.22 0.01 60);
+  box-shadow: 0 0 0 1px oklch(0.76 0.16 65 / 0.35);
+}
+
+.earth-theme .map-tool-btn-reset {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+/* Sweep animation */
+.earth-theme .map-sweep-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  overflow: hidden;
+  background: oklch(0.76 0.16 65 / 0.2);
+  z-index: 401;
+}
+.earth-theme .map-sweep-inner {
+  height: 100%;
+  width: 25%;
+  background: var(--amber);
+  animation: sweep 3s ease-in-out infinite;
+}
+@keyframes sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(500%); }
+}
+/* Export GeoJSON button */
+.earth-theme .map-export-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  background: linear-gradient(135deg, oklch(0.76 0.16 65), oklch(0.66 0.16 65));
+  color: oklch(0.22 0.01 60);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 12px oklch(0.76 0.16 65 / 0.3);
+  transition: transform 0.15s;
+}
+.earth-theme .map-export-btn:hover { transform: scale(1.02); }
+
+@media (max-width: 1024px) {
+  .earth-theme .map-layout-earth {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEATURE 4 — Temporal Animation (Lovable-style)
+   ═══════════════════════════════════════════════════════════════ */
+.earth-theme .animate-view.active {
+  background: var(--background) !important;
+  z-index: 2500;
+}
+.earth-theme .anim-layout-earth {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+}
+.earth-theme .anim-panel-main {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Canvas area */
+.earth-theme .anim-canvas-earth {
+  position: relative;
+  aspect-ratio: 16 / 8;
+  flex: 1;
+  min-height: 400px;
+  overflow: hidden;
+  background: var(--ink);
+}
+.earth-theme .anim-canvas-earth canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Year badge (top-right) */
+.earth-theme .anim-year-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border-radius: 8px;
+  border: 1px solid oklch(0.76 0.16 65 / 0.4);
+  background: oklch(0.16 0.01 60 / 0.85);
+  padding: 12px 20px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-glow);
+  text-align: center;
+  z-index: 5;
+}
+.earth-theme .anim-year-badge .frame-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted-fg);
+}
+.earth-theme .anim-year-badge .frame-year {
+  font-family: var(--font-serif);
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--amber);
+  line-height: 1;
+}
+.earth-theme .anim-year-badge .frame-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-fg);
+  margin-top: 4px;
+}
+/* Live metrics (top-left) */
+.earth-theme .anim-live-metrics {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: oklch(0.16 0.01 60 / 0.85);
+  padding: 12px;
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+.earth-theme .anim-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.earth-theme .anim-metric-label {
+  color: var(--muted-fg);
+  width: 32px;
+}
+.earth-theme .anim-metric-value {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.earth-theme .anim-metric-delta {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.earth-theme .anim-metric-delta.up {
+  background: oklch(0.55 0.12 145 / 0.15);
+  color: oklch(0.65 0.14 145);
+}
+.earth-theme .anim-metric-delta.down {
+  background: oklch(0.55 0.16 28 / 0.15);
+  color: oklch(0.65 0.18 28);
+}
+/* Progress bar (bottom of canvas) */
+.earth-theme .anim-progress-bar {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 5;
+}
+.earth-theme .anim-progress-track {
+  height: 6px;
+  border-radius: 3px;
+  background: oklch(0.16 0.01 60 / 0.6);
+  overflow: hidden;
+}
+.earth-theme .anim-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, oklch(0.76 0.16 65), oklch(0.66 0.16 65));
+  transition: width 0.3s;
+}
+.earth-theme .anim-year-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted-fg);
+}
+.earth-theme .anim-year-ticks .active-tick {
+  color: var(--amber);
+  font-weight: 600;
+}
+/* Transport controls bar */
+.earth-theme .anim-transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  background: oklch(0.16 0.01 60 / 0.4);
+  padding: 12px 16px;
+}
+.earth-theme .anim-transport .transport-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-fg);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.earth-theme .anim-transport .transport-btn:hover {
+  color: var(--foreground);
+}
+.earth-theme .anim-transport .play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--amber);
+  color: oklch(0.22 0.01 60);
+  font-size: 16px;
+  box-shadow: var(--shadow-glow);
+  transition: transform 0.15s;
+}
+.earth-theme .anim-transport .play-btn:hover { transform: scale(1.05); }
+.earth-theme .anim-transport .scrub-range {
+  flex: 1;
+  accent-color: oklch(0.76 0.16 65);
+}
+/* Speed selector */
+.earth-theme .speed-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 2px;
+}
+.earth-theme .speed-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .speed-btn:hover { color: var(--foreground); }
+.earth-theme .speed-btn.active {
+  background: var(--amber);
+  color: oklch(0.22 0.01 60);
+}
+/* Loop toggle */
+.earth-theme .loop-btn {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  background: transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.earth-theme .loop-btn.active {
+  border-color: var(--amber);
+  background: oklch(0.76 0.16 65 / 0.15);
+  color: var(--amber);
+}
+/* Sidebar panels */
+.earth-theme .anim-sidebar-earth {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+/* Sparkline chart area */
+.earth-theme .anim-sparkline-wrap {
+  position: relative;
+}
+.earth-theme .anim-sparkline-wrap canvas {
+  display: block;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .earth-theme .anim-layout-earth {
+    grid-template-columns: 1fr;
+  }
+}

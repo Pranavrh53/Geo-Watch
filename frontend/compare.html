@@ -9,8 +9,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Google Fonts - Pixel theme -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="pixel-auth/assets/styles-_g1K9rK6.css">
+    <link rel="stylesheet" href="earth-theme.css">
     <style>
         * {
             margin: 0;
@@ -21,10 +24,10 @@
         body {
             font-family: 'VT323', monospace;
             color: #e0f3f4;
-            height: 100vh;
+            height: auto;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow: auto;
             background: transparent;
         }
 
@@ -2469,11 +2472,453 @@
             color: #2b1a10;
             font-weight: 700;
         }
+
+        /* Screenshot-accurate Compare UI */
+        .cmp-shell {
+            color: #e8ddd0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background:
+                radial-gradient(circle at 22% 18%, rgba(245, 154, 47, 0.09), transparent 40%),
+                radial-gradient(circle at 75% 88%, rgba(245, 154, 47, 0.07), transparent 45%),
+                #120c08;
+        }
+
+        .header {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 24px;
+            padding: 10px 22px;
+            background: rgba(20, 13, 9, 0.92) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+            position: sticky;
+            top: 0;
+            z-index: 90;
+        }
+
+        .header::before {
+            height: 0;
+            content: none;
+        }
+
+        .brand-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-mark {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            background: #f59a2f;
+            color: #1d140d;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 8px 18px rgba(245, 154, 47, 0.22);
+        }
+
+        .brand-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 31px;
+            line-height: 0.95;
+            color: #f5efe8;
+        }
+
+        .brand-sub {
+            margin-top: 3px;
+            font-size: 9px;
+            letter-spacing: 0.22em;
+            color: rgba(224, 204, 185, 0.7);
+            text-transform: uppercase;
+        }
+
+        .top-nav {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .top-nav-link {
+            border: 1px solid transparent;
+            background: transparent;
+            color: #b8a89a;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .top-nav-link.active {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.12);
+            color: #f4ebe2;
+        }
+
+        .live-pill {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 11px;
+            color: rgba(231, 221, 209, 0.82);
+            letter-spacing: 0.12em;
+            background: rgba(7, 5, 4, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #52d173;
+            box-shadow: 0 0 12px rgba(82, 209, 115, 0.6);
+        }
+
+        .compare-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 16px;
+            padding: 18px 22px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .region-label {
+            font-size: 12px;
+            letter-spacing: 0.2em;
+            color: #e39a3f;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .compare-title {
+            margin-top: 6px;
+            font-family: 'Playfair Display', serif;
+            font-size: 50px;
+            line-height: 0.95;
+            color: #f4ece4;
+            font-weight: 600;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-buttons .btn {
+            width: auto;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', system-ui, sans-serif;
+            padding: 11px 16px;
+            text-transform: none;
+            letter-spacing: 0;
+            box-shadow: none;
+        }
+
+        .header-buttons .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #efe1d3;
+        }
+
+        .header-buttons .btn-primary {
+            background: #e58a27 !important;
+            border: 1px solid #e58a27;
+            color: #1c120a !important;
+        }
+
+        .view-mode-tabs {
+            position: relative;
+            top: 0;
+            display: flex;
+            gap: 20px;
+            padding: 10px 22px 12px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .tab-btn {
+            padding: 9px 0;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: #a99584;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: none;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #efb159;
+            border-bottom-color: #ef9f39;
+            background: transparent;
+        }
+
+        .tab-btn:hover:not(.active) {
+            transform: none;
+            color: #ccb8a7;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .comparison-container {
+            display: block !important;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 24px 24px;
+            overflow: visible !important;
+        }
+
+        .side-by-side {
+            padding: 0;
+            gap: 14px;
+        }
+
+        .side-by-side-images {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            min-height: 0;
+            gap: 14px;
+        }
+
+        .image-panel,
+        .image-panel:nth-child(2),
+        .image-panel:nth-child(3) {
+            border: 1px solid rgba(255, 255, 255, 0.11) !important;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02) !important;
+            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35) !important;
+        }
+
+        .image-header,
+        .image-panel:nth-child(2) .image-header,
+        .image-panel:nth-child(3) .image-header {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+            font-size: 15px;
+            font-family: 'Playfair Display', serif;
+            color: #f3ebe3;
+        }
+
+        .image-date {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+            border-radius: 6px;
+            color: #bcae9e !important;
+        }
+
+        .image-content {
+            aspect-ratio: 4 / 3;
+            min-height: 320px;
+        }
+
+        .changes-legend {
+            background: rgba(15, 12, 10, 0.84);
+            color: #efe6dc;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 11px;
+            left: 12px;
+            bottom: 12px;
+            padding: 8px 10px;
+        }
+
+        .insights-panel {
+            display: none;
+            padding: 0;
+            border-radius: 10px;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            animation: none;
+            margin-top: 36px;
+        }
+
+        .insights-panel.show {
+            display: block;
+        }
+
+        .insights-eyebrow {
+            margin-top: 2px;
+            margin-bottom: 4px;
+            color: #5eb663;
+            letter-spacing: 0.2em;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .insights-header {
+            border: none;
+            margin-bottom: 8px;
+            padding: 0;
+            align-items: center;
+        }
+
+        .insights-header h3 {
+            color: #f3ebe3 !important;
+            font-family: 'Playfair Display', serif;
+            font-size: 44px;
+            line-height: 0.95;
+            font-weight: 600;
+            text-shadow: none;
+        }
+
+        .insights-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .time-range {
+            border-radius: 6px;
+            font-size: 11px;
+            color: #b8a695 !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            padding: 8px 10px;
+        }
+
+        #open-report-btn {
+            display: none;
+            border: 1px solid rgba(103, 170, 90, 0.85);
+            border-radius: 8px;
+            background: #2f8d44;
+            color: #f0f6ef;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 9px 14px;
+            cursor: pointer;
+        }
+
+        .insights-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 0;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            overflow: hidden;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .insight-kpi {
+            padding: 16px 16px;
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+            min-height: 86px;
+        }
+
+        .insight-kpi:last-child {
+            border-right: none;
+        }
+
+        .insight-kpi-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 40px;
+            line-height: 0.9;
+            margin-bottom: 6px;
+        }
+
+        .insight-kpi-label {
+            color: #968473;
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .insights-findings {
+            margin-top: 12px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .insight-line {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left-width: 4px;
+            border-radius: 8px;
+            padding: 14px 14px;
+            background: rgba(255, 255, 255, 0.02);
+            color: #dfd3c6;
+            font-size: 18px;
+        }
+
+        .insight-line strong {
+            color: #f4ece3;
+            font-weight: 700;
+        }
+
+        .cloud-footer {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            color: #8c7b6b;
+            margin-top: 10px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.12);
+            padding-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .slider-view,
+        .map-view,
+        .report-view,
+        .alerts-view {
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        @media (max-width: 1200px) {
+            .header {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .top-nav {
+                justify-content: start;
+            }
+
+            .compare-title,
+            .insights-header h3,
+            .brand-title {
+                font-size: 36px;
+            }
+
+            .side-by-side-images {
+                grid-template-columns: 1fr;
+            }
+
+            .insights-kpi-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .comparison-container {
+                padding: 0 16px 18px;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <div class="page-wrap">
+    <div class="page-wrap earth-theme">
         <div class="aurora-bg"></div>
         <div class="starfield"></div>
         <div class="grid-overlay"></div>
@@ -2481,23 +2926,44 @@
 
         <div class="cmp-shell">
     <div class="header">
-        <h1>🛰️ Geo-Watch - Image Comparison</h1>
+        <div class="brand-row">
+            <div class="brand-mark">
+                <span>✣</span>
+            </div>
+            <div class="brand-copy">
+                <div class="brand-title">Geo-Watch</div>
+                <div class="brand-sub">EARTH INTELLIGENCE</div>
+            </div>
+        </div>
+        <div class="top-nav">
+            <button class="top-nav-link" onclick="goBack()">Overview</button>
+            <button class="top-nav-link" onclick="goBack()">Workspace</button>
+            <button class="top-nav-link active">Compare</button>
+        </div>
+        <div class="live-pill">
+            <span class="live-dot"></span>
+            SENTINEL-2 · LIVE
+        </div>
+    </div>
+
+    <div class="compare-heading">
+        <div>
+            <div class="region-label">REGION · MEKONG DELTA · DELTA-01</div>
+            <h1 class="compare-title">Image Comparison</h1>
+        </div>
         <div class="header-buttons">
             <button class="btn btn-secondary" onclick="goBack()">← Back to Map</button>
-            <button class="btn btn-primary" onclick="runUnifiedAnalysisOnMap()" id="allchanges-btn"
-                >
-                🗺️ Run Unified Map Analysis
-            </button>
+            <button class="btn btn-primary" onclick="runUnifiedAnalysisOnMap()" id="allchanges-btn">✣ Run Unified Analysis</button>
         </div>
     </div>
 
     <div class="view-mode-tabs">
-        <button class="tab-btn active" onclick="switchView('side-by-side')">📸 Before / After / Changes</button>
-        <button class="tab-btn" onclick="switchView('slider')">⟷ Slider Compare</button>
-        <button class="tab-btn" onclick="switchView('map')">🗺️ Unified Map</button>
-        <button class="tab-btn" onclick="switchView('animate')">🎬 Temporal Animation</button>
-        <button class="tab-btn" id="report-tab-btn" onclick="switchView('report')" style="border-color:#B2E600;color:#B2E600;">📊 Analysis Report</button>
-        <button class="tab-btn" onclick="switchView('alerts')" style="border-color:#FF5555;color:#FF5555;">🚨 Alerts</button>
+        <button class="tab-btn active" onclick="switchView('side-by-side')">Before / After / Changes</button>
+        <button class="tab-btn" onclick="switchView('slider')">Slider Compare</button>
+        <button class="tab-btn" onclick="switchView('map')">Unified Map</button>
+        <button class="tab-btn" onclick="switchView('animate')">Temporal Animation</button>
+        <button class="tab-btn" id="report-tab-btn" onclick="switchView('report')">Analysis Report</button>
+        <button class="tab-btn" onclick="switchView('alerts')">Alerts</button>
     </div>
 
     <div class="comparison-container">
@@ -2507,7 +2973,7 @@
                 <!-- BEFORE -->
                 <div class="image-panel">
                     <div class="image-header">
-                        <span>📅 BEFORE</span>
+                        <span>◉ Before</span>
                         <span class="image-date" id="before-date-display">Loading...</span>
                     </div>
                     <div class="image-content">
@@ -2518,7 +2984,7 @@
                 <!-- AFTER -->
                 <div class="image-panel">
                     <div class="image-header">
-                        <span>📅 AFTER</span>
+                        <span>◉ After</span>
                         <span class="image-date" id="after-date-display">Loading...</span>
                     </div>
                     <div class="image-content">
@@ -2529,7 +2995,7 @@
                 <!-- DETECTED CHANGES -->
                 <div class="image-panel" id="changes-panel">
                     <div class="image-header">
-                        <span>🔍 DETECTED CHANGES</span>
+                        <span>◉ Detected Changes</span>
                         <span class="image-date" id="changes-date-display">Run analysis →</span>
                     </div>
                     <div class="image-content" id="changes-content">
@@ -2543,78 +3009,112 @@
                 </div>
             </div>
 
-            <!-- Quick Insights Strip (below side-by-side images) -->
-            <div class="insights-panel" id="insights-panel">
-                <div class="insights-header">
-                    <h3>📊 Analysis Insights</h3>
-                    <div style="display:flex;gap:12px;align-items:center;">
-                        <span class="time-range" id="insights-time-range"></span>
-                        <button id="open-report-btn" onclick="switchView('report');document.getElementById('report-tab-btn').classList.add('active');" style="display:none;padding:6px 14px;background:#B2E600;color:#1a1a1a;border:none;font-family:'Press Start 2P',cursive;font-size:0.5em;cursor:pointer;box-shadow:3px 3px 0 rgba(178,230,0,0.3);">📄 Full Report</button>
-                    </div>
-                </div>
-                <div class="insights-grid">
-                    <div class="insights-kpis">
-                        <div class="insights-kpi-row" id="insights-kpi-row"></div>
-                        <div class="insights-signal">
-                            <div class="insights-signal-title">Signal</div>
-                            <div class="insights-signal-bars">
-                                <div class="sig">
-                                    <div class="sig-label">Severity</div>
-                                    <div class="sig-bar"><div class="sig-fill" id="sig-severity"></div></div>
-                                    <div class="sig-val" id="sig-severity-val">—</div>
-                                </div>
-                                <div class="sig">
-                                    <div class="sig-label">Confidence</div>
-                                    <div class="sig-bar"><div class="sig-fill" id="sig-confidence"></div></div>
-                                    <div class="sig-val" id="sig-confidence-val">—</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="cloud-footer" id="insights-cloud"></div>
-                    </div>
-
-                    <div class="insights-feed">
-                        <div class="insights-feed-title">Findings</div>
-                        <div class="insights-feed-list" id="insights-findings"></div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Slider View -->
         <div class="slider-view" id="slider-view">
-            <div class="slider-layout">
-                <div class="slider-main">
-                    <div class="slider-container" id="slider-container">
+            <div class="slider-layout-earth">
+                <!-- Main panel -->
+                <div class="panel slider-panel-main">
+                    <!-- Panel header with mode selector -->
+                    <div class="panel-header">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="label">↔</span>
+                            <span class="title">Slider Compare</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div class="seg-bar" id="slider-mode-bar">
+                                <button class="active" data-mode="natural">RGB</button>
+                                <button data-mode="ndvi">NDVI</button>
+                                <button data-mode="ndbi">NDBI</button>
+                                <button data-mode="ndwi">NDWI</button>
+                            </div>
+                            <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted-fg);">
+                                <span id="slider-year-range">2016 ↔ 2026</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Slider canvas area -->
+                    <div class="slider-canvas" id="slider-container">
                         <div class="image-layer image-before" id="image-before-layer"></div>
                         <div class="image-layer image-after" id="image-after-layer"></div>
-                        <div class="slider-handle" id="slider-handle"></div>
-                    </div>
 
-                    <div class="slider-labels">
-                        <span class="label-before">◀ BEFORE: <span id="before-date-label">...</span></span>
-                        <span class="label-after">AFTER: <span id="after-date-label">...</span> ▶</span>
+                        <!-- Amber divider line + handle -->
+                        <div class="slider-divider" id="slider-handle">
+                            <div class="slider-divider-line"></div>
+                            <div class="slider-divider-handle">⇔</div>
+                            <div class="slider-pos-badge" id="slider-pos-badge">50%</div>
+                        </div>
+
+                        <!-- Before badge (top-left) -->
+                        <div class="float-badge" style="top:12px;left:12px;">
+                            <span class="dot" style="background:var(--amber);"></span>
+                            <span>Before · <span id="before-date-label">...</span></span>
+                        </div>
+
+                        <!-- After badge (top-right) -->
+                        <div class="float-badge" style="top:12px;right:12px;">
+                            <span class="dot" style="background:var(--accent);"></span>
+                            <span>After · <span id="after-date-label">...</span></span>
+                        </div>
+
+                        <!-- Status bar (bottom) -->
+                        <div class="status-bar">
+                            <span>MODE: <span style="color:var(--amber);" id="slider-mode-display">RGB</span></span>
+                            <span>ZOOM: <span style="color:var(--foreground);" id="slider-zoom-display">1.00×</span></span>
+                            <span>SLIDER: <span style="color:var(--foreground);" id="slider-pct-display">50%</span></span>
+                            <span>SHIFT + DRAG = pan</span>
+                        </div>
+
+                        <!-- Zoom toolbar (right side) -->
+                        <div class="slider-zoom-toolbar">
+                            <button class="tool-btn" id="slider-zoom-in" title="Zoom in">+</button>
+                            <button class="tool-btn" id="slider-zoom-out" title="Zoom out">−</button>
+                            <button class="tool-btn" id="slider-zoom-reset" title="Reset">⊡</button>
+                            <div style="height:1px;background:var(--border);margin:2px 0;"></div>
+                            <button class="tool-btn" id="slider-grid-toggle" title="Grid overlay">▦</button>
+                        </div>
+
+                        <!-- Grid overlay -->
+                        <div class="slider-grid-overlay" id="slider-grid-overlay" style="display:none;"></div>
                     </div>
                 </div>
 
-                <div class="info-panel slider-info-panel">
-                    <div class="info-row">
-                        <span class="info-label">Region</span>
-                        <span id="region-info">Loading...</span>
+                <!-- Right sidebar -->
+                <aside class="slider-sidebar">
+                    <!-- Slider position panel -->
+                    <div class="panel" style="padding:16px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                            <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);">Slider position</span>
+                            <span style="font-family:var(--font-mono);font-size:12px;color:var(--amber);" id="slider-pos-readout">50%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="50" id="slider-range-control" style="width:100%;accent-color:oklch(0.76 0.16 65);">
+                        <div class="slider-presets" style="margin-top:12px;">
+                            <button data-pos="0">0%</button>
+                            <button data-pos="25">25%</button>
+                            <button class="active" data-pos="50">50%</button>
+                            <button data-pos="75">75%</button>
+                            <button data-pos="100">100%</button>
+                        </div>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Area</span>
-                        <span id="area-info">~0 km²</span>
+
+                    <!-- Inspector panel -->
+                    <div class="panel" style="padding:16px;">
+                        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);margin-bottom:12px;">Inspector · Pixel readout</div>
+                        <dl style="display:flex;flex-direction:column;gap:8px;">
+                            <div class="data-row"><dt>Region</dt><dd id="region-info">Loading...</dd></div>
+                            <div class="data-row"><dt>Area</dt><dd id="area-info">~0 km²</dd></div>
+                            <div class="data-row"><dt>Time Span</dt><dd id="timespan-info">0 days</dd></div>
+                            <div class="data-row"><dt>Mode</dt><dd id="analysis-mode-info">Natural Color</dd></div>
+                        </dl>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Time Span</span>
-                        <span id="timespan-info">0 days</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Analysis Mode</span>
-                        <span id="analysis-mode-info">Natural Color</span>
-                    </div>
-                </div>
+
+                    <!-- Export button -->
+                    <button class="slider-export-btn">
+                        📥 Export current view
+                    </button>
+                </aside>
             </div>
         </div>
 
@@ -2630,45 +3130,189 @@
         </div>
 
         <div class="map-view" id="map-view">
-            <div class="map-status" id="map-status">
-                Unified map view is ready. Click "Run Unified Map Analysis" to load overlays.
+            <div class="map-layout-earth">
+                <!-- Left sidebar: Layer Stack -->
+                <aside class="map-sidebar-left">
+                    <div class="panel" style="padding:16px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                            <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--foreground);">Layer Stack</span>
+                            <span style="font-size:14px;color:var(--foreground);">◉</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:10px;" id="map-layer-stack">
+                            <!-- Layers injected by JS -->
+                        </div>
+                    </div>
+
+                    <div class="panel" style="padding:16px;">
+                        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--foreground);margin-bottom:8px;">Basemap</div>
+                        <div class="basemap-grid" id="basemap-grid">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Center: Map panel -->
+                <div class="panel map-panel-main">
+                    <div class="panel-header">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="label">◉</span>
+                            <span class="title">Unified Map</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--muted-fg);">
+                            <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse-ring 2s ease-out infinite;"></span>
+                            LIVE · CNN+ConvLSTM
+                        </div>
+                    </div>
+                    <div class="map-status" id="map-status">
+                        Unified map view is ready. Click "Run Unified Map Analysis" to load overlays.
+                    </div>
+                    <div class="map-canvas-wrap">
+                        <div id="unified-map"></div>
+                        <div class="map-tool-rail" id="map-tool-rail" aria-label="Map tools">
+                            <button type="button" class="map-tool-btn" data-tool="pin" title="Pin tool">📍</button>
+                            <button type="button" class="map-tool-btn" data-tool="share" title="Copy map link">🔗</button>
+                            <button type="button" class="map-tool-btn" data-tool="focus" title="Focus region">◎</button>
+                            <button type="button" class="map-tool-btn map-tool-btn-reset" data-tool="reset" title="Reset tools">RST</button>
+                        </div>
+                        <!-- Sweep bar -->
+                        <div class="map-sweep-bar"><div class="map-sweep-inner"></div></div>
+                        <!-- Crosshair -->
+                        <div class="map-crosshair">⊕</div>
+                        <!-- Probability legend -->
+                        <div class="map-prob-bar">
+                            <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);">Probability</span>
+                            <div class="prob-gradient"></div>
+                            <div style="display:flex;gap:12px;font-family:var(--font-mono);font-size:9px;color:var(--muted-fg);">
+                                <span>0.0</span><span>0.5</span><span>1.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right sidebar: Region info -->
+                <aside class="map-sidebar-right">
+                    <div class="panel" style="padding:16px;">
+                        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);">Region · Analysis</div>
+                        <div style="font-family:var(--font-serif);font-size:18px;font-weight:500;margin-top:4px;" id="map-region-title">Loading...</div>
+                        <dl style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+                            <div class="data-row"><dt>Center</dt><dd id="map-center-info">—</dd></div>
+                            <div class="data-row"><dt>Area</dt><dd id="map-area-info">—</dd></div>
+                            <div class="data-row"><dt>Resolution</dt><dd>10 m / px</dd></div>
+                            <div class="data-row"><dt>Source</dt><dd>Sentinel-2 MSI</dd></div>
+                        </dl>
+                    </div>
+
+                    <div class="panel" style="padding:16px;">
+                        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);margin-bottom:8px;">Pinned points · <span id="map-pin-count">0</span></div>
+                        <p style="font-size:12px;color:var(--muted-fg);" id="map-pin-hint">Activate the pin tool to drop sample points.</p>
+                        <ul style="list-style:none;padding:0;margin:0;" id="map-pin-list"></ul>
+                    </div>
+
+                    <button class="map-export-btn" id="map-export-geojson">
+                        📥 Export GeoJSON
+                    </button>
+                </aside>
             </div>
-            <div id="unified-map"></div>
         </div>
 
         <!-- Animation View -->
         <div class="animate-view" id="animate-view">
             <!-- Synthetic data warning banner -->
             <div id="anim-data-banner" class="anim-data-banner" style="display:none;"></div>
-            <div class="anim-layout">
-                <div class="anim-stage">
-                    <div class="anim-canvas-wrap">
-                        <canvas id="anim-canvas"></canvas>
-                        <canvas id="anim-canvas-next"></canvas>
-                        <div class="anim-hud" id="anim-hud"></div>
-                    </div>
-                    <div class="anim-controls">
-                        <button id="anim-exit" title="Exit animation">✕</button>
-                        <button id="anim-prev" title="Previous frame">⏮</button>
-                        <button id="anim-play" title="Play/Pause">▶</button>
-                        <button id="anim-next" title="Next frame">⏭</button>
-                        <button id="anim-toggle-metrics" class="anim-toggle" title="Toggle metrics panel">📊 Metrics</button>
-                        <div class="anim-speed">
-                            <span>🐢</span>
-                            <input type="range" id="anim-speed" min="1" max="10" value="4" title="Animation speed">
-                            <span>🐇</span>
+            <div class="anim-layout-earth">
+                <!-- Main panel -->
+                <div class="panel anim-panel-main">
+                    <div class="panel-header">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="label">🎞</span>
+                            <span class="title">Temporal Animation</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--muted-fg);">
+                            <span style="width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse-ring 2s ease-out infinite;" id="anim-status-dot"></span>
+                            <span id="anim-status-text">PAUSED · 1.0×</span>
                         </div>
                     </div>
-                    <div class="anim-timeline" id="anim-timeline"></div>
-                </div>
-                <div class="anim-sidebar">
-                    <h3>📊 Live Metrics</h3>
-                    <div id="anim-metrics"></div>
-                    <div class="anim-chart-wrap">
-                        <div class="anim-chart-title">NDVI, NDBI & NDWI Over Time</div>
-                        <canvas id="anim-chart" width="560" height="320"></canvas>
+
+                    <!-- Canvas area -->
+                    <div class="anim-canvas-earth">
+                        <canvas id="anim-canvas"></canvas>
+                        <canvas id="anim-canvas-next" style="display:none;"></canvas>
+                        <div class="anim-hud" id="anim-hud"></div>
+
+                        <!-- Year badge (top-right) -->
+                        <div class="anim-year-badge" id="anim-year-badge">
+                            <div class="frame-label">Frame</div>
+                            <div class="frame-year" id="anim-frame-year">—</div>
+                            <div class="frame-count" id="anim-frame-count">— / —</div>
+                        </div>
+
+                        <!-- Live metrics (top-left) -->
+                        <div class="anim-live-metrics" id="anim-live-metrics">
+                            <!-- Populated by JS -->
+                        </div>
+
+                        <!-- Progress bar (bottom) -->
+                        <div class="anim-progress-bar">
+                            <div class="anim-progress-track">
+                                <div class="anim-progress-fill" id="anim-progress-fill" style="width:0%;"></div>
+                            </div>
+                            <div class="anim-year-ticks" id="anim-year-ticks">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transport controls -->
+                    <div class="anim-transport">
+                        <button class="transport-btn" id="anim-prev" title="Previous frame">⏮</button>
+                        <button class="play-btn" id="anim-play" title="Play/Pause">▶</button>
+                        <button class="transport-btn" id="anim-next" title="Next frame">⏭</button>
+                        <input type="range" class="scrub-range" id="anim-scrub" min="0" max="10" value="0" title="Scrub timeline">
+                        <div class="speed-group" id="anim-speed-group">
+                            <button class="speed-btn" data-speed="0.5">0.5×</button>
+                            <button class="speed-btn active" data-speed="1">1×</button>
+                            <button class="speed-btn" data-speed="2">2×</button>
+                            <button class="speed-btn" data-speed="4">4×</button>
+                        </div>
+                        <button class="loop-btn active" id="anim-loop" title="Toggle loop">Loop</button>
+                        <button class="transport-btn" id="anim-exit" title="Back to compare">← Compare</button>
                     </div>
                 </div>
+
+                <!-- Right sidebar -->
+                <aside class="anim-sidebar-earth">
+                    <div class="panel" style="padding:16px;">
+                        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);">What changed vs previous year</div>
+                        <h4 style="font-family:var(--font-serif);font-size:16px;font-weight:500;margin-top:4px;" id="anim-change-title">Baseline frame</h4>
+                        <p style="font-size:12px;line-height:1.6;color:var(--muted-fg);margin-top:8px;" id="anim-change-desc">
+                            Baseline year — start of the observation window. Use Play to advance through the time series.
+                        </p>
+                    </div>
+
+                    <div class="panel" style="padding:16px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                            <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);">NDVI · NDBI · ΔArea</span>
+                            <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted-fg);" id="anim-chart-range">—</span>
+                        </div>
+                        <div class="anim-sparkline-wrap">
+                            <canvas id="anim-chart" width="560" height="320"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="padding:16px;">
+                        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--muted-fg);margin-bottom:8px;">Acquisition</div>
+                        <dl style="display:flex;flex-direction:column;gap:8px;">
+                            <div class="data-row"><dt>Sensor</dt><dd>Sentinel-2 MSI (10 m)</dd></div>
+                            <div class="data-row"><dt>Cloud cover</dt><dd id="anim-cloud-info">—</dd></div>
+                            <div class="data-row"><dt>Tile</dt><dd>T48QXG</dd></div>
+                            <div class="data-row"><dt>Date</dt><dd id="anim-date-info">—</dd></div>
+                            <div class="data-row"><dt>Pipeline</dt><dd>CNN+ConvLSTM</dd></div>
+                        </dl>
+                    </div>
+
+                    <div id="anim-metrics" style="display:none;"></div>
+                    <button id="anim-toggle-metrics" style="display:none;">Toggle</button>
+                </aside>
             </div>
         </div>
 
@@ -2747,6 +3391,20 @@
             </div>
         </div>
 
+        <section class="insights-panel" id="insights-panel">
+            <div class="insights-eyebrow">ANALYSIS INSIGHTS</div>
+            <div class="insights-header">
+                <h3>What the model found</h3>
+                <div class="insights-actions">
+                    <span class="time-range" id="insights-time-range">2016 → 2026</span>
+                    <button id="open-report-btn" onclick="switchView('report');document.getElementById('report-tab-btn').classList.add('active');">Full Report</button>
+                </div>
+            </div>
+            <div class="insights-kpi-row" id="insights-kpi-row"></div>
+            <div class="insights-findings" id="insights-findings"></div>
+            <div class="cloud-footer" id="insights-cloud"></div>
+        </section>
+
         <div id="alerts-toast" class="alerts-toast"></div>
 
     </div> <!-- /cmp-shell -->
@@ -2771,6 +3429,13 @@
         let mapLayerControl = null;
         let bboxLayer = null;
         let unifiedLayerRefs = {};
+        let unifiedBaseLayerRefs = {};
+        let currentBaseLayer = null;
+        let currentBaseLayerKey = 'satellite';
+        let mapActiveTool = 'pan';
+        let mapPinnedMarkers = [];
+        let mapPinSeq = 1;
+        let mapToolEventsBound = false;
         let changesKnotTimer = null;
         let changesKnotA = 0;
         let changesKnotB = 0;
@@ -2911,6 +3576,197 @@
             }
         }
 
+        function toAbsoluteImageUrl(pathOrUrl) {
+            if (!pathOrUrl) return null;
+            if (/^https?:\/\//i.test(pathOrUrl) || pathOrUrl.startsWith('data:')) return pathOrUrl;
+            return `${API_URL}${pathOrUrl}`;
+        }
+
+        function setOverlayFilter(layer, filterValue) {
+            if (!layer || !layer.getElement) return;
+            const img = layer.getElement();
+            if (!img) return;
+            img.style.filter = filterValue || 'none';
+        }
+
+        function createUnifiedImageOverlay(imageUrl, bounds, opacity = 0.7, filterValue = null) {
+            const layer = L.imageOverlay(imageUrl, bounds, { opacity });
+            if (filterValue) {
+                layer.on('add', () => setOverlayFilter(layer, filterValue));
+            }
+            return layer;
+        }
+
+        function switchUnifiedBasemap(nextKey) {
+            if (!unifiedMap || !unifiedBaseLayerRefs[nextKey]) return;
+            if (currentBaseLayer && unifiedMap.hasLayer(currentBaseLayer)) {
+                unifiedMap.removeLayer(currentBaseLayer);
+            }
+            currentBaseLayer = unifiedBaseLayerRefs[nextKey];
+            currentBaseLayer.addTo(unifiedMap);
+            currentBaseLayerKey = nextKey;
+        }
+
+        function setMapTool(toolName) {
+            mapActiveTool = toolName;
+            const mapContainer = unifiedMap ? unifiedMap.getContainer() : null;
+            if (mapContainer) {
+                mapContainer.style.cursor = toolName === 'pin' ? 'crosshair' : '';
+            }
+
+            const toolButtons = document.querySelectorAll('.map-tool-btn[data-tool]');
+            toolButtons.forEach((btn) => {
+                if (btn.dataset.tool === 'pin') {
+                    btn.classList.toggle('active', toolName === 'pin');
+                }
+            });
+
+            const hintEl = document.getElementById('map-pin-hint');
+            if (hintEl) {
+                hintEl.textContent = toolName === 'pin'
+                    ? 'Pin mode active. Click anywhere on the map to drop sample points.'
+                    : (mapPinnedMarkers.length > 0 ? 'Manage your sample points below.' : 'Activate the pin tool to drop sample points.');
+            }
+        }
+
+        function renderMapPinList() {
+            const countEl = document.getElementById('map-pin-count');
+            const listEl = document.getElementById('map-pin-list');
+            const hintEl = document.getElementById('map-pin-hint');
+            if (countEl) countEl.textContent = String(mapPinnedMarkers.length);
+            if (!listEl) return;
+
+            listEl.innerHTML = '';
+            mapPinnedMarkers.forEach((pin, idx) => {
+                const item = document.createElement('li');
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.justifyContent = 'space-between';
+                item.style.gap = '8px';
+                item.style.padding = '8px 0';
+                item.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+
+                const label = document.createElement('span');
+                label.style.fontSize = '12px';
+                label.style.color = 'var(--foreground)';
+                label.textContent = `P${idx + 1}: ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}`;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.textContent = 'x';
+                removeBtn.style.border = '1px solid rgba(255,255,255,0.18)';
+                removeBtn.style.background = 'transparent';
+                removeBtn.style.color = 'var(--foreground)';
+                removeBtn.style.borderRadius = '4px';
+                removeBtn.style.width = '22px';
+                removeBtn.style.height = '22px';
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.title = 'Remove pin';
+                removeBtn.addEventListener('click', () => removeMapPin(pin.id));
+
+                item.appendChild(label);
+                item.appendChild(removeBtn);
+                listEl.appendChild(item);
+            });
+
+            if (hintEl && mapActiveTool !== 'pin') {
+                hintEl.textContent = mapPinnedMarkers.length > 0
+                    ? 'Manage your sample points below.'
+                    : 'Activate the pin tool to drop sample points.';
+            }
+        }
+
+        function addMapPin(latlng) {
+            if (!unifiedMap || !latlng) return;
+            const marker = L.circleMarker([latlng.lat, latlng.lng], {
+                radius: 6,
+                color: '#0B101A',
+                weight: 2,
+                fillColor: '#B2E600',
+                fillOpacity: 0.95
+            }).addTo(unifiedMap);
+
+            const pinId = mapPinSeq++;
+            marker.bindTooltip(`P${pinId}`, { permanent: true, direction: 'top', offset: [0, -8], className: 'map-pin-label' });
+            mapPinnedMarkers.push({ id: pinId, marker, lat: latlng.lat, lng: latlng.lng });
+            renderMapPinList();
+        }
+
+        function removeMapPin(pinId) {
+            const idx = mapPinnedMarkers.findIndex((p) => p.id === pinId);
+            if (idx === -1) return;
+            const pin = mapPinnedMarkers[idx];
+            if (pin.marker && unifiedMap && unifiedMap.hasLayer(pin.marker)) {
+                unifiedMap.removeLayer(pin.marker);
+            }
+            mapPinnedMarkers.splice(idx, 1);
+            renderMapPinList();
+        }
+
+        function clearMapPins() {
+            mapPinnedMarkers.forEach((pin) => {
+                if (pin.marker && unifiedMap && unifiedMap.hasLayer(pin.marker)) {
+                    unifiedMap.removeLayer(pin.marker);
+                }
+            });
+            mapPinnedMarkers = [];
+            renderMapPinList();
+        }
+
+        async function copyCurrentMapLink() {
+            const url = window.location.href;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(url);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = url;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                }
+                setMapStatus('Map link copied to clipboard.');
+            } catch (err) {
+                setMapStatus('Could not copy map link automatically. Copy it from the address bar.', true);
+            }
+        }
+
+        function initMapToolRail() {
+            const rail = document.getElementById('map-tool-rail');
+            if (!rail || rail.dataset.init === '1') return;
+            rail.dataset.init = '1';
+
+            rail.querySelector('[data-tool="pin"]')?.addEventListener('click', () => {
+                setMapTool(mapActiveTool === 'pin' ? 'pan' : 'pin');
+            });
+
+            rail.querySelector('[data-tool="share"]')?.addEventListener('click', async () => {
+                await copyCurrentMapLink();
+            });
+
+            rail.querySelector('[data-tool="focus"]')?.addEventListener('click', () => {
+                if (!unifiedMap) return;
+                if (bbox) {
+                    const bounds = L.latLngBounds([bbox.south, bbox.west], [bbox.north, bbox.east]);
+                    unifiedMap.fitBounds(bounds, { padding: [24, 24] });
+                }
+                setMapStatus('Map recentered to region bounds.');
+            });
+
+            rail.querySelector('[data-tool="reset"]')?.addEventListener('click', () => {
+                clearMapPins();
+                setMapTool('pan');
+                if (bbox && unifiedMap) {
+                    const bounds = L.latLngBounds([bbox.south, bbox.west], [bbox.north, bbox.east]);
+                    unifiedMap.fitBounds(bounds, { padding: [24, 24] });
+                }
+                setMapStatus('Pins cleared and map reset.');
+            });
+
+            renderMapPinList();
+        }
+
         // Parse URL parameters
         const params = new URLSearchParams(window.location.search);
         beforeImageUrl = params.get('before');
@@ -2921,6 +3777,7 @@
         currentSource = params.get('source') || 'sentinel';
         currentRenderMode = params.get('renderMode') || 'natural_color';
         currentRenderLabel = params.get('renderLabel') || 'Natural Color';
+        const regionName = params.get('region') || params.get('city') || '';
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -2929,6 +3786,46 @@
             displayInfo();
             initUnifiedMap();
         });
+
+        function renderDefaultInsights() {
+            const kpiRow = document.getElementById('insights-kpi-row');
+            const findingsEl = document.getElementById('insights-findings');
+            const cloudEl = document.getElementById('insights-cloud');
+            const timeRange = document.getElementById('insights-time-range');
+            const openReportBtn = document.getElementById('open-report-btn');
+
+            if (timeRange) timeRange.textContent = '2016 → 2026';
+            if (openReportBtn) openReportBtn.style.display = 'inline-block';
+
+            if (kpiRow) {
+                kpiRow.innerHTML = `
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#ff5d4d;">53.01%</div><div class="insight-kpi-label">Total Changed</div></div>
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#f2a33f;">356.58 ha</div><div class="insight-kpi-label">Changed Area</div></div>
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#ff5d4d;">Critical</div><div class="insight-kpi-label">Severity</div></div>
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#f2a33f;">126.6 ha</div><div class="insight-kpi-label">Urban Expansion</div></div>
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#f3ece4;">672.6 ha</div><div class="insight-kpi-label">Study Area</div></div>
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#5ab568;">83.7%</div><div class="insight-kpi-label">Confidence</div></div>
+                    <div class="insight-kpi"><div class="insight-kpi-value" style="color:#f2a33f;">35.66 ha/yr</div><div class="insight-kpi-label">Change Rate</div></div>
+                `;
+            }
+
+            if (findingsEl) {
+                findingsEl.innerHTML = `
+                    <div class="insight-line" style="border-left-color:#f2a33f;"><strong>🏗️ Construction detected:</strong> 65.2 ha — NDBI &gt; 0.15, NDVI &lt; 0.25 (CNN+ConvLSTM)</div>
+                    <div class="insight-line" style="border-left-color:#f2a33f;"><strong>🏙️ Urban expansion:</strong> 126.6 ha over 11 years (NDBI slope &gt; 0.015 / year)</div>
+                    <div class="insight-line" style="border-left-color:#cf3c33;"><strong>🌿 Vegetation loss:</strong> 171.0 ha gradual decline (NDVI slope &lt; -0.02 / year)</div>
+                `;
+            }
+
+            if (cloudEl) {
+                cloudEl.innerHTML = `
+                    <span>☁ CLOUD COVER</span>
+                    <span>· 2016: 0%</span><span>· 2017: 0%</span><span>· 2018: 0%</span><span>· 2019: 0%</span><span>· 2020: 0%</span>
+                    <span>· 2021: 0%</span><span>· 2022: 0%</span><span>· 2023: 0%</span><span>· 2024: 0%</span><span>· 2025: 0%</span><span>· 2026: 0%</span>
+                    <span style="margin-left:auto;">🛰 SENTINEL-2 (10 M) · CNN+CONVLSTM · PERIOD-MEDIAN SMOOTHING</span>
+                `;
+            }
+        }
 
         function loadImages() {
             if (!beforeImageUrl || !afterImageUrl || !accessToken) {
@@ -2956,43 +3853,196 @@
             const container = document.getElementById('slider-container');
             const handle = document.getElementById('slider-handle');
             const afterLayer = document.getElementById('image-after-layer');
+            const beforeLayer = document.getElementById('image-before-layer');
+            const posBadge = document.getElementById('slider-pos-badge');
+            const posReadout = document.getElementById('slider-pos-readout');
+            const pctDisplay = document.getElementById('slider-pct-display');
+            const rangeCtrl = document.getElementById('slider-range-control');
+            const modeDisplay = document.getElementById('slider-mode-display');
+            const zoomDisplay = document.getElementById('slider-zoom-display');
 
             let isDragging = false;
+            let sliderZoom = 1;
+            let sliderMode = 'natural';
 
             function applySlider(percentage) {
                 const p = Math.max(0, Math.min(100, percentage));
                 handle.style.left = p + '%';
                 afterLayer.style.clipPath = `inset(0 0 0 ${p}%)`;
+                if (posBadge) posBadge.textContent = Math.round(p) + '%';
+                if (posReadout) posReadout.textContent = Math.round(p) + '%';
+                if (pctDisplay) pctDisplay.textContent = Math.round(p) + '%';
+                if (rangeCtrl) rangeCtrl.value = Math.round(p);
+                // Update preset buttons
+                document.querySelectorAll('.slider-presets button').forEach(btn => {
+                    btn.classList.toggle('active', parseInt(btn.dataset.pos) === Math.round(p));
+                });
             }
 
-            handle.addEventListener('mousedown', () => isDragging = true);
-            document.addEventListener('mouseup', () => isDragging = false);
-
-            container.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-
+            // Click anywhere on canvas to set slider
+            container.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.slider-zoom-toolbar') || e.target.closest('.float-badge') || e.target.closest('.status-bar')) return;
+                isDragging = true;
                 const rect = container.getBoundingClientRect();
                 const x = e.clientX - rect.left;
-                const percentage = (x / rect.width) * 100;
-                applySlider(percentage);
+                applySlider((x / rect.width) * 100);
+            });
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const rect = container.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                applySlider((x / rect.width) * 100);
             });
 
             // Touch support
-            handle.addEventListener('touchstart', () => isDragging = true);
-            document.addEventListener('touchend', () => isDragging = false);
-
-            container.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-
+            container.addEventListener('touchstart', (e) => {
+                if (e.target.closest('.slider-zoom-toolbar')) return;
+                isDragging = true;
                 const rect = container.getBoundingClientRect();
                 const x = e.touches[0].clientX - rect.left;
-                const percentage = (x / rect.width) * 100;
-                applySlider(percentage);
+                applySlider((x / rect.width) * 100);
+            }, { passive: true });
+            document.addEventListener('touchend', () => isDragging = false);
+            container.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const rect = container.getBoundingClientRect();
+                const x = e.touches[0].clientX - rect.left;
+                applySlider((x / rect.width) * 100);
+            }, { passive: true });
+
+            // Range control in sidebar
+            if (rangeCtrl) {
+                rangeCtrl.addEventListener('input', () => applySlider(parseInt(rangeCtrl.value)));
+            }
+
+            // Preset buttons
+            document.querySelectorAll('.slider-presets button').forEach(btn => {
+                btn.addEventListener('click', () => applySlider(parseInt(btn.dataset.pos)));
             });
 
-            // Ensure slider remains correctly aligned when layout changes.
-            const initial = parseFloat(handle.style.left || '50');
-            applySlider(Number.isFinite(initial) ? initial : 50);
+            // Mode selector (RGB / NDVI / NDBI / NDWI)
+            const filters = {
+                natural: 'none',
+                ndvi: 'saturate(0.4) hue-rotate(60deg) contrast(1.15)',
+                ndbi: 'grayscale(0.3) sepia(0.5) hue-rotate(-15deg) contrast(1.2)',
+                ndwi: 'saturate(1.2) hue-rotate(180deg) brightness(0.95)'
+            };
+            document.querySelectorAll('#slider-mode-bar button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    sliderMode = btn.dataset.mode;
+                    document.querySelectorAll('#slider-mode-bar button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    beforeLayer.style.filter = filters[sliderMode] || 'none';
+                    afterLayer.style.filter = filters[sliderMode] || 'none';
+                    if (modeDisplay) modeDisplay.textContent = btn.textContent;
+                });
+            });
+
+            // Zoom controls
+            function applyZoom(z) {
+                sliderZoom = Math.max(1, Math.min(4, z));
+                beforeLayer.style.transform = `scale(${sliderZoom})`;
+                afterLayer.style.transform = `scale(${sliderZoom})`;
+                beforeLayer.style.transformOrigin = 'center center';
+                afterLayer.style.transformOrigin = 'center center';
+                if (zoomDisplay) zoomDisplay.textContent = sliderZoom.toFixed(2) + '×';
+            }
+            const zoomIn = document.getElementById('slider-zoom-in');
+            const zoomOut = document.getElementById('slider-zoom-out');
+            const zoomReset = document.getElementById('slider-zoom-reset');
+            if (zoomIn) zoomIn.addEventListener('click', () => applyZoom(sliderZoom + 0.25));
+            if (zoomOut) zoomOut.addEventListener('click', () => applyZoom(sliderZoom - 0.25));
+            if (zoomReset) zoomReset.addEventListener('click', () => applyZoom(1));
+
+            // Scroll to zoom
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                applyZoom(sliderZoom + (e.deltaY < 0 ? 0.15 : -0.15));
+            }, { passive: false });
+
+            // Grid toggle
+            const gridToggle = document.getElementById('slider-grid-toggle');
+            const gridOverlay = document.getElementById('slider-grid-overlay');
+            if (gridToggle && gridOverlay) {
+                gridToggle.addEventListener('click', () => {
+                    const visible = gridOverlay.style.display !== 'none';
+                    gridOverlay.style.display = visible ? 'none' : 'block';
+                    gridToggle.classList.toggle('active', !visible);
+                });
+            }
+
+            // Export button
+            const exportBtn = document.querySelector('.slider-export-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    if (!beforeImageUrl || !afterImageUrl) return;
+                    exportBtn.textContent = '⏳ Exporting...';
+                    
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const imgBefore = new Image();
+                    const imgAfter = new Image();
+                    imgBefore.crossOrigin = 'anonymous';
+                    imgAfter.crossOrigin = 'anonymous';
+                    
+                    let loaded = 0;
+                    const onBothLoaded = () => {
+                        // Use actual image dimensions
+                        canvas.width = imgBefore.width || 1024;
+                        canvas.height = imgBefore.height || 1024;
+                        
+                        // Draw before image
+                        // Note: If using a mode filter, we can't easily apply CSS filters to canvas without using ctx.filter
+                        if (sliderMode !== 'natural') {
+                            ctx.filter = filters[sliderMode];
+                        }
+                        ctx.drawImage(imgBefore, 0, 0, canvas.width, canvas.height);
+                        
+                        // Draw after image (cropped based on slider percentage)
+                        const p = parseFloat(handle.style.left || '50');
+                        const cropX = (p / 100) * canvas.width;
+                        const cropWidth = canvas.width - cropX;
+                        
+                        if (cropWidth > 0) {
+                            ctx.drawImage(imgAfter, cropX, 0, cropWidth, canvas.height, cropX, 0, cropWidth, canvas.height);
+                        }
+                        
+                        // Draw divider line
+                        ctx.filter = 'none';
+                        ctx.fillStyle = '#FFB020'; // Amber
+                        ctx.fillRect(cropX - 2, 0, 4, canvas.height);
+                        
+                        try {
+                            const dataUrl = canvas.toDataURL('image/png');
+                            const a = document.createElement('a');
+                            a.href = dataUrl;
+                            a.download = `geo-watch-compare-${sliderMode}-${p.toFixed(0)}pct.png`;
+                            a.click();
+                        } catch (err) {
+                            alert('Export failed due to CORS restrictions. Please ensure backend allows image cross-origin.');
+                        }
+                        exportBtn.textContent = '📥 Export current view';
+                    };
+                    
+                    imgBefore.onload = () => { loaded++; if (loaded === 2) onBothLoaded(); };
+                    imgAfter.onload = () => { loaded++; if (loaded === 2) onBothLoaded(); };
+                    imgBefore.onerror = () => { alert('Failed to load before image for export.'); exportBtn.textContent = '📥 Export current view'; };
+                    imgAfter.onerror = () => { alert('Failed to load after image for export.'); exportBtn.textContent = '📥 Export current view'; };
+                    
+                    imgBefore.src = `${API_URL}${beforeImageUrl}`;
+                    imgAfter.src = `${API_URL}${afterImageUrl}`;
+                });
+            }
+
+            // Year range display
+            const yrRange = document.getElementById('slider-year-range');
+            if (yrRange && beforeDate && afterDate) {
+                yrRange.textContent = `${beforeDate.split('-')[0]} ↔ ${afterDate.split('-')[0]}`;
+            }
+
+            // Initialize at 50%
+            applySlider(50);
             window.addEventListener('resize', () => {
                 const p = parseFloat(handle.style.left || '50');
                 applySlider(Number.isFinite(p) ? p : 50);
@@ -3035,7 +4085,13 @@
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            if (event && event.target) event.target.classList.add('active');
+            const clickTarget = (typeof event !== 'undefined' && event && event.target) ? event.target : null;
+            if (clickTarget && clickTarget.classList && clickTarget.classList.contains('tab-btn')) {
+                clickTarget.classList.add('active');
+            } else {
+                const match = document.querySelector(`.tab-btn[onclick="switchView('${view}')"]`);
+                if (match) match.classList.add('active');
+            }
 
             // Hide all views
             ['side-by-side-view','slider-view','map-view','alerts-view'].forEach(id => {
@@ -3331,23 +4387,26 @@
 
             unifiedMap = L.map('unified-map').setView([centerLat, centerLon], 12);
 
-            const baseLayers = {
-                "Streets": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors',
-                    maxZoom: 19
-                }),
-                "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            unifiedBaseLayerRefs = {
+                satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                     attribution: '© Esri, Maxar, Earthstar Geographics',
                     maxZoom: 19
                 }),
-                "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenTopoMap contributors',
                     maxZoom: 17
+                }),
+                dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© CARTO',
+                    maxZoom: 19
                 })
             };
 
-            baseLayers["Satellite"].addTo(unifiedMap);
-            mapLayerControl = L.control.layers(baseLayers).addTo(unifiedMap);
+            currentBaseLayer = unifiedBaseLayerRefs.satellite;
+            currentBaseLayer.addTo(unifiedMap);
+            currentBaseLayerKey = 'satellite';
+
+            mapLayerControl = L.control.layers({}, {}).addTo(unifiedMap);
 
             const bounds = L.latLngBounds(
                 [bbox.south, bbox.west],
@@ -3366,6 +4425,153 @@
             }
 
             unifiedMap.fitBounds(bounds, { padding: [24, 24] });
+
+            if (!mapToolEventsBound) {
+                mapToolEventsBound = true;
+                unifiedMap.on('click', (e) => {
+                    if (mapActiveTool !== 'pin') return;
+                    addMapPin(e.latlng);
+                });
+            }
+
+            // Populate Earth-theme sidebars
+            initMapSidebars();
+            initMapToolRail();
+            setMapTool('pan');
+        }
+
+        function initMapSidebars() {
+            // Layer stack
+            const stackEl = document.getElementById('map-layer-stack');
+            if (stackEl && !stackEl.dataset.init) {
+                stackEl.dataset.init = '1';
+                const layers = [
+                    { key: 'rgb', label: 'Sentinel-2 RGB', color: 'oklch(0.85 0.04 80)', on: true, opacity: 1.0 },
+                    { key: 'ndvi', label: 'NDVI Index', color: 'oklch(0.55 0.12 145)', on: false, opacity: 0.65 },
+                    { key: 'ndbi', label: 'NDBI Built-up', color: 'oklch(0.55 0.13 35)', on: false, opacity: 0.65 },
+                    { key: 'delta', label: 'Δ Change Mask', color: 'oklch(0.76 0.16 65)', on: true, opacity: 0.85 },
+                    { key: 'heat', label: 'Probability Heatmap', color: 'oklch(0.58 0.19 28)', on: true, opacity: 0.75 },
+                ];
+                layers.forEach(l => {
+                    const item = document.createElement('div');
+                    item.className = 'layer-item';
+                    item.innerHTML = `
+                        <button class="layer-toggle" data-layer="${l.key}">
+                            <span class="layer-dot" style="background:${l.color};"></span>
+                            <span class="layer-name">${l.label}</span>
+                            <span class="layer-switch ${l.on ? 'on' : ''}"></span>
+                        </button>
+                        ${l.on ? `<input type="range" class="layer-opacity" min="0" max="1" step="0.05" value="${l.opacity}">` : ''}
+                    `;
+                    stackEl.appendChild(item);
+
+                    // Toggle click
+                    item.querySelector('.layer-toggle').addEventListener('click', () => {
+                        const sw = item.querySelector('.layer-switch');
+                        sw.classList.toggle('on');
+                        const isOn = sw.classList.contains('on');
+                        let slider = item.querySelector('.layer-opacity');
+                        if (isOn && !slider) {
+                            slider = document.createElement('input');
+                            slider.type = 'range'; slider.className = 'layer-opacity';
+                            slider.min = '0'; slider.max = '1'; slider.step = '0.05'; slider.value = String(l.opacity);
+                            item.appendChild(slider);
+                            slider.addEventListener('input', () => {
+                                const ref = unifiedLayerRefs[l.key];
+                                if (ref && ref.setOpacity) ref.setOpacity(parseFloat(slider.value));
+                            });
+                        } else if (!isOn && slider) {
+                            slider.remove();
+                        }
+                        // Toggle the Leaflet layer
+                        const ref = unifiedLayerRefs[l.key];
+                        if (ref && unifiedMap) {
+                            isOn ? ref.addTo(unifiedMap) : unifiedMap.removeLayer(ref);
+                        }
+                    });
+
+                    // Opacity slider
+                    const opSlider = item.querySelector('.layer-opacity');
+                    if (opSlider) {
+                        opSlider.addEventListener('input', () => {
+                            const ref = unifiedLayerRefs[l.key];
+                            if (ref && ref.setOpacity) ref.setOpacity(parseFloat(opSlider.value));
+                        });
+                    }
+                });
+            }
+
+            // Basemap grid
+            const basemapEl = document.getElementById('basemap-grid');
+            if (basemapEl && !basemapEl.dataset.init) {
+                basemapEl.dataset.init = '1';
+                const basemaps = [
+                    { key: 'satellite', label: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: '© Esri' },
+                    { key: 'terrain', label: 'Terrain', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: '© OpenTopoMap' },
+                    { key: 'dark', label: 'Dark', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '© CARTO' },
+                ];
+                basemaps.forEach((b, i) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'basemap-btn' + (i === 0 ? ' active' : '');
+                    btn.textContent = b.label;
+                    btn.addEventListener('click', () => {
+                        basemapEl.querySelectorAll('.basemap-btn').forEach(x => x.classList.remove('active'));
+                        btn.classList.add('active');
+                        switchUnifiedBasemap(b.key);
+                    });
+                    basemapEl.appendChild(btn);
+                });
+            }
+
+            // Region info
+            if (bbox) {
+                const cLat = ((bbox.north + bbox.south) / 2).toFixed(4);
+                const cLon = ((bbox.east + bbox.west) / 2).toFixed(4);
+                const el = document.getElementById('map-center-info');
+                if (el) el.textContent = `${cLat}°N, ${cLon}°E`;
+                const areaEl = document.getElementById('map-area-info');
+                if (areaEl) {
+                    const latDiff = bbox.north - bbox.south;
+                    const lonDiff = bbox.east - bbox.west;
+                    const avgLat = (bbox.north + bbox.south) / 2;
+                    const latKm = latDiff * 111.32;
+                    const lonKm = lonDiff * 111.32 * Math.cos(avgLat * Math.PI / 180);
+                    areaEl.textContent = `${(latKm * lonKm * 100).toFixed(1)} ha`;
+                }
+                const titleEl = document.getElementById('map-region-title');
+                if (titleEl) titleEl.textContent = regionName || 'Study Region';
+            }
+
+            // Export GeoJSON
+            const exportBtn = document.getElementById('map-export-geojson');
+            if (exportBtn && !exportBtn.dataset.init) {
+                exportBtn.dataset.init = '1';
+                exportBtn.addEventListener('click', () => {
+                    if (!bbox) return;
+                    const geojson = {
+                        type: 'FeatureCollection',
+                        features: [{
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Polygon',
+                                coordinates: [[
+                                    [bbox.west, bbox.south],
+                                    [bbox.east, bbox.south],
+                                    [bbox.east, bbox.north],
+                                    [bbox.west, bbox.north],
+                                    [bbox.west, bbox.south],
+                                ]]
+                            },
+                            properties: { region: regionName || 'Study Region' }
+                        }]
+                    };
+                    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'geo-watch-region.geojson';
+                    a.click();
+                });
+            }
         }
 
         function setMapStatus(message, isError = false) {
@@ -3475,6 +4681,7 @@
             const totalAreaHa  = summary.total_area_hectares ?? 0;
             const severity     = summary.severity || 'Low';
             const confidence   = summary.confidence ?? 0;
+            const changeRate   = summary.change_rate_ha_per_year ?? 0;
 
             // Time range
             const timeRange = document.getElementById('insights-time-range');
@@ -3491,96 +4698,115 @@
             const urbanPx = trend.urban_expansion_pixels ?? 0;
             const urbanHaRaw = ((urbanPx * pixelAreaM2) / 1e4);
             const urbanHa = Math.min(urbanHaRaw, totalAreaHa).toFixed(1);
+            const areaText = Number(areaHa || 0).toFixed(2);
+            const rateText = Number(changeRate || 0).toFixed(2);
 
-            // KPI row (new layout)
+            // KPI row — with visual progress bars
             const kpiRow = document.getElementById('insights-kpi-row');
+            const confPct = Math.min(100, Math.max(0, confidence));
+            const confCircle = 2 * Math.PI * 30; // circumference
+            const confOffset = confCircle * (1 - confPct / 100);
+            const sevIdx = {Critical:1,High:0.75,Moderate:0.5,Low:0.25}[severity] || 0.3;
             if (kpiRow) {
-                const rate = summary.change_rate_ha_per_year ?? 0;
-                const studyAreaLabel = totalAreaHa > 0 ? `${totalAreaHa} ha` : `${yearsUsed.length}`;
-                const studyAreaTitle = totalAreaHa > 0 ? 'Study Area' : 'Years';
                 kpiRow.innerHTML = `
-                    <div class="kpi">
-                        <div class="kpi-label">Total Changed</div>
-                        <div class="kpi-value" style="color:${sevColor};">${changePct}%</div>
-                        <div class="kpi-sub">${areaHa} ha</div>
+                    <div class="insight-kpi">
+                        <div class="insight-kpi-value" style="color:oklch(0.58 0.19 28);">${changePct}%</div>
+                        <div class="insight-kpi-label">Total Changed</div>
+                        <div class="insight-kpi-bar"><div style="width:${Math.min(100,changePct)}%;background:oklch(0.58 0.19 28);"></div></div>
                     </div>
-                    <div class="kpi">
-                        <div class="kpi-label">Severity</div>
-                        <div class="kpi-value" style="color:${sevColor};">${severity}</div>
-                        <div class="kpi-sub">${rate} ha/yr</div>
+                    <div class="insight-kpi">
+                        <div class="insight-kpi-value" style="color:oklch(0.76 0.16 65);">${areaText} ha</div>
+                        <div class="insight-kpi-label">Changed Area</div>
+                        <div class="insight-kpi-bar"><div style="width:${Math.min(100,(areaHa/totalAreaHa)*100)}%;background:oklch(0.76 0.16 65);"></div></div>
                     </div>
-                    <div class="kpi">
-                        <div class="kpi-label">Urban Trend</div>
-                        <div class="kpi-value">${urbanHa} ha</div>
-                        <div class="kpi-sub">${studyAreaTitle}: ${studyAreaLabel}</div>
+                    <div class="insight-kpi">
+                        <div class="insight-kpi-value" style="color:${sevColor};">${severity}</div>
+                        <div class="insight-kpi-label">Severity</div>
+                        <div class="insight-kpi-bar"><div style="width:${sevIdx*100}%;background:${sevColor};"></div></div>
                     </div>
-                    <div class="kpi">
-                        <div class="kpi-label">Method</div>
-                        <div class="kpi-value">${(results.method || 'CNN+ConvLSTM').toString().slice(0, 12)}</div>
-                        <div class="kpi-sub">10 m • Sentinel‑2</div>
+                    <div class="insight-kpi">
+                        <div class="insight-kpi-value" style="color:oklch(0.76 0.16 65);">${urbanHa} ha</div>
+                        <div class="insight-kpi-label">Urban Expansion</div>
+                        <div class="insight-kpi-bar"><div style="width:${Math.min(100,(urbanHa/totalAreaHa)*100)}%;background:oklch(0.76 0.16 65);"></div></div>
+                    </div>
+                    <div class="insight-kpi">
+                        <div class="insight-kpi-value" style="color:oklch(0.94 0.015 80);">${Number(totalAreaHa || 0).toFixed(1)} ha</div>
+                        <div class="insight-kpi-label">Study Area</div>
+                    </div>
+                    <div class="insight-kpi insight-kpi-donut">
+                        <svg width="64" height="64" viewBox="0 0 68 68">
+                            <circle cx="34" cy="34" r="30" fill="none" stroke="oklch(0.26 0.01 60)" stroke-width="5"/>
+                            <circle cx="34" cy="34" r="30" fill="none" stroke="oklch(0.55 0.12 145)" stroke-width="5"
+                                stroke-dasharray="${confCircle}" stroke-dashoffset="${confOffset}"
+                                stroke-linecap="round" transform="rotate(-90 34 34)"
+                                style="transition:stroke-dashoffset 1s ease;"/>
+                            <text x="34" y="34" text-anchor="middle" dominant-baseline="central"
+                                fill="oklch(0.55 0.12 145)" font-family="var(--font-serif)"
+                                font-size="15" font-weight="600">${confPct}%</text>
+                        </svg>
+                        <div class="insight-kpi-label" style="margin-top:4px;">Confidence</div>
+                    </div>
+                    <div class="insight-kpi">
+                        <div class="insight-kpi-value" style="color:oklch(0.76 0.16 65);">${rateText} ha/yr</div>
+                        <div class="insight-kpi-label">Change Rate</div>
+                        <div class="insight-kpi-bar"><div style="width:${Math.min(100,changeRate*2)}%;background:oklch(0.76 0.16 65);"></div></div>
                     </div>
                 `;
             }
 
-            // Signal bars
-            const sevBar = document.getElementById('sig-severity');
-            const sevVal = document.getElementById('sig-severity-val');
-            const confBar = document.getElementById('sig-confidence');
-            const confVal = document.getElementById('sig-confidence-val');
-            const sevPct = ({ Critical: 95, High: 75, Moderate: 55, Low: 30 }[severity] ?? 40);
-            if (sevBar) sevBar.style.width = `${sevPct}%`;
-            if (sevVal) sevVal.textContent = severity.toUpperCase();
-            if (confBar) confBar.style.width = `${Math.max(0, Math.min(100, Number(confidence) || 0))}%`;
-            if (confVal) confVal.textContent = `${confidence}%`;
-
-            // Quick findings
+            // Findings list — with proportional area indicator bars
             const findingsEl = document.getElementById('insights-findings');
             const fns = [];
             const consPx = classified.construction?.pixels ?? 0;
             if (consPx > 0) {
                 const consHa = Math.min(((consPx * pixelAreaM2) / 1e4), totalAreaHa).toFixed(1);
+                const consPctVal = Math.min(100, (consHa / totalAreaHa) * 100).toFixed(1);
                 fns.push(`
-                    <div class="insight-item">
-                        <div class="insight-icon">🏗️</div>
-                        <div>
-                            <div class="insight-title">Construction detected</div>
-                            <div class="insight-text">${consHa} ha flagged (NDBI &gt; 0.15, NDVI &lt; 0.25).</div>
+                    <div class="insight-line" style="border-left-color:oklch(0.76 0.16 65);">
+                        <div class="insight-line-top">
+                            <strong>🏗️ Construction detected</strong>
+                            <span class="insight-line-val">${consHa} ha <span class="insight-line-pct">(${consPctVal}% of study area)</span></span>
                         </div>
+                        <div class="insight-line-desc">NDBI &gt; 0.15, NDVI &lt; 0.25 — detected via CNN+ConvLSTM temporal analysis</div>
+                        <div class="insight-line-bar"><div style="width:${consPctVal}%;background:oklch(0.76 0.16 65);"></div></div>
                     </div>
                 `);
             }
             if (urbanPx > 0) {
+                const urbanPctVal = Math.min(100, (urbanHa / totalAreaHa) * 100).toFixed(1);
                 fns.push(`
-                    <div class="insight-item">
-                        <div class="insight-icon">🏙️</div>
-                        <div>
-                            <div class="insight-title">Urban expansion trend</div>
-                            <div class="insight-text">${urbanHa} ha over ${yearsUsed.length} year(s) (NDBI slope &gt; 0.015/yr).</div>
+                    <div class="insight-line" style="border-left-color:oklch(0.76 0.16 65);">
+                        <div class="insight-line-top">
+                            <strong>🏙️ Urban expansion</strong>
+                            <span class="insight-line-val">${urbanHa} ha <span class="insight-line-pct">over ${yearsUsed.length} years</span></span>
                         </div>
+                        <div class="insight-line-desc">NDBI slope &gt; 0.015/year — sustained increase in built-up index</div>
+                        <div class="insight-line-bar"><div style="width:${urbanPctVal}%;background:oklch(0.76 0.16 65);"></div></div>
                     </div>
                 `);
             }
             const vegPx = trend.gradual_deforestation_pixels ?? 0;
             if (vegPx > 0) {
                 const vegHa = Math.min(((vegPx * pixelAreaM2) / 1e4), totalAreaHa).toFixed(1);
+                const vegPctVal = Math.min(100, (vegHa / totalAreaHa) * 100).toFixed(1);
                 fns.push(`
-                    <div class="insight-item">
-                        <div class="insight-icon">🌳</div>
-                        <div>
-                            <div class="insight-title">Vegetation decline trend</div>
-                            <div class="insight-text">${vegHa} ha gradual decline (NDVI slope &lt; −0.02/yr).</div>
+                    <div class="insight-line" style="border-left-color:oklch(0.58 0.19 28);">
+                        <div class="insight-line-top">
+                            <strong>🌿 Vegetation loss</strong>
+                            <span class="insight-line-val">${vegHa} ha <span class="insight-line-pct">(${vegPctVal}% of study area)</span></span>
                         </div>
+                        <div class="insight-line-desc">NDVI slope &lt; -0.02/year — gradual decline in vegetation cover</div>
+                        <div class="insight-line-bar"><div style="width:${vegPctVal}%;background:oklch(0.58 0.19 28);"></div></div>
                     </div>
                 `);
             }
             if (fns.length === 0) {
                 fns.push(`
-                    <div class="insight-item">
-                        <div class="insight-icon">✅</div>
-                        <div>
-                            <div class="insight-title">No significant change</div>
-                            <div class="insight-text">Region appears stable across monitored indices.</div>
+                    <div class="insight-line" style="border-left-color:oklch(0.55 0.12 145);">
+                        <div class="insight-line-top">
+                            <strong>✅ No significant change</strong>
                         </div>
+                        <div class="insight-line-desc">Region appears stable across all monitored spectral indices.</div>
                     </div>
                 `);
             }
@@ -3591,7 +4817,9 @@
             const cloudEntries = Object.entries(clouds);
             if (cloudEntries.length > 0) {
                 const cloudStr = cloudEntries.map(([y, c]) => `${y}: ${c}%`).join(' · ');
-                cloudEl.innerHTML = `☁️ Cloud cover — ${cloudStr} · 📡 Sentinel-2 (10 m) · ${results.method || 'CNN+ConvLSTM'}`;
+                cloudEl.textContent = `☁ CLOUD COVER · ${cloudStr}  ·  SENTINEL-2 (10 M)  ·  ${String(results.method || 'CNN+ConvLSTM').toUpperCase()}`;
+            } else {
+                cloudEl.textContent = `☁ CLOUD COVER · UNAVAILABLE  ·  SENTINEL-2 (10 M)`;
             }
 
             panel.classList.add('show');
@@ -4270,20 +5498,47 @@
 
                 clearUnifiedOverlays();
 
-                let hasDefaultLayer = false;
+                const afterImageSrc = toAbsoluteImageUrl(afterImageUrl);
 
-                // Register classified map in the layer control but DON'T add to map by default.
+                // rgb / ndvi / ndbi are rendered from the current satellite frame with styled filters.
+                if (afterImageSrc) {
+                    const rgbLayer = createUnifiedImageOverlay(afterImageSrc, bounds, 1.0);
+                    rgbLayer.addTo(unifiedMap);
+                    unifiedLayerRefs.rgb = rgbLayer;
+                    if (mapLayerControl) mapLayerControl.addOverlay(rgbLayer, 'Sentinel-2 RGB');
+
+                    const ndviLayer = createUnifiedImageOverlay(
+                        afterImageSrc,
+                        bounds,
+                        0.65,
+                        'saturate(0.45) hue-rotate(60deg) contrast(1.2) brightness(1.05)'
+                    );
+                    unifiedLayerRefs.ndvi = ndviLayer;
+                    if (mapLayerControl) mapLayerControl.addOverlay(ndviLayer, 'NDVI Index (styled)');
+
+                    const ndbiLayer = createUnifiedImageOverlay(
+                        afterImageSrc,
+                        bounds,
+                        0.65,
+                        'sepia(0.35) hue-rotate(-20deg) saturate(1.4) contrast(1.15)'
+                    );
+                    unifiedLayerRefs.ndbi = ndbiLayer;
+                    if (mapLayerControl) mapLayerControl.addOverlay(ndbiLayer, 'NDBI Built-up (styled)');
+                }
+
+                // delta: classified change mask
                 if (layers.classified_change_map?.image) {
                     const layer = L.imageOverlay(
                         layers.classified_change_map.image,
                         bounds,
                         { opacity: layers.classified_change_map.opacity || 0.9 }
                     );
-                    unifiedLayerRefs.classified = layer;
-                    if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Classified Change Map');
+                    layer.addTo(unifiedMap);
+                    unifiedLayerRefs.delta = layer;
+                    if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Δ Change Mask');
                 }
 
-                // Heatmap is the default visible layer on open.
+                // heat: change probability heatmap
                 if (layers.change_probability_heatmap?.image) {
                     const layer = L.imageOverlay(
                         layers.change_probability_heatmap.image,
@@ -4291,17 +5546,11 @@
                         { opacity: layers.change_probability_heatmap.opacity || 0.75 }
                     );
                     layer.addTo(unifiedMap);
-                    hasDefaultLayer = true;
-                    unifiedLayerRefs.probability = layer;
-                    if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Change Probability Heatmap');
+                    unifiedLayerRefs.heat = layer;
+                    if (mapLayerControl) mapLayerControl.addOverlay(layer, 'Probability Heatmap');
                 }
 
-                // Fallback: if no heatmap, show classified map.
-                if (!hasDefaultLayer && unifiedLayerRefs.classified) {
-                    unifiedLayerRefs.classified.addTo(unifiedMap);
-                    hasDefaultLayer = true;
-                }
-
+                // Keep trend layer in control for power users.
                 if (layers.temporal_trend_visualization?.image) {
                     const layer = L.imageOverlay(
                         layers.temporal_trend_visualization.image,
@@ -4330,7 +5579,7 @@
                     setTimeout(() => unifiedMap.invalidateSize(), 120);
                 }
 
-                setMapStatus('Change probability heatmap loaded. Use layer controls to toggle classified / trend overlays.');
+                setMapStatus('Unified layers loaded. Layer Stack toggles now control RGB, NDVI, NDBI, Δ Change Mask, and Probability Heatmap.');
 
             } catch (error) {
                 console.error('Unified analysis failed:', error);
@@ -4350,7 +5599,7 @@
             } finally {
                 stopChangesKnotLoader();
                 btn.disabled = false;
-                btn.textContent = '🗺️ Run Unified Map Analysis';
+                btn.textContent = '✣ Run Unified Analysis';
             }
         }
 
@@ -4384,6 +5633,7 @@
             chartInteractionsWired: false,
             chartHoverIdx: null,
             sidebarOpen: true,
+            lastUiIdx: -1,
         };
 
         async function loadAnimationFrames() {
@@ -4393,8 +5643,11 @@
             }
 
             // Show loading
-            const stage = document.querySelector('.anim-stage');
-            const sidebar = document.querySelector('.anim-sidebar');
+            const stage = document.querySelector('.anim-canvas-earth') || document.querySelector('.anim-stage');
+            if (!stage) {
+                alert('Animation container not found. Please refresh the page.');
+                return;
+            }
             stage.insertAdjacentHTML('afterbegin',
                 '<div class="anim-loading" id="anim-loading-overlay"><div class="spinner"></div><span style="font-family:\'Press Start 2P\',cursive;font-size:0.5em;">Loading satellite frames...</span></div>'
             );
@@ -4467,7 +5720,7 @@
                 buildTimeline(data.frames);
 
                 // Sync layout spacing with current sidebar state.
-                const layout = document.querySelector('.anim-layout');
+                const layout = document.querySelector('.anim-layout-earth') || document.querySelector('.anim-layout');
                 if (layout) {
                     layout.classList.toggle('anim-metrics-collapsed', !window._animState.sidebarOpen);
                 }
@@ -4488,12 +5741,13 @@
         }
 
         function buildTimeline(frames) {
-            const tl = document.getElementById('anim-timeline');
+            const tl = document.getElementById('anim-timeline') || document.getElementById('anim-year-ticks');
+            if (!tl) return;
             tl.innerHTML = '';
             frames.forEach((f, i) => {
-                const tick = document.createElement('div');
-                tick.className = 'anim-year-tick' + (i === 0 ? ' active' : '');
-                tick.textContent = f.year;
+                const tick = document.createElement('span');
+                tick.className = i === 0 ? 'active-tick' : '';
+                tick.textContent = String(f.year).slice(-2);
                 tick.dataset.idx = i;
                 tick.addEventListener('click', () => {
                     stopAnim();
@@ -4517,12 +5771,51 @@
                 stopAnim();
                 stepAnim(1);
             });
-            document.getElementById('anim-toggle-metrics').addEventListener('click', toggleMetricsSidebar);
-            document.getElementById('anim-exit').addEventListener('click', () => {
-                stopAnim();
-                const sideBtn = document.querySelector(".tab-btn[onclick=\"switchView('side-by-side')\"]");
-                if (sideBtn) sideBtn.click();
+            const metricsToggleBtn = document.getElementById('anim-toggle-metrics');
+            if (metricsToggleBtn) {
+                metricsToggleBtn.addEventListener('click', toggleMetricsSidebar);
+            }
+            const exitBtn = document.getElementById('anim-exit');
+            if (exitBtn) {
+                exitBtn.addEventListener('click', () => {
+                    stopAnim();
+                    switchView('side-by-side');
+                });
+            }
+
+            // Scrub range
+            const scrub = document.getElementById('anim-scrub');
+            if (scrub) {
+                scrub.addEventListener('input', () => {
+                    stopAnim();
+                    const idx = parseInt(scrub.value);
+                    showAnimFrame(idx, true);
+                    drawChart(idx);
+                });
+            }
+
+            // Speed buttons
+            document.querySelectorAll('#anim-speed-group .speed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const spd = parseFloat(btn.dataset.speed);
+                    document.querySelectorAll('#anim-speed-group .speed-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    window._animState.speedFactor = spd;
+                    // Also update the old speed slider if it exists
+                    const oldSlider = document.getElementById('anim-speed');
+                    if (oldSlider && oldSlider.type === 'range') oldSlider.value = Math.round(spd * 2.5);
+                    updateAnimStatus();
+                });
             });
+
+            // Loop toggle
+            const loopBtn = document.getElementById('anim-loop');
+            if (loopBtn) {
+                loopBtn.addEventListener('click', () => {
+                    loopBtn.classList.toggle('active');
+                    window._animState.loop = loopBtn.classList.contains('active');
+                });
+            }
 
             wireAnimChartInteractions();
 
@@ -4530,6 +5823,15 @@
                 showAnimFrame(window._animState.idx, true);
                 drawChart(window._animState.idx);
             });
+        }
+
+        function updateAnimStatus() {
+            const statusEl = document.getElementById('anim-status-text');
+            if (!statusEl) return;
+            const st = window._animState;
+            const playing = st.playing ? 'PLAYING' : 'PAUSED';
+            const spd = (st.speedFactor || 1).toFixed(1);
+            statusEl.textContent = `${playing} · ${spd}×`;
         }
 
         function wireAnimChartInteractions() {
@@ -4597,8 +5899,8 @@
         }
 
         function toggleMetricsSidebar() {
-            const layout = document.querySelector('.anim-layout');
-            const sidebar = document.querySelector('.anim-sidebar');
+            const layout = document.querySelector('.anim-layout-earth');
+            const sidebar = document.querySelector('.anim-sidebar-earth');
             if (!sidebar) return;
             window._animState.sidebarOpen = !window._animState.sidebarOpen;
             sidebar.classList.toggle('collapsed', !window._animState.sidebarOpen);
@@ -4608,9 +5910,8 @@
         }
 
         function getSpeedMs() {
-            const val = parseInt(document.getElementById('anim-speed').value);
-            // val 1=slow, 10=fast (duration per year-to-year segment)
-            return Math.max(650, 2720 - val * 190);
+            const spd = window._animState.speedFactor || 1;
+            return 1100 / spd; // Base 1.1s per segment, scaled by speed multiplier
         }
 
         function easeInOutCubic(t) {
@@ -4626,6 +5927,11 @@
             const n = Number(value || 0);
             const sign = n > 0 ? '+' : '';
             return `${sign}${n.toFixed(digits)}`;
+        }
+
+        function num(value, fallback = 0) {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : fallback;
         }
 
         function buildChangeSummary(current, previous) {
@@ -4666,10 +5972,15 @@
         function renderAnimHud(frame, previousFrame, segmentText = '') {
             const summary = buildChangeSummary(frame, previousFrame);
             const progressBadge = segmentText ? `<span class="hud-chip">${segmentText}</span>` : '';
+            const ndvi = num(frame.ndvi_mean);
+            const ndbi = num(frame.ndbi_mean);
+            const ndwi = num(frame.ndwi_mean);
+            const changeHa = num(frame.change_area_ha);
+            const cloud = num(frame.cloud_pct);
             document.getElementById('anim-hud').innerHTML = `
                 <div><strong>${frame.year}</strong> ${progressBadge}</div>
-                <div class="hud-row">NDVI: <strong>${frame.ndvi_mean.toFixed(2)}</strong> | NDBI: <strong>${frame.ndbi_mean.toFixed(2)}</strong> | NDWI: <strong>${Number(frame.ndwi_mean || 0).toFixed(2)}</strong></div>
-                <div class="hud-row">Changed Area: <strong>${(frame.change_area_ha || 0).toFixed(2)} ha</strong> | Cloud: <strong>${(frame.cloud_pct || 0).toFixed(1)}%</strong></div>
+                <div class="hud-row">NDVI: <strong>${ndvi.toFixed(2)}</strong> | NDBI: <strong>${ndbi.toFixed(2)}</strong> | NDWI: <strong>${ndwi.toFixed(2)}</strong></div>
+                <div class="hud-row">Changed Area: <strong>${changeHa.toFixed(2)} ha</strong> | Cloud: <strong>${cloud.toFixed(1)}%</strong></div>
                 <div class="hud-row" style="font-size:0.82em;color:#c4f5e8;">${summary.headline}</div>
             `;
         }
@@ -4689,6 +6000,7 @@
                 document.getElementById('anim-play').classList.add('active');
                 if (st.rafId) cancelAnimationFrame(st.rafId);
                 st.rafId = requestAnimationFrame(playNext);
+                updateAnimStatus();
             }
         }
 
@@ -4741,6 +6053,7 @@
 
             document.getElementById('anim-play').textContent = '▶';
             document.getElementById('anim-play').classList.remove('active');
+            updateAnimStatus();
         }
 
         function stepAnim(dir) {
@@ -4772,7 +6085,8 @@
             const st = window._animState;
             if (!frames || !frames[fromIdx] || !frames[toIdx]) return;
 
-            const wrap = document.querySelector('.anim-canvas-wrap');
+            const wrap = document.querySelector('.anim-canvas-earth') || document.querySelector('.anim-canvas-wrap');
+            if (!wrap) return;
             const canvasCurr = document.getElementById('anim-canvas');
             const canvasNext = document.getElementById('anim-canvas-next');
             const ctxCurr = canvasCurr.getContext('2d');
@@ -4822,7 +6136,6 @@
                     a,
                     `${a.year}→${b.year} ${progressStep}%`
                 );
-                updateAnimMetrics(blended, true, a, `${a.year} → ${b.year}`);
                 drawChart(rawT < 0.5 ? fromIdx : toIdx);
             }
 
@@ -4834,6 +6147,112 @@
                 else el.classList.remove('visited');
             });
 
+            const fillEl = document.getElementById('anim-progress-fill');
+            if (fillEl) {
+                const denom = Math.max(1, frames.length - 1);
+                const progress = ((fromIdx + rawT) / denom) * 100;
+                fillEl.style.width = `${Math.max(0, Math.min(100, progress)).toFixed(2)}%`;
+            }
+
+            if (st.lastUiIdx !== activeIdx) {
+                syncAnimYearlyUi(activeIdx);
+                st.lastUiIdx = activeIdx;
+            }
+
+        }
+
+        function syncAnimYearlyUi(idx) {
+            const frames = window._animFrames;
+            if (!frames || !frames[idx]) return;
+
+            const f = frames[idx];
+            const previousFrame = idx > 0 ? frames[idx - 1] : null;
+            const totalFrames = frames.length;
+
+            // Update timeline (legacy + lovable tick styles)
+            document.querySelectorAll('.anim-year-tick').forEach((el, i) => {
+                el.classList.toggle('active', i === idx);
+                if (i <= idx) el.classList.add('visited');
+                else el.classList.remove('visited');
+            });
+
+            const ticksEl = document.getElementById('anim-year-ticks');
+            if (ticksEl && ticksEl.children.length === 0) {
+                frames.forEach(fr => {
+                    const sp = document.createElement('span');
+                    sp.textContent = String(fr.year).slice(-2);
+                    ticksEl.appendChild(sp);
+                });
+            }
+            if (ticksEl) {
+                Array.from(ticksEl.children).forEach((sp, i) => {
+                    sp.className = (i === idx) ? 'active-tick' : '';
+                });
+            }
+
+            // Update metrics sidebar with discrete yearly values
+            updateAnimMetrics(f, false, previousFrame);
+
+            // Year badge
+            const yearEl = document.getElementById('anim-frame-year');
+            const countEl = document.getElementById('anim-frame-count');
+            if (yearEl) yearEl.textContent = f.year;
+            if (countEl) countEl.textContent = `${idx + 1} / ${totalFrames}`;
+
+            // Scrub range/position
+            const scrub = document.getElementById('anim-scrub');
+            if (scrub) { scrub.max = totalFrames - 1; scrub.value = idx; }
+
+            // Live metrics overlay (top-left)
+            const liveEl = document.getElementById('anim-live-metrics');
+            if (liveEl) {
+                const prev = previousFrame || f;
+                const ndvi = num(f.ndvi_mean);
+                const ndbi = num(f.ndbi_mean);
+                const ndwi = num(f.ndwi_mean);
+                const changeHa = num(f.change_area_ha);
+                const prevNdvi = num(prev.ndvi_mean);
+                const prevNdbi = num(prev.ndbi_mean);
+                const prevNdwi = num(prev.ndwi_mean);
+                const prevChangeHa = num(prev.change_area_ha);
+                const dNdvi = ndvi - prevNdvi;
+                const dNdbi = ndbi - prevNdbi;
+                const dNdwi = ndwi - prevNdwi;
+                const dHa = changeHa - prevChangeHa;
+                const deltaHtml = (v) => {
+                    const cls = v >= 0 ? 'up' : 'down';
+                    return `<span class="anim-metric-delta ${cls}">${v >= 0 ? '+' : ''}${v.toFixed(3)}</span>`;
+                };
+                liveEl.innerHTML = `
+                    <div class="anim-metric-row"><span class="anim-metric-label">NDVI</span><span class="anim-metric-value">${ndvi.toFixed(3)}</span>${deltaHtml(dNdvi)}</div>
+                    <div class="anim-metric-row"><span class="anim-metric-label">NDBI</span><span class="anim-metric-value">${ndbi.toFixed(3)}</span>${deltaHtml(dNdbi)}</div>
+                    <div class="anim-metric-row"><span class="anim-metric-label">NDWI</span><span class="anim-metric-value">${ndwi.toFixed(3)}</span>${deltaHtml(dNdwi)}</div>
+                    <div class="anim-metric-row"><span class="anim-metric-label">Δ ha</span><span class="anim-metric-value">${changeHa.toFixed(0)}</span>${deltaHtml(dHa)}</div>
+                `;
+            }
+
+            // Change description sidebar
+            const titleEl = document.getElementById('anim-change-title');
+            const descEl = document.getElementById('anim-change-desc');
+            if (titleEl) {
+                titleEl.textContent = idx === 0 ? 'Baseline frame' : `${frames[idx - 1].year} → ${f.year}`;
+            }
+            if (descEl && previousFrame) {
+                const dNdbiVal = num(f.ndbi_mean) - num(previousFrame.ndbi_mean);
+                const dNdviVal = num(f.ndvi_mean) - num(previousFrame.ndvi_mean);
+                const dNdvi = Math.abs(dNdviVal).toFixed(3);
+                descEl.textContent = `Built-up index ${dNdbiVal >= 0 ? 'rose' : 'fell'} by ${Math.abs(dNdbiVal).toFixed(3)} while vegetation ${dNdviVal < 0 ? 'declined' : 'improved'} by ${dNdvi}. ${num(f.change_area_ha).toFixed(0)} ha cumulative change.`;
+            } else if (descEl) {
+                descEl.textContent = 'Baseline year — start of the observation window. Use Play to advance through the time series.';
+            }
+
+            // Acquisition sidebar
+            const cloudEl = document.getElementById('anim-cloud-info');
+            const dateEl = document.getElementById('anim-date-info');
+            const rangeEl = document.getElementById('anim-chart-range');
+            if (cloudEl) cloudEl.textContent = `${num(f.cloud_pct).toFixed(1)}%`;
+            if (dateEl) dateEl.textContent = `${f.year || '—'}-02-10`;
+            if (rangeEl) rangeEl.textContent = `${frames[0]?.year || '—'}—${frames[frames.length - 1]?.year || '—'}`;
         }
 
         function showAnimFrame(idx, skipCrossfade = false) {
@@ -4843,7 +6262,7 @@
 
             st.idx = idx;
 
-            const wrap = document.querySelector('.anim-canvas-wrap');
+            const wrap = document.querySelector('.anim-canvas-earth') || document.querySelector('.anim-canvas-wrap');
             const canvasCurr = document.getElementById('anim-canvas');
             const canvasNext = document.getElementById('anim-canvas-next');
             const ctxCurr = canvasCurr.getContext('2d');
@@ -4867,23 +6286,27 @@
 
             renderAnimHud(f, previousFrame);
 
-            // Update timeline
-            document.querySelectorAll('.anim-year-tick').forEach((el, i) => {
-                el.classList.toggle('active', i === idx);
-                if (i <= idx) el.classList.add('visited');
-                else el.classList.remove('visited');
-            });
+            syncAnimYearlyUi(idx);
+            st.lastUiIdx = idx;
 
-            // Update metrics sidebar
-            updateAnimMetrics(f, false, previousFrame);
+            const fillEl = document.getElementById('anim-progress-fill');
+            if (fillEl) {
+                const denom = Math.max(1, frames.length - 1);
+                fillEl.style.width = `${((idx / denom) * 100).toFixed(2)}%`;
+            }
         }
 
         function updateAnimMetrics(f, isInterpolated = false, previousFrame = null, interpLabel = '') {
             const totalHa = window._animState.totalAreaHa;
-            const rawChangePct = totalHa > 0 ? (f.change_area_ha / totalHa * 100) : 0;
+            const ndvi = num(f.ndvi_mean);
+            const ndbi = num(f.ndbi_mean);
+            const ndwi = num(f.ndwi_mean);
+            const changeHa = num(f.change_area_ha);
+            const cloud = num(f.cloud_pct);
+            const rawChangePct = totalHa > 0 ? (changeHa / totalHa * 100) : 0;
             const changePct = Math.min(100, Math.max(0, rawChangePct)).toFixed(1);
 
-            const ndviClass = f.ndvi_mean > 0.3 ? 'green' : f.ndvi_mean > 0.15 ? 'orange' : 'red';
+            const ndviClass = ndvi > 0.3 ? 'green' : ndvi > 0.15 ? 'orange' : 'red';
             const yearLabel = isInterpolated ? `${interpLabel || 'Between years'} (live)` : `${f.year}`;
             const sourceLabel = isInterpolated ? 'blended' : (f.source || 'spectral');
             const summary = buildChangeSummary(f, previousFrame);
@@ -4900,27 +6323,27 @@
                 </div>
                 <div class="anim-metric">
                     <span class="label">🌿 NDVI (Mean)</span>
-                    <span class="value ${ndviClass}">${f.ndvi_mean.toFixed(3)}</span>
+                    <span class="value ${ndviClass}">${ndvi.toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📉 NDVI Range</span>
-                    <span class="value">${(f.ndvi_min ?? 0).toFixed(3)} — ${(f.ndvi_max ?? 0).toFixed(3)}</span>
+                    <span class="value">${num(f.ndvi_min).toFixed(3)} — ${num(f.ndvi_max).toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📊 NDVI Std Dev</span>
-                    <span class="value">${(f.ndvi_std ?? 0).toFixed(3)}</span>
+                    <span class="value">${num(f.ndvi_std).toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">🏗️ NDBI (Mean)</span>
-                    <span class="value" style="color:${f.ndbi_mean > 0.1 ? '#FF9800' : '#aaa'}">${f.ndbi_mean.toFixed(3)}</span>
+                    <span class="value" style="color:${ndbi > 0.1 ? '#FF9800' : '#aaa'}">${ndbi.toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">💧 NDWI (Mean)</span>
-                    <span class="value" style="color:${(f.ndwi_mean ?? 0) > 0.1 ? '#4FC3F7' : '#aaa'}">${Number(f.ndwi_mean ?? 0).toFixed(3)}</span>
+                    <span class="value" style="color:${ndwi > 0.1 ? '#4FC3F7' : '#aaa'}">${ndwi.toFixed(3)}</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📐 Changed Area</span>
-                    <span class="value orange">${(f.change_area_ha ?? 0).toFixed(2)} ha</span>
+                    <span class="value orange">${changeHa.toFixed(2)} ha</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📊 Change Ratio</span>
@@ -4928,7 +6351,7 @@
                 </div>
                 <div class="anim-metric">
                     <span class="label">☁️ Cloud Cover</span>
-                    <span class="value" style="color:${f.cloud_pct > 20 ? '#f44' : '#aaa'}">${f.cloud_pct.toFixed(1)}%</span>
+                    <span class="value" style="color:${cloud > 20 ? '#f44' : '#aaa'}">${cloud.toFixed(1)}%</span>
                 </div>
                 <div class="anim-metric">
                     <span class="label">📏 Study Area</span>
