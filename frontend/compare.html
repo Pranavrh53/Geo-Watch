@@ -1539,6 +1539,13 @@
             overflow-y: auto;
         }
         .alerts-view.active { display: block; }
+        .lulc-view {
+            display: none;
+            flex: 1;
+            padding: 24px 30px;
+            overflow-y: auto;
+        }
+        .lulc-view.active { display: block; }
         .alerts-cols { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
         @media (max-width: 900px) { .alerts-cols { grid-template-columns: 1fr; } }
         .alerts-panel {
@@ -3308,6 +3315,7 @@
         <button class="tab-btn" onclick="switchView('animate')">Temporal Animation</button>
         <button class="tab-btn" id="report-tab-btn" onclick="switchView('report')">Analysis Report</button>
         <button class="tab-btn" onclick="switchView('alerts')">Alerts</button>
+        <button class="tab-btn" id="lulc-tab-btn" onclick="switchView('lulc')">🌍 Land Cover</button>
     </div>
 
     <div class="comparison-container">
@@ -3734,6 +3742,65 @@
                 </div>
             </div>
         </div>
+
+        <!-- Land Cover Classification View -->
+        <div class="lulc-view" id="lulc-view">
+            <div style="max-width:1200px;margin:0 auto;padding:24px;">
+                <div style="text-align:center;margin-bottom:24px;">
+                    <h2 style="font-family:'Press Start 2P',cursive;font-size:0.9em;color:rgba(52,244,122,0.95);text-shadow:2px 2px #030415;margin-bottom:8px;">🌍 XGBoost Land Cover Classification</h2>
+                    <p style="font-family:'VT323',monospace;font-size:1.1em;color:rgba(224,243,244,0.75);">Classifies each pixel into Vegetation / Urban / Water / Barren using Sentinel-2 spectral indices</p>
+                    <button class="btn btn-primary" id="lulc-run-btn" onclick="runLULCClassification()" style="margin-top:12px;font-size:0.6em;padding:14px 32px;">▶ Run Classification</button>
+                </div>
+
+                <div id="lulc-loading" style="display:none;text-align:center;padding:40px;">
+                    <div style="font-size:2em;animation:pulse 1.5s ease-in-out infinite;">🛰️</div>
+                    <p style="font-family:'VT323',monospace;font-size:1.2em;color:rgba(0,235,235,0.85);margin-top:12px;">Training XGBoost on spectral data...</p>
+                </div>
+
+                <div id="lulc-results" style="display:none;">
+                    <!-- Row 1: Map + Class Distribution -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                        <div style="background:rgba(1,2,16,0.55);border:1px solid rgba(0,235,235,0.24);border-radius:8px;padding:16px;">
+                            <h3 style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:rgba(0,235,235,0.92);margin-bottom:12px;">Classification Map</h3>
+                            <div style="position:relative;width:100%;padding-top:100%;background:#0a0a1a;border-radius:6px;overflow:hidden;">
+                                <img id="lulc-base-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" />
+                                <img id="lulc-overlay-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.75;" />
+                            </div>
+                            <div id="lulc-legend" style="display:flex;gap:16px;justify-content:center;margin-top:10px;flex-wrap:wrap;"></div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:16px;">
+                            <div style="background:rgba(1,2,16,0.55);border:1px solid rgba(0,235,235,0.24);border-radius:8px;padding:16px;flex:1;">
+                                <h3 style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:rgba(0,235,235,0.92);margin-bottom:12px;">Class Distribution</h3>
+                                <div id="lulc-distribution"></div>
+                            </div>
+                            <div style="background:rgba(1,2,16,0.55);border:1px solid rgba(0,235,235,0.24);border-radius:8px;padding:16px;flex:1;">
+                                <h3 style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:rgba(0,235,235,0.92);margin-bottom:12px;">Feature Importance</h3>
+                                <div id="lulc-importance"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: All 8 Metrics -->
+                    <div style="background:rgba(1,2,16,0.55);border:1px solid rgba(0,235,235,0.24);border-radius:8px;padding:16px;margin-bottom:16px;">
+                        <h3 style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:rgba(0,235,235,0.92);margin-bottom:16px;">All 8 Classification Metrics</h3>
+                        <div id="lulc-metrics-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;"></div>
+                    </div>
+
+                    <!-- Row 3: Confusion Matrix + Per-Class Table -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div style="background:rgba(1,2,16,0.55);border:1px solid rgba(0,235,235,0.24);border-radius:8px;padding:16px;">
+                            <h3 style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:rgba(0,235,235,0.92);margin-bottom:12px;">Confusion Matrix</h3>
+                            <div id="lulc-confusion-matrix" style="overflow-x:auto;"></div>
+                        </div>
+                        <div style="background:rgba(1,2,16,0.55);border:1px solid rgba(0,235,235,0.24);border-radius:8px;padding:16px;">
+                            <h3 style="font-family:'Press Start 2P',cursive;font-size:0.55em;color:rgba(0,235,235,0.92);margin-bottom:12px;">Per-Class Metrics</h3>
+                            <div id="lulc-per-class-table" style="overflow-x:auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <section class="insights-panel" id="insights-panel">
             <div class="insights-eyebrow">ANALYSIS INSIGHTS</div>
@@ -4438,7 +4505,7 @@
             }
 
             // Hide all views
-            ['side-by-side-view','slider-view','map-view','alerts-view'].forEach(id => {
+            ['side-by-side-view','slider-view','map-view','alerts-view','lulc-view'].forEach(id => {
                 document.getElementById(id)?.classList.remove('active');
             });
             document.getElementById('animate-view')?.classList.remove('active');
@@ -4457,12 +4524,152 @@
                 document.getElementById('alerts-view').classList.add('active');
                 alertsInitMap();
                 alertsLoadAll();
+            } else if (view === 'lulc') {
+                document.getElementById('lulc-view').classList.add('active');
             } else {
                 document.getElementById('map-view').classList.add('active');
                 if (unifiedMap) {
                     setTimeout(() => unifiedMap.invalidateSize(), 120);
                 }
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // LULC Classification (XGBoost)
+        // ═══════════════════════════════════════════════════════════════
+        async function runLULCClassification() {
+            if (!bbox) { alert('Please select a region on the dashboard first.'); return; }
+            const dateToUse = afterDate || beforeDate;
+            if (!dateToUse) { alert('No date available. Load images first.'); return; }
+
+            document.getElementById('lulc-run-btn').disabled = true;
+            document.getElementById('lulc-loading').style.display = 'block';
+            document.getElementById('lulc-results').style.display = 'none';
+
+            try {
+                const resp = await fetch(`${API_URL}/api/analyze/classify-landcover`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ bbox, date: dateToUse })
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                renderLULCResults(data);
+            } catch (err) {
+                alert('Classification failed: ' + err.message);
+            } finally {
+                document.getElementById('lulc-run-btn').disabled = false;
+                document.getElementById('lulc-loading').style.display = 'none';
+            }
+        }
+
+        function renderLULCResults(data) {
+            document.getElementById('lulc-results').style.display = 'block';
+
+            // Overlay map
+            if (afterImageUrl) document.getElementById('lulc-base-img').src = afterImageUrl;
+            document.getElementById('lulc-overlay-img').src = data.overlay;
+
+            // Legend
+            const legendEl = document.getElementById('lulc-legend');
+            legendEl.innerHTML = data.class_names.map((n, i) => {
+                const colors = ['#2E7D32','#E65100','#1565C0','#795548'];
+                return `<span style="display:inline-flex;align-items:center;gap:4px;font-family:'VT323',monospace;font-size:0.95em;color:#e0f3f4;">
+                    <span style="width:12px;height:12px;border-radius:2px;background:${colors[i]};display:inline-block;"></span>${n}
+                </span>`;
+            }).join('');
+
+            // Class distribution bars
+            const distEl = document.getElementById('lulc-distribution');
+            let distHTML = '';
+            for (const [name, info] of Object.entries(data.class_distribution)) {
+                distHTML += `<div style="margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;font-family:'VT323',monospace;font-size:1em;color:#e0f3f4;margin-bottom:3px;">
+                        <span>${name}</span><span>${info.percent}%</span>
+                    </div>
+                    <div style="width:100%;height:18px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+                        <div style="width:${info.percent}%;height:100%;background:${info.color};border-radius:4px;transition:width 0.8s;"></div>
+                    </div>
+                </div>`;
+            }
+            distEl.innerHTML = distHTML;
+
+            // Feature importance
+            const impEl = document.getElementById('lulc-importance');
+            const fi = data.feature_importance;
+            const maxImp = Math.max(fi.NDVI, fi.NDBI, fi.NDWI) || 1;
+            impEl.innerHTML = ['NDVI', 'NDBI', 'NDWI'].map((f, i) => {
+                const val = fi[f];
+                const colors = ['#2E7D32','#E65100','#1565C0'];
+                return `<div style="margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;font-family:'VT323',monospace;color:#e0f3f4;margin-bottom:3px;">
+                        <span>${f}</span><span>${(val*100).toFixed(1)}%</span>
+                    </div>
+                    <div style="width:100%;height:18px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+                        <div style="width:${(val/maxImp)*100}%;height:100%;background:${colors[i]};border-radius:4px;"></div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // 8 Metrics cards
+            const m = data.metrics;
+            const metricsData = [
+                { label: '① Confusion Matrix', value: 'See below', sub: `${data.class_names.length} classes` },
+                { label: '② F1-Score', value: m.f1_score.weighted.toFixed(4), sub: 'Weighted' },
+                { label: '③ Precision', value: m.precision.weighted.toFixed(4), sub: 'Weighted' },
+                { label: '④ Recall', value: m.recall.weighted.toFixed(4), sub: 'Weighted' },
+                { label: '⑤ Sensitivity', value: m.sensitivity.weighted.toFixed(4), sub: '= Recall' },
+                { label: '⑥ Accuracy', value: (m.accuracy * 100).toFixed(2) + '%', sub: m.accuracy.toFixed(4) },
+                { label: '⑦ AUC', value: m.auc.weighted.toFixed(4), sub: 'Mean OvR' },
+                { label: '⑧ Error Rate', value: (m.error_rate * 100).toFixed(2) + '%', sub: m.error_rate.toFixed(4) },
+            ];
+            document.getElementById('lulc-metrics-grid').innerHTML = metricsData.map(md =>
+                `<div style="background:rgba(0,1,11,0.55);border:1px solid rgba(0,235,235,0.18);border-radius:6px;padding:14px;text-align:center;">
+                    <div style="font-family:'Press Start 2P',cursive;font-size:0.42em;color:rgba(0,235,235,0.70);margin-bottom:6px;">${md.label}</div>
+                    <div style="font-family:'VT323',monospace;font-size:1.6em;color:#e0f3f4;text-shadow:0 0 18px rgba(0,235,235,0.14);">${md.value}</div>
+                    <div style="font-family:'VT323',monospace;font-size:0.85em;color:rgba(224,243,244,0.55);margin-top:2px;">${md.sub}</div>
+                </div>`
+            ).join('');
+
+            // Confusion matrix table
+            const cm = m.confusion_matrix;
+            const cn = data.class_names;
+            let cmHTML = `<table style="width:100%;border-collapse:collapse;font-family:'VT323',monospace;font-size:0.95em;">
+                <tr><th style="padding:6px;border:1px solid rgba(0,235,235,0.2);background:rgba(0,235,235,0.1);color:#e0f3f4;">Pred →</th>`;
+            cn.forEach(n => { cmHTML += `<th style="padding:6px;border:1px solid rgba(0,235,235,0.2);background:rgba(0,235,235,0.1);color:#e0f3f4;">${n}</th>`; });
+            cmHTML += '</tr>';
+            cm.forEach((row, i) => {
+                cmHTML += `<tr><td style="padding:6px;border:1px solid rgba(0,235,235,0.2);background:rgba(0,235,235,0.1);color:#e0f3f4;font-weight:bold;">${cn[i]}</td>`;
+                row.forEach((val, j) => {
+                    const bg = i === j ? 'rgba(52,244,122,0.15)' : 'rgba(0,1,11,0.35)';
+                    cmHTML += `<td style="padding:6px;border:1px solid rgba(0,235,235,0.2);background:${bg};color:#e0f3f4;text-align:center;">${val.toLocaleString()}</td>`;
+                });
+                cmHTML += '</tr>';
+            });
+            cmHTML += '</table>';
+            document.getElementById('lulc-confusion-matrix').innerHTML = cmHTML;
+
+            // Per-class metrics table
+            let pcHTML = `<table style="width:100%;border-collapse:collapse;font-family:'VT323',monospace;font-size:0.95em;">
+                <tr>`;
+            ['Class', 'Precision', 'Recall', 'F1-Score', 'AUC'].forEach(h => {
+                pcHTML += `<th style="padding:6px;border:1px solid rgba(0,235,235,0.2);background:rgba(0,235,235,0.1);color:#e0f3f4;">${h}</th>`;
+            });
+            pcHTML += '</tr>';
+            cn.forEach((name, i) => {
+                pcHTML += `<tr>
+                    <td style="padding:6px;border:1px solid rgba(0,235,235,0.2);color:#e0f3f4;font-weight:bold;">${name}</td>
+                    <td style="padding:6px;border:1px solid rgba(0,235,235,0.2);color:#e0f3f4;text-align:center;">${m.precision.per_class[i].toFixed(4)}</td>
+                    <td style="padding:6px;border:1px solid rgba(0,235,235,0.2);color:#e0f3f4;text-align:center;">${m.recall.per_class[i].toFixed(4)}</td>
+                    <td style="padding:6px;border:1px solid rgba(0,235,235,0.2);color:#e0f3f4;text-align:center;">${m.f1_score.per_class[i].toFixed(4)}</td>
+                    <td style="padding:6px;border:1px solid rgba(0,235,235,0.2);color:#e0f3f4;text-align:center;">${m.auc.per_class[i].toFixed(4)}</td>
+                </tr>`;
+            });
+            pcHTML += '</table>';
+            document.getElementById('lulc-per-class-table').innerHTML = pcHTML;
         }
 
         function goBack() {

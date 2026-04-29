@@ -1,22 +1,28 @@
 """
 Database models and setup
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, Boolean
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+import os
 from datetime import datetime
 from pathlib import Path
 
-# Database file location
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+load_dotenv()
+
+# Database configuration
 DB_PATH = Path(__file__).parent.parent / "data" / "geowatch.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    connect_args={"check_same_thread": False}
-)
+engine_kwargs = {"pool_pre_ping": True}
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

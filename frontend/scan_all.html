@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🛰️ Geo-Watch - Feature Analysis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap"
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Space+Mono:wght@400;700&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="pixel-auth/assets/styles-_g1K9rK6.css">
     <style>
         * {
             margin: 0;
@@ -15,16 +17,35 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-0: #0d0907;
+            --bg-1: #17110d;
+            --bg-2: #251910;
+            --panel: rgba(255, 255, 255, 0.05);
+            --panel-strong: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.14);
+            --text: #f5efe8;
+            --text-soft: #d8c9bc;
+            --muted: #ab9582;
+            --amber: #f59a2f;
+            --amber-soft: #ffd3a1;
+            --teal: #00b8a9;
+            --danger: #ff7070;
+            --shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+        }
+
         body {
-            font-family: 'Space Mono', monospace;
+            font-family: 'Inter', system-ui, sans-serif;
             min-height: 100vh;
-            background: #f5f5f5;
+            background: radial-gradient(circle at 14% 10%, rgba(245, 154, 47, 0.16), transparent 40%),
+                radial-gradient(circle at 90% 88%, rgba(0, 184, 169, 0.12), transparent 36%),
+                linear-gradient(135deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
             background-image:
-                repeating-linear-gradient(0deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px),
-                repeating-linear-gradient(90deg, transparent, transparent 49px, #00B8A9 49px, #00B8A9 50px);
-            background-size: 50px 50px;
-            color: #1a1a1a;
-            padding: 20px;
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 46px 46px, 46px 46px, auto;
+            color: var(--text);
+            padding: 18px;
             animation: fadeIn 0.4s ease-in;
         }
 
@@ -44,14 +65,16 @@
         .header {
             max-width: 1200px;
             margin: 0 auto 20px;
-            background: linear-gradient(135deg, #B2E600 0%, #A0D000 100%);
-            border: 5px solid #A0D000;
-            box-shadow: 6px 6px 0 rgba(178, 230, 0, 0.3);
+            background: linear-gradient(180deg, rgba(22, 16, 13, 0.88), rgba(12, 9, 7, 0.88));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 20px;
+            padding: 16px 18px;
             position: relative;
+            backdrop-filter: blur(10px);
         }
 
         .header::before {
@@ -60,15 +83,16 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, #B2E600 0%, #FF7070 25%, #00B8A9 50%, #5555FF 75%);
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, var(--amber) 15%, var(--amber-soft) 50%, var(--amber) 85%, transparent 100%);
         }
 
         .header-title {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.7em;
-            color: #1a1a1a;
-            line-height: 1.6;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.05em;
+            color: var(--text);
+            line-height: 1.4;
+            letter-spacing: 0.01em;
         }
 
         .header-actions {
@@ -78,59 +102,60 @@
         }
 
         .btn {
-            padding: 10px 16px;
-            border: 4px solid;
-            border-radius: 0;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.55em;
+            padding: 10px 14px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 0.76em;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.2s;
             text-transform: uppercase;
             white-space: nowrap;
             position: relative;
+            letter-spacing: 0.02em;
         }
 
         .btn:hover {
-            transform: translate(-2px, -2px);
+            transform: translateY(-1px);
         }
 
         .btn:active {
-            transform: translate(2px, 2px);
+            transform: translateY(0);
         }
 
         .btn-back {
-            background: #fff;
-            color: #1a1a1a;
-            border-color: #00B8A9;
-            box-shadow: 4px 4px 0 rgba(0, 184, 169, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            border-color: var(--border);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
         }
 
         .btn-back:hover {
-            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.3);
-            background: #e8fff8;
+            background: rgba(255, 255, 255, 0.14);
         }
 
         .btn-compare {
-            background: linear-gradient(135deg, #5555FF 0%, #3333CC 100%);
-            color: #fff;
-            border-color: #3333CC;
-            box-shadow: 4px 4px 0 rgba(85, 85, 255, 0.3);
+            background: linear-gradient(135deg, #1c7fa6 0%, #22658a 100%);
+            color: #eaf7ff;
+            border-color: rgba(255, 255, 255, 0.18);
+            box-shadow: 0 12px 26px rgba(20, 106, 146, 0.35);
         }
 
         .btn-compare:hover {
-            box-shadow: 6px 6px 0 rgba(85, 85, 255, 0.3);
+            box-shadow: 0 14px 30px rgba(20, 106, 146, 0.42);
         }
 
         .btn-compare-multi {
-            background: linear-gradient(135deg, #FF7070 0%, #FF5555 100%);
-            color: #fff;
-            border-color: #FF5555;
-            box-shadow: 4px 4px 0 rgba(255, 112, 112, 0.3);
+            background: linear-gradient(135deg, var(--amber) 0%, #e48519 100%);
+            color: #1d140d;
+            border-color: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 12px 26px rgba(245, 154, 47, 0.3);
         }
 
         .btn-compare-multi:hover:not(.disabled) {
-            box-shadow: 6px 6px 0 rgba(255, 112, 112, 0.3);
-            background: linear-gradient(135deg, #FF8080 0%, #FF7070 100%);
+            box-shadow: 0 16px 32px rgba(245, 154, 47, 0.38);
+            background: linear-gradient(135deg, #f7a848 0%, #f59a2f 100%);
         }
 
         .btn-compare-multi.disabled {
@@ -143,18 +168,19 @@
             width: 20px;
             height: 20px;
             cursor: pointer;
-            accent-color: #00B8A9;
+            accent-color: var(--amber);
             margin-right: 6px;
         }
 
         .checkbox-wrapper {
             display: flex;
             align-items: center;
-            background: #f7f7f7;
-            border: 2px solid #ddd;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
             padding: 4px 8px;
             font-size: 0.7em;
-            color: #555;
+            color: var(--text-soft);
             font-weight: bold;
         }
 
@@ -168,26 +194,27 @@
         }
 
         .meta-card {
-            background: #fff;
-            border: 4px solid #00B8A9;
-            border-left-width: 8px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--amber);
+            border-radius: 12px;
             padding: 12px 14px;
-            box-shadow: 4px 4px 0 rgba(0, 184, 169, 0.2);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
         }
 
         .meta-label {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.45em;
-            color: #00B8A9;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68em;
+            color: var(--amber-soft);
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 6px;
         }
 
         .meta-value {
-            font-size: 0.8em;
+            font-size: 0.88em;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text);
             word-break: break-all;
         }
 
@@ -201,18 +228,29 @@
         }
 
         .analysis-card {
-            background: #fff;
-            border: 5px solid #00B8A9;
-            box-shadow: 6px 6px 0 rgba(0, 184, 169, 0.2);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.035));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
             position: relative;
             overflow: hidden;
             transition: all 0.2s;
         }
 
+        .analysis-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(245, 154, 47, 0.95), rgba(255, 211, 161, 0.9));
+        }
+
         .analysis-card:hover {
-            transform: translate(-3px, -3px);
-            box-shadow: 9px 9px 0 rgba(0, 184, 169, 0.25);
-            border-color: #5555FF;
+            transform: translateY(-3px);
+            box-shadow: 0 20px 56px rgba(0, 0, 0, 0.5);
+            border-color: rgba(245, 154, 47, 0.45);
         }
 
         /* Card header */
@@ -221,50 +259,51 @@
             justify-content: space-between;
             align-items: flex-start;
             padding: 10px 12px;
-            border-bottom: 3px solid #B2E600;
-            background: #fcfcfc;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.02);
             gap: 8px;
         }
 
         .card-name {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.52em;
-            color: #1a1a1a;
-            line-height: 1.5;
+            font-family: 'Playfair Display', serif;
+            font-size: 0.95em;
+            color: var(--text);
+            line-height: 1.35;
         }
 
         .card-bands {
-            font-size: 0.7em;
-            color: #666;
+            font-size: 0.74em;
+            color: var(--muted);
             margin-top: 3px;
         }
 
         .badge {
             font-family: 'Space Mono', monospace;
-            font-size: 0.6em;
+            font-size: 0.64em;
             font-weight: 700;
             padding: 3px 8px;
-            border: 2px solid;
+            border: 1px solid;
+            border-radius: 8px;
             white-space: nowrap;
             flex-shrink: 0;
         }
 
         .badge-real {
-            color: #006f56;
-            background: #e8fff8;
-            border-color: #00B8A9;
+            color: #b7fff2;
+            background: rgba(0, 184, 169, 0.18);
+            border-color: rgba(0, 184, 169, 0.4);
         }
 
         .badge-approx {
-            color: #8b5e3c;
-            background: #fff8e8;
-            border-color: #e0c080;
+            color: #ffe6cb;
+            background: rgba(245, 154, 47, 0.16);
+            border-color: rgba(245, 154, 47, 0.4);
         }
 
         /* Image area */
         .card-image {
             aspect-ratio: 16 / 10;
-            background: #0a0a0a;
+            background: #060504;
             position: relative;
             overflow: hidden;
         }
@@ -281,38 +320,41 @@
         /* Card info (always visible below image) */
         .card-info {
             padding: 10px 12px;
-            border-top: 3px solid #B2E600;
-            background: #fcfcfc;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .card-info .info-desc {
             font-size: 0.75em;
             line-height: 1.55;
-            color: #444;
+            color: var(--text-soft);
             margin-bottom: 8px;
         }
 
         .card-info .info-formula {
             font-size: 0.72em;
             font-weight: 700;
-            color: #00B8A9;
-            background: #e8fff8;
-            border: 2px solid #c8f4e8;
+            color: #bff8f1;
+            background: rgba(0, 184, 169, 0.15);
+            border: 1px solid rgba(0, 184, 169, 0.35);
+            border-radius: 8px;
             padding: 3px 8px;
             display: inline-block;
             margin-bottom: 8px;
         }
 
         .card-info .info-use {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.4em;
-            color: #FF7070;
-            background: #fff5f5;
-            border: 2px solid #ffd4d4;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.62em;
+            color: #2f1f0f;
+            background: linear-gradient(135deg, var(--amber), #e48519);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
             padding: 4px 10px;
             display: inline-block;
             text-transform: uppercase;
             letter-spacing: 1px;
+            font-weight: 700;
         }
 
         /* Color Legend */
@@ -322,7 +364,7 @@
             gap: 5px;
             margin-top: 10px;
             padding-top: 8px;
-            border-top: 2px dashed #e0e0e0;
+            border-top: 1px dashed rgba(255, 255, 255, 0.22);
         }
 
         .legend.show {
@@ -332,28 +374,28 @@
         .btn-legend-toggle {
             display: block;
             margin-top: 8px;
-            background: none;
-            border: 2px solid #ccc;
-            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            padding: 5px 9px;
             font-family: 'Space Mono', monospace;
             font-size: 0.65em;
             font-weight: bold;
-            color: #555;
+            color: var(--text-soft);
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 8px;
             transition: all 0.2s;
         }
 
         .btn-legend-toggle:hover {
-            background: #f0f0f0;
-            border-color: #999;
-            color: #111;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: var(--text);
         }
 
         .legend-title {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.38em;
-            color: #888;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.62em;
+            color: var(--amber-soft);
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 2px;
@@ -364,7 +406,7 @@
             align-items: center;
             gap: 8px;
             font-size: 0.72em;
-            color: #333;
+            color: var(--text-soft);
             line-height: 1.3;
         }
 
@@ -373,31 +415,32 @@
             height: 16px;
             border: 2px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
-            border-radius: 2px;
+            border-radius: 4px;
         }
 
         /* ── Empty state ────────────────────────────────── */
         .empty-state {
             max-width: 1200px;
             margin: 40px auto;
-            background: #fff;
-            border: 5px solid #FF7070;
-            border-left-width: 12px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+            border: 1px solid rgba(255, 112, 112, 0.45);
+            border-left-width: 5px;
             padding: 30px;
-            box-shadow: 6px 6px 0 rgba(255, 112, 112, 0.3);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
             text-align: center;
         }
 
         .empty-state h2 {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.7em;
-            color: #FF5555;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2em;
+            color: #ffadad;
             margin-bottom: 12px;
         }
 
         .empty-state p {
             font-size: 0.85em;
-            color: #666;
+            color: var(--text-soft);
         }
 
         /* ── Responsive ─────────────────────────────────── */
@@ -429,12 +472,13 @@
         }
 
         ::-webkit-scrollbar-track {
-            background: #e0e0e0;
+            background: rgba(0, 0, 0, 0.25);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #00B8A9, #00A99D);
-            border: 2px solid #e0e0e0;
+            background: linear-gradient(180deg, var(--amber), #d47f1d);
+            border: 2px solid rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
         }
 
         /* ── Image Modal ────────────────────────────────── */
@@ -445,7 +489,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(4, 3, 3, 0.92);
             backdrop-filter: blur(5px);
             z-index: 1000;
             opacity: 0;
@@ -465,8 +509,9 @@
             position: relative;
             max-width: 95%;
             max-height: 85vh;
-            border: 6px solid #00B8A9;
-            box-shadow: 10px 10px 0 rgba(0, 184, 169, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 14px;
+            box-shadow: 0 20px 55px rgba(0, 0, 0, 0.55);
             background: #111;
         }
 
@@ -484,31 +529,33 @@
             right: -20px;
             width: 40px;
             height: 40px;
-            background: #FF7070;
-            border: 4px solid #fff;
+            background: linear-gradient(135deg, var(--amber), #e48519);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
             color: #fff;
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 700;
             font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+            box-shadow: 0 12px 26px rgba(245, 154, 47, 0.42);
             z-index: 1001;
             transition: all 0.15s;
         }
 
         .modal-close:hover {
-            transform: scale(1.1) rotate(5deg);
-            background: #FF5555;
+            transform: scale(1.06);
+            background: linear-gradient(135deg, #f7a848 0%, #f59a2f 100%);
         }
 
         .modal-title {
-            color: #B2E600;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.8em;
+            color: var(--amber-soft);
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35em;
             margin-bottom: 20px;
-            text-shadow: 2px 2px 0 #000;
+            text-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
             text-align: center;
         }
 
@@ -520,7 +567,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.95);
+            background: rgba(4, 3, 3, 0.95);
             backdrop-filter: blur(5px);
             z-index: 1000;
             opacity: 0;
@@ -540,8 +587,9 @@
             position: relative;
             width: 98%;
             height: 90vh;
-            border: 6px solid #B2E600;
-            box-shadow: 10px 10px 0 rgba(178, 230, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
             background: #111;
             display: flex;
             flex-direction: column;
@@ -574,19 +622,22 @@
         .compare-item {
             display: flex;
             flex-direction: column;
-            background: #222;
-            border: 4px solid #444;
+            background: #161210;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 10px;
             height: 100%;
+            overflow: hidden;
         }
 
         .compare-item-title {
-            color: #fff;
-            background: #333;
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.07);
             padding: 10px;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 0.6em;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 0.74em;
+            font-weight: 700;
             text-align: center;
-            border-bottom: 4px solid #444;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.16);
         }
 
         .compare-item img {

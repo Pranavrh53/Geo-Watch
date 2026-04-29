@@ -633,6 +633,56 @@ async def detect_changes(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class LULCRequest(BaseModel):
+    bbox: Dict[str, float]
+    date: str  # YYYY-MM-DD  (uses the "after" image spectral data)
+
+
+@app.post("/api/analyze/classify-landcover")
+async def classify_landcover(
+    request: LULCRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    XGBoost Land Use / Land Cover classification.
+
+    Cross-temporal approach:
+      - Fetches Sentinel-2 spectral data for multiple years (2018 → target)
+      - Builds temporal features (mean, std, slope, delta) from PAST years
+      - Predicts current-year land cover class
+      - Returns overlay + all 8 classification metrics
+    """
+    try:
+        from backend.lulc_classifier import classify_multiyear
+
+        detector = get_unified_detector()
+        target_year = int(request.date[:4])
+        bbox = request.bbox
+
+        # Fetch multi-year spectral data (2018 → target year)
+        start_year = max(2018, target_year - 7)
+        years = list(range(start_year, target_year + 1))
+
+        logger.info("LULC: fetching spectral data for years %s", years)
+        yearly_series = []
+        for yr in years:
+            yd = detector._fetch_year_data(bbox, yr, detector.model_size)
+            yearly_series.append(yd)
+
+        result = classify_multiyear(yearly_series)
+
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LULC classification error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/overlay/image/{image_name}")
 async def get_overlay_image(image_name: str):
     """Get change detection overlay image"""

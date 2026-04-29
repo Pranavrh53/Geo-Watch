@@ -22,7 +22,7 @@ opencv-python>=4.8.1.78
 # Image Processing
 Pillow>=10.1.0
 scikit-image>=0.22.0
-
+    
 # API and Backend
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
@@ -33,6 +33,7 @@ httpx>=0.25.0
 passlib[bcrypt]>=1.7.4
 python-jose[cryptography]>=3.3.0
 sqlalchemy>=2.0.0
+psycopg[binary]>=3.2.0
 
 # Visualization
 matplotlib>=3.8.0
