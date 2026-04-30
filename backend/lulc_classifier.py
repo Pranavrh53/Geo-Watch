@@ -52,14 +52,29 @@ def _get_xgb():
 
 def generate_labels(ndvi: np.ndarray, ndbi: np.ndarray, ndwi: np.ndarray) -> np.ndarray:
     """
-    Generate ground-truth labels from spectral index thresholds.
-    Same rules as unified_change_detector.py _classify_changes().
+    Generate ground-truth labels from refined spectral index thresholds.
+    Key fix: Urban requires NDBI > 0.10 AND NDBI > NDVI to avoid
+    misclassifying dry/barren soil (which has moderate NDBI) as urban.
     Classes: 0=Vegetation, 1=Urban, 2=Water, 3=Barren
     """
     labels = np.full(ndvi.shape, 3, dtype=np.int32)  # default Barren
-    labels[(ndwi > 0.0) & (ndvi < 0.25)] = 2         # Water
-    labels[(ndbi > 0.0) & (ndvi < 0.25) & (labels != 2)] = 1  # Urban
-    labels[ndvi > 0.3] = 0                            # Vegetation
+
+    # Water: clear water signal, low vegetation
+    labels[(ndwi > 0.05) & (ndvi < 0.20)] = 2
+
+    # Urban: high built-up index, NDBI must exceed NDVI
+    urban_mask = (
+        (ndbi > 0.10) &
+        (ndvi < 0.20) &
+        (ndbi > ndvi) &
+        (ndwi < 0.0) &
+        (labels != 2)
+    )
+    labels[urban_mask] = 1
+
+    # Vegetation: healthy green cover
+    labels[ndvi > 0.30] = 0
+
     return labels
 
 

@@ -104,10 +104,31 @@ def fetch_year_data(token, year):
 # STEP 2: Ground-truth labels (from LATEST year only)
 # ═══════════════════════════════════════════════════════════════════════
 def generate_labels(ndvi, ndbi, ndwi):
-    labels = np.full(ndvi.shape, 3, dtype=np.int32)
-    labels[(ndwi > 0.0) & (ndvi < 0.25)] = 2
-    labels[(ndbi > 0.0) & (ndvi < 0.25) & (labels != 2)] = 1
-    labels[ndvi > 0.3] = 0
+    """
+    Classify pixels using refined spectral thresholds.
+    Key fix: Urban requires NDBI > 0.10 AND NDBI > NDVI to avoid
+    misclassifying dry/barren soil (which has moderate NDBI) as urban.
+    """
+    labels = np.full(ndvi.shape, 3, dtype=np.int32)  # default: Barren
+
+    # Water: clear water signal, low vegetation
+    labels[(ndwi > 0.05) & (ndvi < 0.20)] = 2
+
+    # Urban: high built-up index, NDBI must exceed NDVI (urban signature)
+    # AND NDBI > 0.10 (dry soil is typically 0.0–0.10)
+    urban_mask = (
+        (ndbi > 0.10) &
+        (ndvi < 0.20) &
+        (ndbi > ndvi) &       # built-up dominates over vegetation
+        (ndwi < 0.0) &        # not water
+        (labels != 2)          # not already water
+    )
+    labels[urban_mask] = 1
+
+    # Vegetation: healthy green cover
+    labels[ndvi > 0.30] = 0
+
+    # Everything else stays Barren (class 3): dry soil, fallow land, rocks
     return labels
 
 # ═══════════════════════════════════════════════════════════════════════
